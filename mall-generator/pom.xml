@@ -2,11 +2,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>io.renren</groupId>
+	<groupId>com.joeyzhoucd</groupId>
 	<artifactId>mall-generator</artifactId>
 	<version>1.0.0</version>
 	<packaging>jar</packaging>
-	<description>mall-generator</description>
+	<description>generator</description>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
@@ -140,19 +140,22 @@
 
 	<repositories>
 		<repository>
-			<id>public</id>
+			<id>aliyunmaven</id>
 			<name>aliyun nexus</name>
-			<url>http://maven.aliyun.com/nexus/content/groups/public/</url>
+			<url>https://maven.aliyun.com/repository/public</url>
 			<releases>
 				<enabled>true</enabled>
 			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
 		</repository>
 	</repositories>
 	<pluginRepositories>
 		<pluginRepository>
-			<id>public</id>
+			<id>aliyunmaven</id>
 			<name>aliyun nexus</name>
-			<url>http://maven.aliyun.com/nexus/content/groups/public/</url>
+			<url>https://maven.aliyun.com/repository/public</url>
 			<releases>
 				<enabled>true</enabled>
 			</releases>
