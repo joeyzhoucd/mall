@@ -24,15 +24,15 @@
         <mall.version>0.0.1-SNAPSHOT</mall.version>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
-        <lombok.version>1.18.18</lombok.version>
-        <mybatis-plus.version>3.4.2</mybatis-plus.version>
-        <mysql.version>8.0.23</mysql.version>
+        <spring.boot.version>2.7.9</spring.boot.version>
+        <spring.cloud.version>2021.0.5</spring.cloud.version>
+        <cloud.alibaba.version>2.2.7.RELEASE</cloud.alibaba.version>
+        <lombok.version>1.18.24</lombok.version>
+        <mybatis-plus.version>3.5.0</mybatis-plus.version>
+        <mysql.version>8.0.29</mysql.version>
         <http.components.version>4.4.13</http.components.version>
         <commons.lang.version>2.6</commons.lang.version>
-        <spring.boot.version>2.4.3</spring.boot.version>
-        <spring-cloud.version>2020.0.1</spring-cloud.version>
     </properties>
-    <!--  子模块继承父模块之后，提供作用：锁定版本 + 子模块不用再写 version  -->
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -45,7 +45,7 @@
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
-                <version>${spring-cloud.version}</version>
+                <version>${spring.cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -78,6 +78,14 @@
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${cloud.alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <dependency>
