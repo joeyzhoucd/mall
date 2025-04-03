@@ -26,7 +26,7 @@
         <maven.compiler.target>8</maven.compiler.target>
         <spring.boot.version>2.7.9</spring.boot.version>
         <spring.cloud.version>2021.0.5</spring.cloud.version>
-        <cloud.alibaba.version>2.2.7.RELEASE</cloud.alibaba.version>
+        <cloud.alibaba.version>2021.0.5.0</cloud.alibaba.version>
         <lombok.version>1.18.24</lombok.version>
         <mybatis-plus.version>3.5.0</mybatis-plus.version>
         <mysql.version>8.0.29</mysql.version>
