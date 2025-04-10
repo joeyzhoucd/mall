@@ -1,0 +1,19 @@
+server:
+  port: 88
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.77.101:8848
+    gateway:
+      routes:
+        - id: baidu_route
+          uri: https://www.baidu.com
+          predicates:
+            - Query=url,baidu
+        - id: github_route
+          uri: https://www.github.com
+          predicates:
+            - Query=url,github
+  main:
+    web-application-type: reactive
