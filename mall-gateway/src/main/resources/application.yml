@@ -7,13 +7,18 @@ spring:
         server-addr: 192.168.77.101:8848
     gateway:
       routes:
-        - id: baidu_route
-          uri: https://www.baidu.com
+        - id: product_route
+          uri: lb://mall-product
           predicates:
-            - Query=url,baidu
-        - id: github_route
-          uri: https://www.github.com
+            - Path=/api/product/**
+          filters:
+            - RewritePath=/api/(?<segment>.*),/$\{segment}
+        - id: admin_route
+          uri: lb://mall-admin
+
           predicates:
-            - Query=url,github
+            - Path=/api/**
+          filters:
+            - RewritePath=/api/(?<segment>.*),/admin/$\{segment}
   main:
     web-application-type: reactive

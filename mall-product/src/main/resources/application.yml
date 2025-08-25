@@ -12,6 +12,11 @@ spring:
         server-addr: 192.168.77.101:8848
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
 
 feign:
   client:
