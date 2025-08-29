@@ -6,7 +6,10 @@
  * 版权所有，侵权必究！
  */
 
-package com.joeyzhoucd.common.validator.group;
+package com.joeyzhoucd.common.validator.groupsequence;
+
+import com.joeyzhoucd.common.validator.group.AddGroup;
+import com.joeyzhoucd.common.validator.group.UpdateGroup;
 
 import javax.validation.GroupSequence;
 

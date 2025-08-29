@@ -62,6 +62,13 @@ public class CategoryController {
         return R.ok();
     }
 
+    @RequestMapping("/save/drag")
+    public R save(@RequestBody List<CategoryEntity> categories){
+        categoryService.saveBatch(categories);
+
+        return R.ok();
+    }
+
     /**
      * 修改
      */
@@ -78,9 +85,6 @@ public class CategoryController {
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] catIds){
 		categoryService.removeByIds(Arrays.asList(catIds));
-        //TODO
-        //添加逻辑删除 TableLogic
-
         return R.ok();
     }
 

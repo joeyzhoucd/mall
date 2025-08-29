@@ -1,0 +1,24 @@
+server:
+  port: 13000
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.77.101:8848
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000  # 连接超时时间（毫秒）
+        readTimeout: 5000     # 读取超时时间（毫秒）
+        loggerLevel: full     # 日志级别（basic、headers、full 等）
+  httpclient:
+    enabled: true          # 启用 Apache HttpClient 替代默认客户端
+    max-connections: 200  # 最大连接数
+    max-connections-per-route: 50  # 每个路由的最大连接数
+aliyun:
+  oss:
+    endpoint: oss-cn-chengdu.aliyuncs.com
+    access-key-id: REDACTED-OSS-ACCESS-KEY-ID
+    access-key-secret: REDACTED-OSS-ACCESS-KEY-SECRET
+    bucket-name: mall-cd
