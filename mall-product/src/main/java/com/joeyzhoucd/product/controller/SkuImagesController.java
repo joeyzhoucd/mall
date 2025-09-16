@@ -37,7 +37,7 @@ public class SkuImagesController {
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = skuImagesService.queryPage(params);
 
-        return R.ok().put("page", page);
+        return R.ok().put("data", page);
     }
 
 
@@ -48,7 +48,7 @@ public class SkuImagesController {
     public R info(@PathVariable("id") Long id){
 		SkuImagesEntity skuImages = skuImagesService.getById(id);
 
-        return R.ok().put("skuImages", skuImages);
+        return R.ok().put("data", skuImages);
     }
 
     /**

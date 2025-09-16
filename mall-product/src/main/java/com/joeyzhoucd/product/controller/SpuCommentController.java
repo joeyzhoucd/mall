@@ -37,7 +37,7 @@ public class SpuCommentController {
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = spuCommentService.queryPage(params);
 
-        return R.ok().put("page", page);
+        return R.ok().put("data", page);
     }
 
 
@@ -48,7 +48,7 @@ public class SpuCommentController {
     public R info(@PathVariable("id") Long id){
 		SpuCommentEntity spuComment = spuCommentService.getById(id);
 
-        return R.ok().put("spuComment", spuComment);
+        return R.ok().put("data", spuComment);
     }
 
     /**

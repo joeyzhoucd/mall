@@ -37,7 +37,7 @@ public class CommentReplayController {
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = commentReplayService.queryPage(params);
 
-        return R.ok().put("page", page);
+        return R.ok().put("data", page);
     }
 
 
@@ -48,7 +48,7 @@ public class CommentReplayController {
     public R info(@PathVariable("id") Long id){
 		CommentReplayEntity commentReplay = commentReplayService.getById(id);
 
-        return R.ok().put("commentReplay", commentReplay);
+        return R.ok().put("data", commentReplay);
     }
 
     /**

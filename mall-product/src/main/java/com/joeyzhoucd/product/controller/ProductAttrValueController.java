@@ -37,7 +37,7 @@ public class ProductAttrValueController {
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = productAttrValueService.queryPage(params);
 
-        return R.ok().put("page", page);
+        return R.ok().put("data", page);
     }
 
 
@@ -48,7 +48,7 @@ public class ProductAttrValueController {
     public R info(@PathVariable("id") Long id){
 		ProductAttrValueEntity productAttrValue = productAttrValueService.getById(id);
 
-        return R.ok().put("productAttrValue", productAttrValue);
+        return R.ok().put("data", productAttrValue);
     }
 
     /**

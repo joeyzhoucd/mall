@@ -37,7 +37,7 @@ public class SkuBaseAttrValueController {
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = skuBaseAttrValueService.queryPage(params);
 
-        return R.ok().put("page", page);
+        return R.ok().put("data", page);
     }
 
 
@@ -48,7 +48,7 @@ public class SkuBaseAttrValueController {
     public R info(@PathVariable("id") Long id){
 		SkuBaseAttrValueEntity skuBaseAttrValue = skuBaseAttrValueService.getById(id);
 
-        return R.ok().put("skuBaseAttrValue", skuBaseAttrValue);
+        return R.ok().put("data", skuBaseAttrValue);
     }
 
     /**

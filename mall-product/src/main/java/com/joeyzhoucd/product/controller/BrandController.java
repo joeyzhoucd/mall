@@ -40,7 +40,7 @@ public class BrandController {
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = brandService.queryPage(params);
 
-        return R.ok().put("page", page);
+        return R.ok().put("data", page);
     }
 
 
@@ -51,7 +51,7 @@ public class BrandController {
     public R info(@PathVariable("brandId") Long brandId){
 		BrandEntity brand = brandService.getById(brandId);
 
-        return R.ok().put("brand", brand);
+        return R.ok().put("data", brand);
     }
 
     /**

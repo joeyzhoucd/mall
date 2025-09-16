@@ -37,7 +37,7 @@ public class SpuInfoDescController {
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = spuInfoDescService.queryPage(params);
 
-        return R.ok().put("page", page);
+        return R.ok().put("data", page);
     }
 
 
@@ -48,7 +48,7 @@ public class SpuInfoDescController {
     public R info(@PathVariable("spuId") Long spuId){
 		SpuInfoDescEntity spuInfoDesc = spuInfoDescService.getById(spuId);
 
-        return R.ok().put("spuInfoDesc", spuInfoDesc);
+        return R.ok().put("data", spuInfoDesc);
     }
 
     /**

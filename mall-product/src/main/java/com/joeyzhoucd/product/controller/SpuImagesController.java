@@ -37,7 +37,7 @@ public class SpuImagesController {
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = spuImagesService.queryPage(params);
 
-        return R.ok().put("page", page);
+        return R.ok().put("data", page);
     }
 
 
@@ -48,7 +48,7 @@ public class SpuImagesController {
     public R info(@PathVariable("id") Long id){
 		SpuImagesEntity spuImages = spuImagesService.getById(id);
 
-        return R.ok().put("spuImages", spuImages);
+        return R.ok().put("data", spuImages);
     }
 
     /**
