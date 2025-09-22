@@ -1,14 +1,12 @@
 package com.joeyzhoucd.product.controller;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
+import com.joeyzhoucd.product.vo.AttrAttrgroupRelationVO;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.joeyzhoucd.product.entity.AttrAttrgroupRelationEntity;
 import com.joeyzhoucd.product.service.AttrAttrgroupRelationService;
@@ -40,6 +38,11 @@ public class AttrAttrgroupRelationController {
         return R.ok().put("data", page);
     }
 
+    @GetMapping("/getAttrsByGroupId/{groupId}")
+    public R getAttrsByGroupId(@PathVariable("groupId") Long groupId){
+        List<AttrAttrgroupRelationVO> relations = attrAttrgroupRelationService.getAttrsByGroupId(groupId);
+        return R.ok().put("data", relations);
+    }
 
     /**
      * 信息

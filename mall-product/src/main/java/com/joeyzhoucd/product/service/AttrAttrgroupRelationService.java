@@ -1,9 +1,12 @@
 package com.joeyzhoucd.product.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.product.entity.AttrAttrgroupRelationEntity;
+import com.joeyzhoucd.product.vo.AttrAttrgroupRelationVO;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -16,5 +19,8 @@ import java.util.Map;
 public interface AttrAttrgroupRelationService extends IService<AttrAttrgroupRelationEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
+
+    List<AttrAttrgroupRelationVO> getAttrsByGroupId(Long groupId);
+
 }
 

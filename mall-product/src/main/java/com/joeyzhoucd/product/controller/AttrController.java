@@ -1,14 +1,12 @@
 package com.joeyzhoucd.product.controller;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
+import com.joeyzhoucd.product.vo.AttrSaveRequestVO;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.joeyzhoucd.product.entity.AttrEntity;
 import com.joeyzhoucd.product.service.AttrService;
@@ -36,10 +34,35 @@ public class AttrController {
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = attrService.queryPage(params);
-
         return R.ok().put("data", page);
     }
 
+    /**
+     * 规格列表
+     */
+    @RequestMapping("/spec/list")
+    public R listSpecAttr(@RequestParam Map<String, Object> params){
+        PageUtils page = attrService.querySpecAttrPage(params);
+        return R.ok().put("data", page);
+    }
+
+
+    @PostMapping("/spec/save")
+    public R save(@RequestBody AttrSaveRequestVO req) {
+        attrService.saveBaseAttr(req);
+        return R.ok();
+    }
+
+    @PostMapping("/spec/update")
+    public R update(@RequestBody AttrSaveRequestVO req) {
+        return R.ok();
+    }
+
+    @GetMapping("/listUnRelatedAttr/{attrgroupId}")
+    public R listUnRelatedAttr(@PathVariable("attrgroupId") Long attrgroupId){
+        List<AttrEntity> data = attrService.queryUnRelatedAttr(attrgroupId);
+        return R.ok().put("data", data);
+    }
 
     /**
      * 信息
@@ -67,7 +90,6 @@ public class AttrController {
     @RequestMapping("/update")
     public R update(@RequestBody AttrEntity attr){
 		attrService.updateById(attr);
-
         return R.ok();
     }
 
@@ -77,7 +99,6 @@ public class AttrController {
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] attrIds){
 		attrService.removeByIds(Arrays.asList(attrIds));
-
         return R.ok();
     }
 

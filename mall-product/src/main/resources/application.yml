@@ -10,6 +10,8 @@ spring:
     nacos:
       discovery:
         server-addr: 192.168.77.101:8848
+  main:
+    allow-circular-references: false
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   global-config:
