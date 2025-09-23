@@ -15,8 +15,6 @@ import com.joeyzhoucd.product.service.ProductAttrValueService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.R;
 
-
-
 /**
  * spu属性值
  *
@@ -31,54 +29,10 @@ public class ProductAttrValueController {
     private ProductAttrValueService productAttrValueService;
 
     /**
-     * 列表
+     * 预留接口 - SPU属性值功能待开发
      */
-    @RequestMapping("/list")
-    public R list(@RequestParam Map<String, Object> params){
-        PageUtils page = productAttrValueService.queryPage(params);
-
-        return R.ok().put("data", page);
+    @RequestMapping("/placeholder")
+    public R placeholder() {
+        return R.ok().put("message", "SPU属性值功能待开发");
     }
-
-
-    /**
-     * 信息
-     */
-    @RequestMapping("/info/{id}")
-    public R info(@PathVariable("id") Long id){
-		ProductAttrValueEntity productAttrValue = productAttrValueService.getById(id);
-
-        return R.ok().put("data", productAttrValue);
-    }
-
-    /**
-     * 保存
-     */
-    @RequestMapping("/save")
-    public R save(@RequestBody ProductAttrValueEntity productAttrValue){
-		productAttrValueService.save(productAttrValue);
-
-        return R.ok();
-    }
-
-    /**
-     * 修改
-     */
-    @RequestMapping("/update")
-    public R update(@RequestBody ProductAttrValueEntity productAttrValue){
-		productAttrValueService.updateById(productAttrValue);
-
-        return R.ok();
-    }
-
-    /**
-     * 删除
-     */
-    @RequestMapping("/delete")
-    public R delete(@RequestBody Long[] ids){
-		productAttrValueService.removeByIds(Arrays.asList(ids));
-
-        return R.ok();
-    }
-
 }

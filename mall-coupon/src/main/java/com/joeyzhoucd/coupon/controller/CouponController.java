@@ -38,54 +38,10 @@ public class CouponController {
     }
 
     /**
-     * 列表
+     * 预留接口 - 优惠券功能待开发
      */
-    @RequestMapping("/list")
-    public R list(@RequestParam Map<String, Object> params){
-        PageUtils page = couponService.queryPage(params);
-
-        return R.ok().put("page", page);
+    @RequestMapping("/placeholder")
+    public R placeholder() {
+        return R.ok().put("message", "优惠券功能待开发");
     }
-
-
-    /**
-     * 信息
-     */
-    @RequestMapping("/info/{id}")
-    public R info(@PathVariable("id") Long id){
-		CouponEntity coupon = couponService.getById(id);
-
-        return R.ok().put("coupon", coupon);
-    }
-
-    /**
-     * 保存
-     */
-    @RequestMapping("/save")
-    public R save(@RequestBody CouponEntity coupon){
-		couponService.save(coupon);
-
-        return R.ok();
-    }
-
-    /**
-     * 修改
-     */
-    @RequestMapping("/update")
-    public R update(@RequestBody CouponEntity coupon){
-		couponService.updateById(coupon);
-
-        return R.ok();
-    }
-
-    /**
-     * 删除
-     */
-    @RequestMapping("/delete")
-    public R delete(@RequestBody Long[] ids){
-		couponService.removeByIds(Arrays.asList(ids));
-
-        return R.ok();
-    }
-
 }

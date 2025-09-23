@@ -15,10 +15,9 @@ import com.joeyzhoucd.ware.service.WareSkuService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.R;
 
-
-
 /**
- * 商品库存
+ * 商品库存控制器
+ * 保留基础结构，删除前端未使用的方法
  *
  * @author joeyzhou
  * @email eryueshier@gmail.com
@@ -31,54 +30,10 @@ public class WareSkuController {
     private WareSkuService wareSkuService;
 
     /**
-     * 列表
+     * 预留接口 - 仓储功能待开发
      */
-    @RequestMapping("/list")
-    public R list(@RequestParam Map<String, Object> params){
-        PageUtils page = wareSkuService.queryPage(params);
-
-        return R.ok().put("page", page);
+    @RequestMapping("/placeholder")
+    public R placeholder() {
+        return R.ok().put("message", "仓储功能待开发");
     }
-
-
-    /**
-     * 信息
-     */
-    @RequestMapping("/info/{id}")
-    public R info(@PathVariable("id") Long id){
-		WareSkuEntity wareSku = wareSkuService.getById(id);
-
-        return R.ok().put("wareSku", wareSku);
-    }
-
-    /**
-     * 保存
-     */
-    @RequestMapping("/save")
-    public R save(@RequestBody WareSkuEntity wareSku){
-		wareSkuService.save(wareSku);
-
-        return R.ok();
-    }
-
-    /**
-     * 修改
-     */
-    @RequestMapping("/update")
-    public R update(@RequestBody WareSkuEntity wareSku){
-		wareSkuService.updateById(wareSku);
-
-        return R.ok();
-    }
-
-    /**
-     * 删除
-     */
-    @RequestMapping("/delete")
-    public R delete(@RequestBody Long[] ids){
-		wareSkuService.removeByIds(Arrays.asList(ids));
-
-        return R.ok();
-    }
-
 }

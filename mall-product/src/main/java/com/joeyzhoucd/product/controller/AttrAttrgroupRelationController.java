@@ -84,4 +84,22 @@ public class AttrAttrgroupRelationController {
         return R.ok();
     }
 
+    /**
+     * 删除属性关联
+     */
+    @RequestMapping("/delete/{attrId}/{groupId}")
+    public R deleteRelation(@PathVariable("attrId") Long attrId, @PathVariable("groupId") Long groupId){
+        attrAttrgroupRelationService.removeRelation(attrId, groupId);
+        return R.ok();
+    }
+
+    /**
+     * 批量保存属性关联
+     */
+    @RequestMapping("/saveBatch")
+    public R saveBatch(@RequestBody List<AttrAttrgroupRelationEntity> relations){
+        attrAttrgroupRelationService.saveBatch(relations);
+        return R.ok();
+    }
+
 }

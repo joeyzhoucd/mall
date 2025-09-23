@@ -16,10 +16,9 @@ import com.joeyzhoucd.member.service.MemberService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.R;
 
-
-
 /**
- * 会员
+ * 会员控制器
+ * 保留基础结构，删除前端未使用的方法
  *
  * @author joeyzhou
  * @email eryueshier@gmail.com
@@ -32,8 +31,11 @@ public class MemberController {
     private MemberService memberService;
 
     @Autowired
-    CouponFeignService couponFeignService;
+    private CouponFeignService couponFeignService;
 
+    /**
+     * 测试接口 - 获取会员优惠券信息
+     */
     @RequestMapping("/coupons")
     public R test() {
         MemberEntity memberEntity = new MemberEntity();
@@ -43,54 +45,10 @@ public class MemberController {
     }
 
     /**
-     * 列表
+     * 预留接口 - 会员功能待开发
      */
-    @RequestMapping("/list")
-    public R list(@RequestParam Map<String, Object> params){
-        PageUtils page = memberService.queryPage(params);
-
-        return R.ok().put("page", page);
+    @RequestMapping("/placeholder")
+    public R placeholder() {
+        return R.ok().put("message", "会员功能待开发");
     }
-
-
-    /**
-     * 信息
-     */
-    @RequestMapping("/info/{id}")
-    public R info(@PathVariable("id") Long id){
-		MemberEntity member = memberService.getById(id);
-
-        return R.ok().put("member", member);
-    }
-
-    /**
-     * 保存
-     */
-    @RequestMapping("/save")
-    public R save(@RequestBody MemberEntity member){
-		memberService.save(member);
-
-        return R.ok();
-    }
-
-    /**
-     * 修改
-     */
-    @RequestMapping("/update")
-    public R update(@RequestBody MemberEntity member){
-		memberService.updateById(member);
-
-        return R.ok();
-    }
-
-    /**
-     * 删除
-     */
-    @RequestMapping("/delete")
-    public R delete(@RequestBody Long[] ids){
-		memberService.removeByIds(Arrays.asList(ids));
-
-        return R.ok();
-    }
-
 }

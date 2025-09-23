@@ -15,8 +15,6 @@ import com.joeyzhoucd.product.service.SkuBaseAttrValueService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.R;
 
-
-
 /**
  * sku基本属性&值
  *
@@ -31,54 +29,10 @@ public class SkuBaseAttrValueController {
     private SkuBaseAttrValueService skuBaseAttrValueService;
 
     /**
-     * 列表
+     * 预留接口 - SKU基本属性值功能待开发
      */
-    @RequestMapping("/list")
-    public R list(@RequestParam Map<String, Object> params){
-        PageUtils page = skuBaseAttrValueService.queryPage(params);
-
-        return R.ok().put("data", page);
+    @RequestMapping("/placeholder")
+    public R placeholder() {
+        return R.ok().put("message", "SKU基本属性值功能待开发");
     }
-
-
-    /**
-     * 信息
-     */
-    @RequestMapping("/info/{id}")
-    public R info(@PathVariable("id") Long id){
-		SkuBaseAttrValueEntity skuBaseAttrValue = skuBaseAttrValueService.getById(id);
-
-        return R.ok().put("data", skuBaseAttrValue);
-    }
-
-    /**
-     * 保存
-     */
-    @RequestMapping("/save")
-    public R save(@RequestBody SkuBaseAttrValueEntity skuBaseAttrValue){
-		skuBaseAttrValueService.save(skuBaseAttrValue);
-
-        return R.ok();
-    }
-
-    /**
-     * 修改
-     */
-    @RequestMapping("/update")
-    public R update(@RequestBody SkuBaseAttrValueEntity skuBaseAttrValue){
-		skuBaseAttrValueService.updateById(skuBaseAttrValue);
-
-        return R.ok();
-    }
-
-    /**
-     * 删除
-     */
-    @RequestMapping("/delete")
-    public R delete(@RequestBody Long[] ids){
-		skuBaseAttrValueService.removeByIds(Arrays.asList(ids));
-
-        return R.ok();
-    }
-
 }

@@ -22,5 +22,9 @@ public interface AttrAttrgroupRelationService extends IService<AttrAttrgroupRela
 
     List<AttrAttrgroupRelationVO> getAttrsByGroupId(Long groupId);
 
+    void removeRelation(Long attrId, Long groupId);
+
+    void saveBatch(List<AttrAttrgroupRelationEntity> relations);
+
 }
 

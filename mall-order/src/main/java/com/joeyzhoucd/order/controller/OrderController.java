@@ -15,10 +15,9 @@ import com.joeyzhoucd.order.service.OrderService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.R;
 
-
-
 /**
- * 订单
+ * 订单控制器
+ * 保留基础结构，删除前端未使用的方法
  *
  * @author joeyzhou
  * @email eryueshier@gmail.com
@@ -31,54 +30,10 @@ public class OrderController {
     private OrderService orderService;
 
     /**
-     * 列表
+     * 预留接口 - 订单功能待开发
      */
-    @RequestMapping("/list")
-    public R list(@RequestParam Map<String, Object> params){
-        PageUtils page = orderService.queryPage(params);
-
-        return R.ok().put("page", page);
+    @RequestMapping("/placeholder")
+    public R placeholder() {
+        return R.ok().put("message", "订单功能待开发");
     }
-
-
-    /**
-     * 信息
-     */
-    @RequestMapping("/info/{id}")
-    public R info(@PathVariable("id") Long id){
-		OrderEntity order = orderService.getById(id);
-
-        return R.ok().put("order", order);
-    }
-
-    /**
-     * 保存
-     */
-    @RequestMapping("/save")
-    public R save(@RequestBody OrderEntity order){
-		orderService.save(order);
-
-        return R.ok();
-    }
-
-    /**
-     * 修改
-     */
-    @RequestMapping("/update")
-    public R update(@RequestBody OrderEntity order){
-		orderService.updateById(order);
-
-        return R.ok();
-    }
-
-    /**
-     * 删除
-     */
-    @RequestMapping("/delete")
-    public R delete(@RequestBody Long[] ids){
-		orderService.removeByIds(Arrays.asList(ids));
-
-        return R.ok();
-    }
-
 }
