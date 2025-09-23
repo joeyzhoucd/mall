@@ -1,16 +1,15 @@
 package com.joeyzhoucd.product.controller;
 
-import java.util.Arrays;
-import java.util.Map;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
+import com.joeyzhoucd.common.utils.PageUtils;
+import com.joeyzhoucd.common.utils.R;
 import com.joeyzhoucd.product.entity.AttrEntity;
 import com.joeyzhoucd.product.service.AttrService;
 import com.joeyzhoucd.product.vo.AttrSaveRequestVO;
-import com.joeyzhoucd.common.utils.PageUtils;
-import com.joeyzhoucd.common.utils.R;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 商品属性控制器
@@ -23,7 +22,7 @@ import com.joeyzhoucd.common.utils.R;
 @RestController
 @RequestMapping("product/attr")
 public class AttrController {
-    
+
     @Autowired
     private AttrService attrService;
 
@@ -165,5 +164,40 @@ public class AttrController {
      */
     private R getAttrList(PageUtils page) {
         return R.ok().put("data", page);
+    }
+
+    /**
+     * 获取未关联的属性列表（用于属性分组关联）
+     */
+    @RequestMapping("/list")
+    public R listAttrs(@RequestParam Map<String, Object> params) {
+        Object categoryId = params.get("categoryId");
+        Object attrType = params.get("attrType");
+
+        if (categoryId != null && attrType != null) {
+            // 如果是基本属性，返回未关联的属性
+            if (Integer.valueOf(attrType.toString()) == 1) {
+                // 这里需要传入attrGroupId，但前端没有传，我们需要特殊处理
+                // 暂时返回所有基本属性，让前端过滤
+                params.put("attr_type", 1);
+                PageUtils page = attrService.querySpecAttrPage(params);
+                return R.ok().put("data", page);
+            } else {
+                // 销售属性
+                PageUtils page = attrService.querySaleAttrPage(params);
+                return R.ok().put("data", page);
+            }
+        }
+
+        return R.error("参数错误");
+    }
+
+    /**
+     * 获取指定分组下未关联的属性列表
+     */
+    @RequestMapping("/unrelated/{attrGroupId}")
+    public R getUnRelatedAttrs(@PathVariable("attrGroupId") Long attrGroupId) {
+        List<AttrEntity> attrs = attrService.queryUnRelatedAttr(attrGroupId);
+        return R.ok().put("data", attrs);
     }
 }

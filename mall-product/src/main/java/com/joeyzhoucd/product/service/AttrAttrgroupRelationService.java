@@ -1,6 +1,5 @@
 package com.joeyzhoucd.product.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.product.entity.AttrAttrgroupRelationEntity;

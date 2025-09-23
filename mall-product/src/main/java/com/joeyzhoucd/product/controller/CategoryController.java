@@ -1,21 +1,14 @@
 package com.joeyzhoucd.product.controller;
 
+import com.joeyzhoucd.common.utils.R;
+import com.joeyzhoucd.product.entity.CategoryEntity;
+import com.joeyzhoucd.product.service.CategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.joeyzhoucd.product.entity.CategoryEntity;
-import com.joeyzhoucd.product.service.CategoryService;
-import com.joeyzhoucd.common.utils.PageUtils;
-import com.joeyzhoucd.common.utils.R;
-
 
 
 /**
@@ -35,7 +28,7 @@ public class CategoryController {
      * 列表
      */
     @RequestMapping("/list/tree")
-    public R list(@RequestParam Map<String, Object> params){
+    public R list(@RequestParam Map<String, Object> params) {
         List<CategoryEntity> entities = categoryService.listAsTree();
 
         return R.ok().put("data", entities);
@@ -46,8 +39,8 @@ public class CategoryController {
      * 信息
      */
     @RequestMapping("/info/{catId}")
-    public R info(@PathVariable("catId") Long catId){
-		CategoryEntity category = categoryService.getById(catId);
+    public R info(@PathVariable("catId") Long catId) {
+        CategoryEntity category = categoryService.getById(catId);
 
         return R.ok().put("data", category);
     }
@@ -56,14 +49,14 @@ public class CategoryController {
      * 保存
      */
     @RequestMapping("/save")
-    public R save(@RequestBody CategoryEntity category){
-		categoryService.save(category);
+    public R save(@RequestBody CategoryEntity category) {
+        categoryService.save(category);
 
         return R.ok();
     }
 
     @RequestMapping("/save/drag")
-    public R save(@RequestBody List<CategoryEntity> categories){
+    public R save(@RequestBody List<CategoryEntity> categories) {
         categoryService.saveBatch(categories);
 
         return R.ok();
@@ -73,8 +66,8 @@ public class CategoryController {
      * 修改
      */
     @RequestMapping("/update")
-    public R update(@RequestBody CategoryEntity category){
-		categoryService.updateById(category);
+    public R update(@RequestBody CategoryEntity category) {
+        categoryService.updateById(category);
 
         return R.ok();
     }
@@ -83,8 +76,8 @@ public class CategoryController {
      * 删除
      */
     @RequestMapping("/delete")
-    public R delete(@RequestBody Long[] catIds){
-		categoryService.removeByIds(Arrays.asList(catIds));
+    public R delete(@RequestBody Long[] catIds) {
+        categoryService.removeByIds(Arrays.asList(catIds));
         return R.ok();
     }
 

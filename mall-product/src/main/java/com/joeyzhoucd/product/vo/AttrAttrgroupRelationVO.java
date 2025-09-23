@@ -11,6 +11,10 @@ public class AttrAttrgroupRelationVO {
      */
     private Long attrId;
     /**
+     * 属性名称（用于前端直接展示）
+     */
+    private String attrName;
+    /**
      * 属性分组id
      */
     private Long attrGroupId;

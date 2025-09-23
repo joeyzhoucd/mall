@@ -57,8 +57,9 @@
 </template>
 
 <script>
-  import AddOrUpdate from './${pathName}-add-or-update'
-  export default {
+    import AddOrUpdate from './'
+
+    export default {
     data () {
       return {
         dataForm: {

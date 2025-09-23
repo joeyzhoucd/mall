@@ -107,10 +107,10 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
         AttrGroupEntity attrGroup = attrGroupService.getById(attrgroupId);
         Assert.notNull(attrGroup, "当前属性分组不存在!");
         Long categoryId = attrGroup.getCategoryId();
-        // 2. 找出当前分类下，所有已经被"其它属性组"引用过的属性 id
+
+        // 2. 找出当前分类下，所有已经被任何属性组引用过的属性 id（包括当前分组）
         List<Long> usedAttrIds = attrAttrgroupRelationDao.selectList(
                         new LambdaQueryWrapper<AttrAttrgroupRelationEntity>()
-                                .ne(AttrAttrgroupRelationEntity::getAttrGroupId, attrgroupId)
                 ).stream()
                 .map(AttrAttrgroupRelationEntity::getAttrId)
                 .distinct()
@@ -122,7 +122,7 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
                 .eq(AttrEntity::getAttrType, 1);          // 基本属性
 
         if (!CollectionUtils.isEmpty(usedAttrIds)) {
-            wrapper.notIn(AttrEntity::getAttrId, usedAttrIds); // 未被其它组引用
+            wrapper.notIn(AttrEntity::getAttrId, usedAttrIds); // 未被任何组引用
         }
 
         return this.list(wrapper);
@@ -226,7 +226,7 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
                 new QueryWrapper<AttrAttrgroupRelationEntity>()
                         .eq("attr_id", attrId)
         );
-        
+
         // 2. 删除属性本身
         this.removeById(attrId);
     }
@@ -239,7 +239,7 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
                 new QueryWrapper<AttrAttrgroupRelationEntity>()
                         .in("attr_id", Arrays.asList(attrIds))
         );
-        
+
         // 2. 批量删除属性本身
         this.removeByIds(Arrays.asList(attrIds));
     }

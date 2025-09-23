@@ -1,7 +1,7 @@
 package com.joeyzhoucd.ware.dao;
 
-import com.joeyzhoucd.ware.entity.WareOrderTaskEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.joeyzhoucd.ware.entity.WareOrderTaskEntity;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

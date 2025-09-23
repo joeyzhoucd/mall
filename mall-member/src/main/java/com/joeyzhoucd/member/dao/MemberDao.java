@@ -1,7 +1,7 @@
 package com.joeyzhoucd.member.dao;
 
-import com.joeyzhoucd.member.entity.MemberEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.joeyzhoucd.member.entity.MemberEntity;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

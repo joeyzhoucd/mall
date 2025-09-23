@@ -1,16 +1,16 @@
 package com.joeyzhoucd.member.service.impl;
 
-import org.springframework.stereotype.Service;
-import java.util.Map;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.Query;
-
 import com.joeyzhoucd.member.dao.IntegrationChangeHistoryDao;
 import com.joeyzhoucd.member.entity.IntegrationChangeHistoryEntity;
 import com.joeyzhoucd.member.service.IntegrationChangeHistoryService;
+import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 
 @Service("integrationChangeHistoryService")

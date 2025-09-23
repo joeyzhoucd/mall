@@ -1,19 +1,14 @@
 package com.joeyzhoucd.coupon.controller;
 
-import java.util.Arrays;
-import java.util.Map;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.joeyzhoucd.coupon.entity.CouponSpuRelationEntity;
-import com.joeyzhoucd.coupon.service.CouponSpuRelationService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.R;
+import com.joeyzhoucd.coupon.entity.CouponSpuRelationEntity;
+import com.joeyzhoucd.coupon.service.CouponSpuRelationService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.Map;
 
 
 

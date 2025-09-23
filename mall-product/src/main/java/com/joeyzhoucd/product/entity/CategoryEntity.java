@@ -59,7 +59,7 @@ public class CategoryEntity implements Serializable {
      */
     private Integer productCount;
 
-    @TableField(exist=false)
+    @TableField(exist = false)
     private List<CategoryEntity> children;
 
     @TableLogic   // 标记逻辑删除字段

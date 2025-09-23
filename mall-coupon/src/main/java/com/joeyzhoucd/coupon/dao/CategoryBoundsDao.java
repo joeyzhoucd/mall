@@ -1,7 +1,7 @@
 package com.joeyzhoucd.coupon.dao;
 
-import com.joeyzhoucd.coupon.entity.CategoryBoundsEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.joeyzhoucd.coupon.entity.CategoryBoundsEntity;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

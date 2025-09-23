@@ -50,7 +50,10 @@ public class AttrAttrgroupRelationServiceImpl extends ServiceImpl<AttrAttrgroupR
             AttrAttrgroupRelationVO vo = new AttrAttrgroupRelationVO();
             BeanUtils.copyProperties(entity, vo);
             AttrEntity attrEntity = attrService.getById(entity.getAttrId());
-            vo.setAttr(attrEntity);
+            if (attrEntity != null) {
+                vo.setAttr(attrEntity);
+                vo.setAttrName(attrEntity.getAttrName());
+            }
             return vo;
         }).collect(Collectors.toList());
         return relationVOS;
@@ -60,13 +63,13 @@ public class AttrAttrgroupRelationServiceImpl extends ServiceImpl<AttrAttrgroupR
     public void removeRelation(Long attrId, Long groupId) {
         LambdaQueryWrapper<AttrAttrgroupRelationEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(AttrAttrgroupRelationEntity::getAttrId, attrId)
-               .eq(AttrAttrgroupRelationEntity::getAttrGroupId, groupId);
+                .eq(AttrAttrgroupRelationEntity::getAttrGroupId, groupId);
         this.remove(wrapper);
     }
 
     @Override
     public void saveBatch(List<AttrAttrgroupRelationEntity> relations) {
-        this.saveBatch(relations);
+        super.saveBatch(relations);
     }
 
 }

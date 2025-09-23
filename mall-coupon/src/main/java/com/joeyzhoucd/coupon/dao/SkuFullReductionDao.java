@@ -1,7 +1,7 @@
 package com.joeyzhoucd.coupon.dao;
 
-import com.joeyzhoucd.coupon.entity.SkuFullReductionEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.joeyzhoucd.coupon.entity.SkuFullReductionEntity;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

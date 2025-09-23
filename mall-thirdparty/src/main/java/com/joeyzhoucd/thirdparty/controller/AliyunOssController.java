@@ -1,6 +1,5 @@
 package com.joeyzhoucd.thirdparty.controller;
 
-import com.aliyun.oss.OSS;
 import com.aliyun.oss.common.auth.ServiceSignature;
 import com.aliyun.oss.common.utils.BinaryUtil;
 import com.joeyzhoucd.common.utils.R;
