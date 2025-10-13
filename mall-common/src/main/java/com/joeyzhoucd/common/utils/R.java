@@ -61,4 +61,18 @@ public class R extends HashMap<String, Object> {
 		super.put(key, value);
 		return this;
 	}
+	
+	/**
+	 * 获取状态码
+	 */
+	public Integer getCode() {
+		return (Integer) this.get("code");
+	}
+	
+	/**
+	 * 获取消息
+	 */
+	public String getMsg() {
+		return (String) this.get("msg");
+	}
 }

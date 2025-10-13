@@ -103,4 +103,10 @@ public class CategoryBrandRelationController {
         return R.ok().put("data", categoryBrandRelations);
     }
 
+    @GetMapping("/getRelationsByCategoryId/{categoryId}")
+    public R getRelationsByCategoryId(@PathVariable Long categoryId) {
+        List<CategoryBrandRelationEntity> categoryBrandRelations = categoryBrandRelationService.getRelationsByCategoryId(categoryId);
+        return R.ok().put("data", categoryBrandRelations);
+    }
+
 }

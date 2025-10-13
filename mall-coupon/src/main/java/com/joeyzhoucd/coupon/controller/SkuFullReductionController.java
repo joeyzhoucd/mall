@@ -57,6 +57,21 @@ public class SkuFullReductionController {
     }
 
     /**
+     * 保存（通过Map参数）
+     */
+    @PostMapping("/saveFromMap")
+    public R saveFromMap(@RequestBody Map<String, String> params){
+        SkuFullReductionEntity skuFullReduction = new SkuFullReductionEntity();
+        skuFullReduction.setSkuId(Long.valueOf(params.get("skuId")));
+        skuFullReduction.setFullPrice(new java.math.BigDecimal(params.get("full_price")));
+        skuFullReduction.setReducePrice(new java.math.BigDecimal(params.get("reduce_price")));
+        skuFullReduction.setAddOther(Integer.valueOf(params.get("add_other")));
+        skuFullReductionService.save(skuFullReduction);
+
+        return R.ok();
+    }
+
+    /**
      * 修改
      */
     @RequestMapping("/update")

@@ -57,6 +57,21 @@ public class SpuBoundsController {
     }
 
     /**
+     * 保存（通过Map参数）
+     */
+    @PostMapping("/saveFromMap")
+    public R saveFromMap(@RequestBody Map<String, String> params){
+        SpuBoundsEntity spuBounds = new SpuBoundsEntity();
+        spuBounds.setSpuId(Long.valueOf(params.get("spuId")));
+        spuBounds.setBuyBounds(new java.math.BigDecimal(params.get("buy_bounds")));
+        spuBounds.setGrowBounds(new java.math.BigDecimal(params.get("grow_bounds")));
+        spuBounds.setWork(1); // 默认值
+        spuBoundsService.save(spuBounds);
+
+        return R.ok();
+    }
+
+    /**
      * 修改
      */
     @RequestMapping("/update")

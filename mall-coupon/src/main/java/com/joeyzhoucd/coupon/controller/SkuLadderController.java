@@ -57,6 +57,22 @@ public class SkuLadderController {
     }
 
     /**
+     * 保存（通过Map参数）
+     */
+    @PostMapping("/saveFromMap")
+    public R saveFromMap(@RequestBody Map<String, String> params){
+        SkuLadderEntity skuLadder = new SkuLadderEntity();
+        skuLadder.setSkuId(Long.valueOf(params.get("skuId")));
+        skuLadder.setFullCount(Integer.valueOf(params.get("full_count")));
+        skuLadder.setDiscount(new java.math.BigDecimal(params.get("discount")));
+        skuLadder.setPrice(new java.math.BigDecimal(params.get("price")));
+        skuLadder.setAddOther(Integer.valueOf(params.get("add_other")));
+        skuLadderService.save(skuLadder);
+
+        return R.ok();
+    }
+
+    /**
      * 修改
      */
     @RequestMapping("/update")

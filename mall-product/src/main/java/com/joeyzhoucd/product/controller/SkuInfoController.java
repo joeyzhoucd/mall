@@ -1,10 +1,14 @@
 package com.joeyzhoucd.product.controller;
 
+import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.R;
 import com.joeyzhoucd.product.service.SkuInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 /**
  * sku信息
@@ -20,10 +24,11 @@ public class SkuInfoController {
     private SkuInfoService skuInfoService;
 
     /**
-     * 预留接口 - SKU信息功能待开发
+     * 列表
      */
-    @RequestMapping("/placeholder")
-    public R placeholder() {
-        return R.ok().put("message", "SKU信息功能待开发");
+    @RequestMapping("/list")
+    public R list(@RequestParam Map<String, Object> params){
+        PageUtils page = skuInfoService.queryPageWithDetails(params);
+        return R.ok().put("page", page);
     }
 }

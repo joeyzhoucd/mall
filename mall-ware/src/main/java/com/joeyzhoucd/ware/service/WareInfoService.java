@@ -11,10 +11,9 @@ import java.util.Map;
  *
  * @author joeyzhou
  * @email eryueshier@gmail.com
- * @date 2025-03-30 23:27:58
+ * @date 2025-03-28 02:39:50
  */
 public interface WareInfoService extends IService<WareInfoEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
 }
-

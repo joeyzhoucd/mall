@@ -57,6 +57,22 @@ public class MemberPriceController {
     }
 
     /**
+     * 保存（通过Map参数）
+     */
+    @PostMapping("/saveFromMap")
+    public R saveFromMap(@RequestBody Map<String, String> params){
+        MemberPriceEntity memberPrice = new MemberPriceEntity();
+        memberPrice.setSkuId(Long.valueOf(params.get("skuId")));
+        memberPrice.setMemberLevelId(Long.valueOf(params.get("memberLevelId")));
+        memberPrice.setMemberLevelName(params.get("memberLevelName"));
+        memberPrice.setMemberPrice(new java.math.BigDecimal(params.get("memberPrice")));
+        memberPrice.setAddOther(Integer.valueOf(params.get("addOther")));
+        memberPriceService.save(memberPrice);
+
+        return R.ok();
+    }
+
+    /**
      * 修改
      */
     @RequestMapping("/update")

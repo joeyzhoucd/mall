@@ -20,10 +20,10 @@ public interface CategoryBrandRelationService extends IService<CategoryBrandRela
 
     boolean deleteByBrandId(Long brandId);
 
-    boolean deleteByCategoryId(Long categoryId);
-
     boolean updateBrandCategoryRelations(Long brandId, List<Long> categoryIds);
 
     List<CategoryBrandRelationEntity> getRelationsByBrandId(Long brandId);
+
+    List<CategoryBrandRelationEntity> getRelationsByCategoryId(Long categoryId);
 }
 

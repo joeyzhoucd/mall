@@ -86,6 +86,22 @@ public class AttrController {
         return getAttrList(attrService.querySaleAttrPage(params));
     }
 
+	/**
+	 * 获取销售属性列表（兼容路径参数方式）
+	 * 示例：/product/attr/sale/list/{categoryId}
+	 */
+	@GetMapping("/sale/list/{categoryId}")
+	public R listSaleAttrByPath(@PathVariable("categoryId") Long categoryId, @RequestParam Map<String, Object> params) {
+		params.put("categoryId", categoryId);
+		if (!params.containsKey("page")) {
+			params.put("page", "1");
+		}
+		if (!params.containsKey("limit")) {
+			params.put("limit", "500");
+		}
+		return getAttrList(attrService.querySaleAttrPage(params));
+	}
+
     /**
      * 新增销售属性
      */

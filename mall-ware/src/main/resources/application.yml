@@ -1,6 +1,8 @@
 server:
   port: 12000
 spring:
+  application:
+    name: mall-ware
   datasource:
     username: root
     password: root

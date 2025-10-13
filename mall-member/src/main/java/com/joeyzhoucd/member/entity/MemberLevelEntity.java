@@ -23,7 +23,7 @@ public class MemberLevelEntity implements Serializable {
 	 * id
 	 */
 	@TableId
-	private Long id;
+    private Long id;
 	/**
 	 * 等级名称
 	 */

@@ -57,20 +57,6 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
 
 
     @Override
-    public boolean deleteByCategoryId(Long categoryId) {
-
-        // 1. 参数校验，避免传入空值
-        Assert.notNull(categoryId, "categoryId must not be null");
-
-        // 2. 构造删除条件
-        QueryWrapper<CategoryBrandRelationEntity> wrapper = new QueryWrapper<>();
-        wrapper.eq("category_id", categoryId);
-
-        // 3. 调用 MyBatis-Plus 自带的 remove 方法执行删除
-        return this.remove(wrapper);
-    }
-
-    @Override
     @Transactional
     public boolean updateBrandCategoryRelations(Long brandId, List<Long> categoryIds) {
         if (brandId == null) {
@@ -111,6 +97,16 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
         // 2. 构造查询条件
         QueryWrapper<CategoryBrandRelationEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("brand_id", brandId);
+        return this.list(wrapper);
+    }
+
+    @Override
+    public List<CategoryBrandRelationEntity> getRelationsByCategoryId(Long categoryId) {
+        // 1. 参数校验，避免传入空值
+        Assert.notNull(categoryId, "categoryId must not be null");
+        // 2. 构造查询条件
+        QueryWrapper<CategoryBrandRelationEntity> wrapper = new QueryWrapper<>();
+        wrapper.eq("category_id", categoryId);
         return this.list(wrapper);
     }
 

@@ -4,10 +4,12 @@ import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.common.utils.R;
 import com.joeyzhoucd.product.entity.AttrGroupEntity;
 import com.joeyzhoucd.product.service.AttrGroupService;
+import com.joeyzhoucd.product.vo.AttrGroupWithAttrVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 
@@ -31,6 +33,12 @@ public class AttrGroupController {
     public R list(@RequestParam Map<String, Object> params) {
         PageUtils page = attrGroupService.queryPage(params);
         return R.ok().put("data", page);
+    }
+
+    @RequestMapping("/withattr/{categoryId}")
+    public R list(@PathVariable("categoryId") Long categoryId) {
+        List<AttrGroupWithAttrVO> attrGroupWithAttrs = attrGroupService.getAttrGroupWithAttrs(categoryId);
+        return R.ok().put("data", attrGroupWithAttrs);
     }
 
 
@@ -70,6 +78,13 @@ public class AttrGroupController {
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] attrGroupIds) {
         attrGroupService.removeByIds(Arrays.asList(attrGroupIds));
+
+        return R.ok();
+    }
+
+    @RequestMapping("/delete/{attrGroupId}")
+    public R deleteById(@PathVariable("attrGroupId") Long attrGroupId) {
+        attrGroupService.removeById(attrGroupId);
 
         return R.ok();
     }

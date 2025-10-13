@@ -3,6 +3,7 @@ package com.joeyzhoucd.product.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.joeyzhoucd.common.utils.PageUtils;
 import com.joeyzhoucd.product.entity.SpuInfoEntity;
+import com.joeyzhoucd.product.vo.SpuSaveVo;
 
 import java.util.Map;
 
@@ -16,5 +17,10 @@ import java.util.Map;
 public interface SpuInfoService extends IService<SpuInfoEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
+
+    /**
+     * 保存SPU信息
+     */
+    void saveSpuInfo(SpuSaveVo spuSaveVo);
 }
 
