@@ -10,10 +10,6 @@ import java.util.Date;
 
 /**
  * 采购信息
- * 
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:27:58
  */
 @Data
 @TableName("wms_purchase")

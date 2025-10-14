@@ -8,11 +8,7 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 
 /**
- * 
- * 
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:27:58
+ * 采购需求/采购项
  */
 @Data
 @TableName("wms_purchase_detail")
