@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.dao;
@@ -13,7 +13,7 @@ import io.renren.modules.job.entity.ScheduleJobLogEntity;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 定时任务日志
+ * å®šæ—¶ä»»åŠ¡æ—¥å¿—
  *
  * @author Mark sunlightcs@gmail.com
  */

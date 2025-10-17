@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.utils;
@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 返回数据
+ * è¿”å›žæ•°æ®
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -27,7 +27,7 @@ public class R extends HashMap<String, Object> {
 	}
 	
 	public static R error() {
-		return error(HttpStatus.SC_INTERNAL_SERVER_ERROR, "未知异常，请联系管理员");
+		return error(HttpStatus.SC_INTERNAL_SERVER_ERROR, "æœªçŸ¥å¼‚å¸¸ï¼Œè¯·è”ç³»ç®¡ç†å‘˜");
 	}
 	
 	public static R error(String msg) {

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2018 人人开源 All rights reserved.
+ * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
  * <p>
  * https://www.renren.io
  * <p>
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.service;
@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.zip.ZipOutputStream;
 
 /**
- * 代码生成器
+ * ä»£ç ç”Ÿæˆå™¨
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -60,11 +60,11 @@ public class SysGeneratorService {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ZipOutputStream zip = new ZipOutputStream(outputStream);
         for (String tableName : tableNames) {
-            //查询表信息
+            //æŸ¥è¯¢è¡¨ä¿¡æ¯
             Map<String, String> table = queryTable(tableName);
-            //查询列信息
+            //æŸ¥è¯¢åˆ—ä¿¡æ¯
             List<Map<String, String>> columns = queryColumns(tableName);
-            //生成代码
+            //ç”Ÿæˆä»£ç 
             GenUtils.generatorCode(table, columns, zip);
         }
         if (MongoManager.isMongo()) {

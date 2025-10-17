@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.config;
@@ -24,7 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Shiro配置
+ * Shiroé…ç½®
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -44,7 +44,7 @@ public class ShiroConfig {
         ShiroFilterFactoryBean shiroFilter = new ShiroFilterFactoryBean();
         shiroFilter.setSecurityManager(securityManager);
 
-        //jwt token过滤
+        //jwt tokenè¿‡æ»¤
         Map<String, Filter> filters = new HashMap<>();
         filters.put("jwt", new JWTFilter());
         shiroFilter.setFilters(filters);

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.utils;
@@ -15,7 +15,7 @@ import org.apache.shiro.session.Session;
 import org.apache.shiro.subject.Subject;
 
 /**
- * Shiro工具类
+ * Shiroå·¥å…·ç±»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -52,7 +52,7 @@ public class ShiroUtils {
 	public static String getKaptcha(String key) {
 		Object kaptcha = getSessionAttribute(key);
 		if(kaptcha == null){
-			throw new RRException("验证码已失效");
+			throw new RRException("éªŒè¯ç å·²å¤±æ•ˆ");
 		}
 		getSession().removeAttribute(key);
 		return kaptcha.toString();

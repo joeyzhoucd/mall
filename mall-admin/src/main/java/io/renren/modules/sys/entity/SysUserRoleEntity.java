@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.entity;
@@ -15,7 +15,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 用户与角色对应关系
+ * ç”¨æˆ·ä¸Žè§’è‰²å¯¹åº”å…³ç³»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -27,12 +27,12 @@ public class SysUserRoleEntity implements Serializable {
 	private Long id;
 
 	/**
-	 * 用户ID
+	 * ç”¨æˆ·ID
 	 */
 	private Long userId;
 
 	/**
-	 * 角色ID
+	 * è§’è‰²ID
 	 */
 	private Long roleId;
 

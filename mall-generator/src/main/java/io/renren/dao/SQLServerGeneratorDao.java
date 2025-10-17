@@ -3,7 +3,7 @@ package io.renren.dao;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * SQLServer代码生成器
+ * SQLServerä»£ç ç”Ÿæˆå™¨
  *
  * @author Mark sunlightcs@gmail.com
  * @since 2018-07-24

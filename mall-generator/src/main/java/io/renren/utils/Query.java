@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 查询参数
+ * æŸ¥è¯¢å‚æ•°
  *
  * @author chenshun
  * @email sunlightcs@gmail.com
@@ -13,15 +13,15 @@ import java.util.Map;
  */
 public class Query extends LinkedHashMap<String, Object> {
 	private static final long serialVersionUID = 1L;
-	//当前页码
+	//å½“å‰é¡µç 
     private int page;
-    //每页条数
+    //æ¯é¡µæ¡æ•°
     private int limit;
 
     public Query(Map<String, Object> params){
         this.putAll(params);
 
-        //分页参数
+        //åˆ†é¡µå‚æ•°
         this.page = Integer.parseInt(params.get("page").toString());
         this.limit = Integer.parseInt(params.get("limit").toString());
         this.put("offset", (page - 1) * limit);

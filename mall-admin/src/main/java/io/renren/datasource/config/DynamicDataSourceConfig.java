@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2018 人人开源 All rights reserved.
+ * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.datasource.config;
@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 配置多数据源
+ * é…ç½®å¤šæ•°æ®æº
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -42,7 +42,7 @@ public class DynamicDataSourceConfig {
         DynamicDataSource dynamicDataSource = new DynamicDataSource();
         dynamicDataSource.setTargetDataSources(getDynamicDataSource());
 
-        //默认数据源
+        //é»˜è®¤æ•°æ®æº
         DruidDataSource defaultDataSource = DynamicDataSourceFactory.buildDruidDataSource(dataSourceProperties);
         dynamicDataSource.setDefaultTargetDataSource(defaultDataSource);
 

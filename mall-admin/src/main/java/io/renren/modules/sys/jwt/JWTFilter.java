@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.jwt;
@@ -25,7 +25,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * jwt token过滤器
+ * jwt tokenè¿‡æ»¤å™¨
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -33,7 +33,7 @@ public class JWTFilter extends AuthenticatingFilter {
 
     @Override
     protected AuthenticationToken createToken(ServletRequest request, ServletResponse response) throws Exception {
-        //获取请求token
+        //èŽ·å–è¯·æ±‚token
         String token = getRequestToken((HttpServletRequest) request);
 
         if(StringUtils.isBlank(token)){
@@ -54,7 +54,7 @@ public class JWTFilter extends AuthenticatingFilter {
 
     @Override
     protected boolean onAccessDenied(ServletRequest request, ServletResponse response) throws Exception {
-        //获取请求token，如果token不存在，直接返回401
+        //èŽ·å–è¯·æ±‚tokenï¼Œå¦‚æžœtokenä¸å­˜åœ¨ï¼Œç›´æŽ¥è¿”å›ž401
         String token = getRequestToken((HttpServletRequest) request);
         if(StringUtils.isBlank(token)){
             HttpServletResponse httpResponse = (HttpServletResponse) response;
@@ -78,7 +78,7 @@ public class JWTFilter extends AuthenticatingFilter {
         httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
         httpResponse.setHeader("Access-Control-Allow-Origin", HttpContextUtils.getOrigin());
         try {
-            //处理登录失败的异常
+            //å¤„ç†ç™»å½•å¤±è´¥çš„å¼‚å¸¸
             Throwable throwable = e.getCause() == null ? e : e.getCause();
             R r = R.error(HttpStatus.SC_UNAUTHORIZED, throwable.getMessage());
 
@@ -92,13 +92,13 @@ public class JWTFilter extends AuthenticatingFilter {
     }
 
     /**
-     * 获取请求的token
+     * èŽ·å–è¯·æ±‚çš„token
      */
     private String getRequestToken(HttpServletRequest httpRequest){
-        //从header中获取token
+        //ä»Žheaderä¸­èŽ·å–token
         String token = httpRequest.getHeader("token");
 
-        //如果header中不存在token，则从参数中获取token
+        //å¦‚æžœheaderä¸­ä¸å­˜åœ¨tokenï¼Œåˆ™ä»Žå‚æ•°ä¸­èŽ·å–token
         if(StringUtils.isBlank(token)){
             token = httpRequest.getParameter("token");
         }

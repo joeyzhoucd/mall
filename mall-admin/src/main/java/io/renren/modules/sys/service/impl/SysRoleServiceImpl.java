@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service.impl;
@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 角色
+ * è§’è‰²
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -66,10 +66,10 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleDao, SysRoleEntity> i
         role.setCreateTime(new Date());
         this.save(role);
 
-        //检查权限是否越权
+        //æ£€æŸ¥æƒé™æ˜¯å¦è¶Šæƒ
         checkPrems(role);
 
-        //保存角色与菜单关系
+        //ä¿å­˜è§’è‰²ä¸Žèœå•å…³ç³»
         sysRoleMenuService.saveOrUpdate(role.getRoleId(), role.getMenuIdList());
     }
 
@@ -78,23 +78,23 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleDao, SysRoleEntity> i
     public void update(SysRoleEntity role) {
         this.updateById(role);
 
-        //检查权限是否越权
+        //æ£€æŸ¥æƒé™æ˜¯å¦è¶Šæƒ
         checkPrems(role);
 
-        //更新角色与菜单关系
+        //æ›´æ–°è§’è‰²ä¸Žèœå•å…³ç³»
         sysRoleMenuService.saveOrUpdate(role.getRoleId(), role.getMenuIdList());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteBatch(Long[] roleIds) {
-        //删除角色
+        //åˆ é™¤è§’è‰²
         this.removeByIds(Arrays.asList(roleIds));
 
-        //删除角色与菜单关联
+        //åˆ é™¤è§’è‰²ä¸Žèœå•å…³è”
         sysRoleMenuService.deleteBatch(roleIds);
 
-        //删除角色与用户关联
+        //åˆ é™¤è§’è‰²ä¸Žç”¨æˆ·å…³è”
         sysUserRoleService.deleteBatch(roleIds);
     }
 
@@ -105,20 +105,20 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleDao, SysRoleEntity> i
 	}
 
 	/**
-	 * 检查权限是否越权
+	 * æ£€æŸ¥æƒé™æ˜¯å¦è¶Šæƒ
 	 */
 	private void checkPrems(SysRoleEntity role){
-		//如果不是超级管理员，则需要判断角色的权限是否超过自己的权限
+		//å¦‚æžœä¸æ˜¯è¶…çº§ç®¡ç†å‘˜ï¼Œåˆ™éœ€è¦åˆ¤æ–­è§’è‰²çš„æƒé™æ˜¯å¦è¶…è¿‡è‡ªå·±çš„æƒé™
 		if(role.getCreateUserId() == Constant.SUPER_ADMIN){
 			return ;
 		}
 		
-		//查询用户所拥有的菜单列表
+		//æŸ¥è¯¢ç”¨æˆ·æ‰€æ‹¥æœ‰çš„èœå•åˆ—è¡¨
 		List<Long> menuIdList = sysUserDao.queryAllMenuId(role.getCreateUserId());
 		
-		//判断是否越权
+		//åˆ¤æ–­æ˜¯å¦è¶Šæƒ
 		if(!menuIdList.containsAll(role.getMenuIdList())){
-			throw new RRException("新增角色的权限，已超出你的权限范围");
+			throw new RRException("æ–°å¢žè§’è‰²çš„æƒé™ï¼Œå·²è¶…å‡ºä½ çš„æƒé™èŒƒå›´");
 		}
 	}
 }

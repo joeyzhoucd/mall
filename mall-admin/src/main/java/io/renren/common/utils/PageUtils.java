@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.utils;
@@ -14,39 +14,39 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * 分页工具类
+ * åˆ†é¡µå·¥å…·ç±»
  *
  * @author Mark sunlightcs@gmail.com
  */
 public class PageUtils implements Serializable {
 	private static final long serialVersionUID = 1L;
 	/**
-	 * 总记录数
+	 * æ€»è®°å½•æ•°
 	 */
 	private int totalCount;
 	/**
-	 * 每页记录数
+	 * æ¯é¡µè®°å½•æ•°
 	 */
 	private int pageSize;
 	/**
-	 * 总页数
+	 * æ€»é¡µæ•°
 	 */
 	private int totalPage;
 	/**
-	 * 当前页数
+	 * å½“å‰é¡µæ•°
 	 */
 	private int currPage;
 	/**
-	 * 列表数据
+	 * åˆ—è¡¨æ•°æ®
 	 */
 	private List<?> list;
 	
 	/**
-	 * 分页
-	 * @param list        列表数据
-	 * @param totalCount  总记录数
-	 * @param pageSize    每页记录数
-	 * @param currPage    当前页数
+	 * åˆ†é¡µ
+	 * @param list        åˆ—è¡¨æ•°æ®
+	 * @param totalCount  æ€»è®°å½•æ•°
+	 * @param pageSize    æ¯é¡µè®°å½•æ•°
+	 * @param currPage    å½“å‰é¡µæ•°
 	 */
 	public PageUtils(List<?> list, int totalCount, int pageSize, int currPage) {
 		this.list = list;
@@ -57,7 +57,7 @@ public class PageUtils implements Serializable {
 	}
 
 	/**
-	 * 分页
+	 * åˆ†é¡µ
 	 */
 	public PageUtils(IPage<?> page) {
 		this.list = page.getRecords();

@@ -1,25 +1,25 @@
 package io.renren.entity;
 
 /**
- * 列的属性
+ * åˆ—çš„å±žæ€§
  * 
  * @author chenshun
  * @email sunlightcs@gmail.com
- * @date 2016年12月20日 上午12:01:45
+ * @date 2016å¹´12æœˆ20æ—¥ ä¸Šåˆ12:01:45
  */
 public class ColumnEntity {
-	//列名
+	//åˆ—å
     private String columnName;
-    //列名类型
+    //åˆ—åç±»åž‹
     private String dataType;
-    //列名备注
+    //åˆ—åå¤‡æ³¨
     private String comments;
     
-    //属性名称(第一个字母大写)，如：user_name => UserName
+    //å±žæ€§åç§°(ç¬¬ä¸€ä¸ªå­—æ¯å¤§å†™)ï¼Œå¦‚ï¼šuser_name => UserName
     private String attrName;
-    //属性名称(第一个字母小写)，如：user_name => userName
+    //å±žæ€§åç§°(ç¬¬ä¸€ä¸ªå­—æ¯å°å†™)ï¼Œå¦‚ï¼šuser_name => userName
     private String attrname;
-    //属性类型
+    //å±žæ€§ç±»åž‹
     private String attrType;
     //auto_increment
     private String extra;

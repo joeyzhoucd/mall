@@ -23,11 +23,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
- * 代码生成器   工具类
+ * ä»£ç ç”Ÿæˆå™¨   å·¥å…·ç±»
  *
  * @author chenshun
  * @email sunlightcs@gmail.com
- * @date 2016年12月19日 下午11:40:24
+ * @date 2016å¹´12æœˆ19æ—¥ ä¸‹åˆ11:40:24
  */
 public class GenUtils {
 
@@ -48,7 +48,7 @@ public class GenUtils {
         templates.add("template/index.vue.vm");
         templates.add("template/add-or-update.vue.vm");
         if (MongoManager.isMongo()) {
-            // mongo不需要mapper、sql   实体类需要替换
+            // mongoä¸éœ€è¦mapperã€sql   å®žä½“ç±»éœ€è¦æ›¿æ¢
             templates.remove(0);
             templates.remove(1);
             templates.remove(2);
@@ -64,24 +64,24 @@ public class GenUtils {
     }
 
     /**
-     * 生成代码
+     * ç”Ÿæˆä»£ç 
      */
     public static void generatorCode(Map<String, String> table,
                                      List<Map<String, String>> columns, ZipOutputStream zip) {
-        //配置信息
+        //é…ç½®ä¿¡æ¯
         Configuration config = getConfig();
         boolean hasBigDecimal = false;
         boolean hasList = false;
-        //表信息
+        //è¡¨ä¿¡æ¯
         TableEntity tableEntity = new TableEntity();
         tableEntity.setTableName(table.get("tableName"));
         tableEntity.setComments(table.get("tableComment"));
-        //表名转换成Java类名
+        //è¡¨åè½¬æ¢æˆJavaç±»å
         String className = tableToJava(tableEntity.getTableName(), config.getStringArray("tablePrefix"));
         tableEntity.setClassName(className);
         tableEntity.setClassname(StringUtils.uncapitalize(className));
 
-        //列信息
+        //åˆ—ä¿¡æ¯
         List<ColumnEntity> columsList = new ArrayList<>();
         for (Map<String, String> column : columns) {
             ColumnEntity columnEntity = new ColumnEntity();
@@ -90,12 +90,12 @@ public class GenUtils {
             columnEntity.setComments(column.get("columnComment"));
             columnEntity.setExtra(column.get("extra"));
 
-            //列名转换成Java属性名
+            //åˆ—åè½¬æ¢æˆJavaå±žæ€§å
             String attrName = columnToJava(columnEntity.getColumnName());
             columnEntity.setAttrName(attrName);
             columnEntity.setAttrname(StringUtils.uncapitalize(attrName));
 
-            //列的数据类型，转换成Java类型
+            //åˆ—çš„æ•°æ®ç±»åž‹ï¼Œè½¬æ¢æˆJavaç±»åž‹
             String attrType = config.getString(columnEntity.getDataType(), columnToJava(columnEntity.getDataType()));
             columnEntity.setAttrType(attrType);
 
@@ -106,7 +106,7 @@ public class GenUtils {
             if (!hasList && "array".equals(columnEntity.getExtra())) {
                 hasList = true;
             }
-            //是否主键
+            //æ˜¯å¦ä¸»é”®
             if ("PRI".equalsIgnoreCase(column.get("columnKey")) && tableEntity.getPk() == null) {
                 tableEntity.setPk(columnEntity);
             }
@@ -115,18 +115,18 @@ public class GenUtils {
         }
         tableEntity.setColumns(columsList);
 
-        //没主键，则第一个字段为主键
+        //æ²¡ä¸»é”®ï¼Œåˆ™ç¬¬ä¸€ä¸ªå­—æ®µä¸ºä¸»é”®
         if (tableEntity.getPk() == null) {
             tableEntity.setPk(tableEntity.getColumns().get(0));
         }
 
-        //设置velocity资源加载器
+        //è®¾ç½®velocityèµ„æºåŠ è½½å™¨
         Properties prop = new Properties();
         prop.put("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
         Velocity.init(prop);
         String mainPath = config.getString("mainPath");
         mainPath = StringUtils.isBlank(mainPath) ? "io.renren" : mainPath;
-        //封装模板数据
+        //å°è£…æ¨¡æ¿æ•°æ®
         Map<String, Object> map = new HashMap<>();
         map.put("tableName", tableEntity.getTableName());
         map.put("comments", tableEntity.getComments());
@@ -145,28 +145,28 @@ public class GenUtils {
         map.put("datetime", DateUtils.format(new Date(), DateUtils.DATE_TIME_PATTERN));
         VelocityContext context = new VelocityContext(map);
 
-        //获取模板列表
+        //èŽ·å–æ¨¡æ¿åˆ—è¡¨
         List<String> templates = getTemplates();
         for (String template : templates) {
-            //渲染模板
+            //æ¸²æŸ“æ¨¡æ¿
             StringWriter sw = new StringWriter();
             Template tpl = Velocity.getTemplate(template, "UTF-8");
             tpl.merge(context, sw);
 
             try {
-                //添加到zip
+                //æ·»åŠ åˆ°zip
                 zip.putNextEntry(new ZipEntry(getFileName(template, tableEntity.getClassName(), config.getString("package"), config.getString("moduleName"))));
                 IOUtils.write(sw.toString(), zip, "UTF-8");
                 IOUtils.closeQuietly(sw);
                 zip.closeEntry();
             } catch (IOException e) {
-                throw new RRException("渲染模板失败，表名：" + tableEntity.getTableName(), e);
+                throw new RRException("æ¸²æŸ“æ¨¡æ¿å¤±è´¥ï¼Œè¡¨åï¼š" + tableEntity.getTableName(), e);
             }
         }
     }
 
     /**
-     * 生成mongo其他实体类的代码
+     * ç”Ÿæˆmongoå…¶ä»–å®žä½“ç±»çš„ä»£ç 
      */
     public static void generatorMongoCode(String[] tableNames, ZipOutputStream zip) {
         for (String tableName : tableNames) {
@@ -181,16 +181,16 @@ public class GenUtils {
     }
 
     private static void generatorChildrenBeanCode(MongoGeneratorEntity mongoGeneratorEntity, ZipOutputStream zip) {
-        //配置信息
+        //é…ç½®ä¿¡æ¯
         Configuration config = getConfig();
         boolean hasList = false;
-        //表信息
+        //è¡¨ä¿¡æ¯
         TableEntity tableEntity = mongoGeneratorEntity.toTableEntity();
-        //表名转换成Java类名
+        //è¡¨åè½¬æ¢æˆJavaç±»å
         String className = tableToJava(tableEntity.getTableName(), config.getStringArray("tablePrefix"));
         tableEntity.setClassName(className);
         tableEntity.setClassname(StringUtils.uncapitalize(className));
-        //列信息
+        //åˆ—ä¿¡æ¯
         List<ColumnEntity> columsList = new ArrayList<>();
         for (Map<String, String> column : mongoGeneratorEntity.getColumns()) {
             ColumnEntity columnEntity = new ColumnEntity();
@@ -202,12 +202,12 @@ public class GenUtils {
             columnEntity.setDataType(column.get("dataType"));
             columnEntity.setExtra(column.get("extra"));
 
-            //列名转换成Java属性名
+            //åˆ—åè½¬æ¢æˆJavaå±žæ€§å
             String attrName = columnToJava(columnEntity.getColumnName());
             columnEntity.setAttrName(attrName);
             columnEntity.setAttrname(StringUtils.uncapitalize(attrName));
 
-            //列的数据类型，转换成Java类型
+            //åˆ—çš„æ•°æ®ç±»åž‹ï¼Œè½¬æ¢æˆJavaç±»åž‹
             String attrType = config.getString(columnEntity.getDataType(), columnToJava(columnEntity.getDataType()));
             columnEntity.setAttrType(attrType);
 
@@ -218,13 +218,13 @@ public class GenUtils {
         }
         tableEntity.setColumns(columsList);
 
-        //设置velocity资源加载器
+        //è®¾ç½®velocityèµ„æºåŠ è½½å™¨
         Properties prop = new Properties();
         prop.put("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
         Velocity.init(prop);
         String mainPath = config.getString("mainPath");
         mainPath = StringUtils.isBlank(mainPath) ? "io.renren" : mainPath;
-        //封装模板数据
+        //å°è£…æ¨¡æ¿æ•°æ®
         Map<String, Object> map = new HashMap<>();
         map.put("tableName", tableEntity.getTableName());
         map.put("comments", tableEntity.getComments());
@@ -242,35 +242,35 @@ public class GenUtils {
         map.put("datetime", DateUtils.format(new Date(), DateUtils.DATE_TIME_PATTERN));
         VelocityContext context = new VelocityContext(map);
 
-        //获取模板列表
+        //èŽ·å–æ¨¡æ¿åˆ—è¡¨
         List<String> templates = getMongoChildTemplates();
         for (String template : templates) {
-            //渲染模板
+            //æ¸²æŸ“æ¨¡æ¿
             StringWriter sw = new StringWriter();
             Template tpl = Velocity.getTemplate(template, "UTF-8");
             tpl.merge(context, sw);
             try {
-                //添加到zip
+                //æ·»åŠ åˆ°zip
                 zip.putNextEntry(new ZipEntry(getFileName(template, tableEntity.getClassName(), config.getString("package"), config.getString("moduleName"))));
                 IOUtils.write(sw.toString(), zip, "UTF-8");
                 IOUtils.closeQuietly(sw);
                 zip.closeEntry();
             } catch (IOException e) {
-                throw new RRException("渲染模板失败，表名：" + tableEntity.getTableName(), e);
+                throw new RRException("æ¸²æŸ“æ¨¡æ¿å¤±è´¥ï¼Œè¡¨åï¼š" + tableEntity.getTableName(), e);
             }
         }
 
     }
 
     /**
-     * 列名转换成Java属性名
+     * åˆ—åè½¬æ¢æˆJavaå±žæ€§å
      */
     public static String columnToJava(String columnName) {
         return WordUtils.capitalizeFully(columnName, new char[]{'_'}).replace("_", "");
     }
 
     /**
-     * 表名转换成Java类名
+     * è¡¨åè½¬æ¢æˆJavaç±»å
      */
     public static String tableToJava(String tableName, String[] tablePrefixArray) {
         if (null != tablePrefixArray && tablePrefixArray.length > 0) {
@@ -284,18 +284,18 @@ public class GenUtils {
     }
 
     /**
-     * 获取配置信息
+     * èŽ·å–é…ç½®ä¿¡æ¯
      */
     public static Configuration getConfig() {
         try {
             return new PropertiesConfiguration("generator.properties");
         } catch (ConfigurationException e) {
-            throw new RRException("获取配置文件失败，", e);
+            throw new RRException("èŽ·å–é…ç½®æ–‡ä»¶å¤±è´¥ï¼Œ", e);
         }
     }
 
     /**
-     * 获取文件名
+     * èŽ·å–æ–‡ä»¶å
      */
     public static String getFileName(String template, String className, String packageName, String moduleName) {
         String packagePath = "main" + File.separator + "java" + File.separator;

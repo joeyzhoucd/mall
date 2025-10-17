@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.app.entity;
@@ -17,7 +17,7 @@ import java.util.Date;
 
 
 /**
- * 用户
+ * ç”¨æˆ·
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -27,24 +27,24 @@ public class UserEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	/**
-	 * 用户ID
+	 * ç”¨æˆ·ID
 	 */
 	@TableId
 	private Long userId;
 	/**
-	 * 用户名
+	 * ç”¨æˆ·å
 	 */
 	private String username;
 	/**
-	 * 手机号
+	 * æ‰‹æœºå·
 	 */
 	private String mobile;
 	/**
-	 * 密码
+	 * å¯†ç 
 	 */
 	private String password;
 	/**
-	 * 创建时间
+	 * åˆ›å»ºæ—¶é—´
 	 */
 	private Date createTime;
 

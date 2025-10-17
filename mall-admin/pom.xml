@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.joeyzhoucd</groupId>
+    <groupId>com.mall</groupId>
     <artifactId>mall-admin</artifactId>
     <version>3.0.0</version>
     <packaging>jar</packaging>
@@ -42,7 +42,7 @@
         <hutool.version>4.1.1</hutool.version>
         <lombok.version>1.18.24</lombok.version>
 
-        <!--wagon plugin 配置-->
+        <!--wagon plugin é…ç½®-->
         <service-path>/work/renren</service-path>
         <pack-name>${project.artifactId}-${project.version}.jar</pack-name>
         <remote-addr>192.168.1.10:22</remote-addr>
@@ -52,7 +52,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.joeyzhoucd</groupId>
+            <groupId>com.mall</groupId>
             <artifactId>mall-common</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
@@ -107,19 +107,19 @@
             <artifactId>mysql-connector-java</artifactId>
             <version>${mysql.version}</version>
         </dependency>
-        <!--oracle驱动-->
+        <!--oracleé©±åŠ¨-->
         <dependency>
             <groupId>com.oracle</groupId>
             <artifactId>ojdbc6</artifactId>
             <version>${oracle.version}</version>
         </dependency>
-        <!--mssql驱动-->
+        <!--mssqlé©±åŠ¨-->
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>sqljdbc4</artifactId>
             <version>${mssql.version}</version>
         </dependency>
-        <!--postgresql驱动-->
+        <!--postgresqlé©±åŠ¨-->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -260,7 +260,7 @@
                     <fork>true</fork>
                 </configuration>
             </plugin>
-            <!-- 跳过单元测试 -->
+            <!-- è·³è¿‡å•å…ƒæµ‹è¯• -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -279,13 +279,13 @@
                         <!-- Kill Old Process -->
                         <command>kill -9 `ps -ef |grep ${project.artifactId}.jar|grep -v "grep" |awk '{print $2}'`
                         </command>
-                        <!-- Restart jar package，write result into renren.log -->
+                        <!-- Restart jar packageï¼Œwrite result into renren.log -->
                         <command>
                             <![CDATA[nohup java -jar ${service-path}/${pack-name} --spring.profiles.active=test > ${service-path}/renren.log 2>&1 & ]]></command>
                         <command><![CDATA[netstat -nptl]]></command>
                         <command><![CDATA[ps -ef | grep java | grep -v grep]]></command>
                     </commands>
-                    <!-- 运行命令 mvn clean package wagon:upload-single wagon:sshexec-->
+                    <!-- è¿è¡Œå‘½ä»¤ mvn clean package wagon:upload-single wagon:sshexec-->
                     <displayCommandOutputs>true</displayCommandOutputs>
                 </configuration>
             </plugin>
@@ -313,7 +313,7 @@
                         </resource>
                     </resources>
                 </configuration>
-                <!-- 运行命令 mvn clean package docker:build 打包并生成docker镜像 -->
+                <!-- è¿è¡Œå‘½ä»¤ mvn clean package docker:build æ‰“åŒ…å¹¶ç”Ÿæˆdockeré•œåƒ -->
             </plugin>
         </plugins>
     </build>

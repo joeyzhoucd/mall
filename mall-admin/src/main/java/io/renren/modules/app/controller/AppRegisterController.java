@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.app.controller;
@@ -26,21 +26,21 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Date;
 
 /**
- * 注册
+ * æ³¨å†Œ
  *
  * @author Mark sunlightcs@gmail.com
  */
 @RestController
 @RequestMapping("/app")
-@Api("APP注册接口")
+@Api("APPæ³¨å†ŒæŽ¥å£")
 public class AppRegisterController {
     @Autowired
     private UserService userService;
 
     @PostMapping("register")
-    @ApiOperation("注册")
+    @ApiOperation("æ³¨å†Œ")
     public R register(@RequestBody RegisterForm form){
-        //表单校验
+        //è¡¨å•æ ¡éªŒ
         ValidatorUtils.validateEntity(form);
 
         UserEntity user = new UserEntity();

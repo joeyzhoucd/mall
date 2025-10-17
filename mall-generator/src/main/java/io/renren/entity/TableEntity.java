@@ -3,25 +3,25 @@ package io.renren.entity;
 import java.util.List;
 
 /**
- * 表数据
+ * è¡¨æ•°æ®
  * 
  * @author chenshun
  * @email sunlightcs@gmail.com
- * @date 2016年12月20日 上午12:02:55
+ * @date 2016å¹´12æœˆ20æ—¥ ä¸Šåˆ12:02:55
  */
 public class TableEntity {
-	//表的名称
+	//è¡¨çš„åç§°
 	private String tableName;
-	//表的备注
+	//è¡¨çš„å¤‡æ³¨
 	private String comments;
-	//表的主键
+	//è¡¨çš„ä¸»é”®
 	private ColumnEntity pk;
-	//表的列名(不包含主键)
+	//è¡¨çš„åˆ—å(ä¸åŒ…å«ä¸»é”®)
 	private List<ColumnEntity> columns;
 	
-	//类名(第一个字母大写)，如：sys_user => SysUser
+	//ç±»å(ç¬¬ä¸€ä¸ªå­—æ¯å¤§å†™)ï¼Œå¦‚ï¼šsys_user => SysUser
 	private String className;
-	//类名(第一个字母小写)，如：sys_user => sysUser
+	//ç±»å(ç¬¬ä¸€ä¸ªå­—æ¯å°å†™)ï¼Œå¦‚ï¼šsys_user => sysUser
 	private String classname;
 	
 	public String getTableName() {

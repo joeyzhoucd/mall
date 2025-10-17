@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2018 人人开源 All rights reserved.
+ * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
  * <p>
  * https://www.renren.io
  * <p>
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.config;
@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 /**
- * 数据库配置
+ * æ•°æ®åº“é…ç½®
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -50,7 +50,7 @@ public class DbConfig {
         } else if ("postgresql".equalsIgnoreCase(database)) {
             return postgreSQLGeneratorDao;
         } else {
-            throw new RRException("不支持当前数据库：" + database);
+            throw new RRException("ä¸æ”¯æŒå½“å‰æ•°æ®åº“ï¼š" + database);
         }
     }
 

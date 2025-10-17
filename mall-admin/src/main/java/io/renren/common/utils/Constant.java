@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  * <p>
  * https://www.renren.io
  * <p>
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.utils;
@@ -16,54 +16,54 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * 常量
+ * å¸¸é‡
  *
  * @author Mark sunlightcs@gmail.com
  */
 public class Constant {
     /**
-     * 超级管理员ID
+     * è¶…çº§ç®¡ç†å‘˜ID
      */
     public static final int SUPER_ADMIN = 1;
     /**
-     * 当前页码
+     * å½“å‰é¡µç 
      */
     public static final String PAGE = "page";
     /**
-     * 每页显示记录数
+     * æ¯é¡µæ˜¾ç¤ºè®°å½•æ•°
      */
     public static final String LIMIT = "limit";
     /**
-     * 排序字段
+     * æŽ’åºå­—æ®µ
      */
     public static final String ORDER_FIELD = "sidx";
     /**
-     * 排序方式
+     * æŽ’åºæ–¹å¼
      */
     public static final String ORDER = "order";
     /**
-     * 升序
+     * å‡åº
      */
     public static final String ASC = "asc";
 
     /**
-     * 菜单类型
+     * èœå•ç±»åž‹
      *
      * @author chenshun
      * @email sunlightcs@gmail.com
-     * @date 2016年11月15日 下午1:24:29
+     * @date 2016å¹´11æœˆ15æ—¥ ä¸‹åˆ1:24:29
      */
     public enum MenuType {
         /**
-         * 目录
+         * ç›®å½•
          */
         CATALOG(0),
         /**
-         * 菜单
+         * èœå•
          */
         MENU(1),
         /**
-         * 按钮
+         * æŒ‰é’®
          */
         BUTTON(2);
 
@@ -79,19 +79,19 @@ public class Constant {
     }
 
     /**
-     * 定时任务状态
+     * å®šæ—¶ä»»åŠ¡çŠ¶æ€
      *
      * @author chenshun
      * @email sunlightcs@gmail.com
-     * @date 2016年12月3日 上午12:07:22
+     * @date 2016å¹´12æœˆ3æ—¥ ä¸Šåˆ12:07:22
      */
     public enum ScheduleStatus {
         /**
-         * 正常
+         * æ­£å¸¸
          */
         NORMAL(0),
         /**
-         * 暂停
+         * æš‚åœ
          */
         PAUSE(1);
 
@@ -107,19 +107,19 @@ public class Constant {
     }
 
     /**
-     * 云服务商
+     * äº‘æœåŠ¡å•†
      */
     public enum CloudService {
         /**
-         * 七牛云
+         * ä¸ƒç‰›äº‘
          */
         QINIU(1, QiniuGroup.class),
         /**
-         * 阿里云
+         * é˜¿é‡Œäº‘
          */
         ALIYUN(2, AliyunGroup.class),
         /**
-         * 腾讯云
+         * è…¾è®¯äº‘
          */
         QCLOUD(3, QcloudGroup.class);
 
@@ -143,7 +143,7 @@ public class Constant {
         public static CloudService getByValue(Integer value) {
             Optional<CloudService> first = Stream.of(CloudService.values()).filter(cs -> value.equals(cs.value)).findFirst();
             if (!first.isPresent()) {
-                throw new IllegalArgumentException("非法的枚举值:" + value);
+                throw new IllegalArgumentException("éžæ³•çš„æžšä¸¾å€¼:" + value);
             }
             return first.get();
         }

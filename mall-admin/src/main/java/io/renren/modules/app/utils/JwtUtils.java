@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.app.utils;
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 
 /**
- * jwt工具类
+ * jwtå·¥å…·ç±»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -33,11 +33,11 @@ public class JwtUtils {
     private String header;
 
     /**
-     * 生成jwt token
+     * ç”Ÿæˆjwt token
      */
     public String generateToken(long userId) {
         Date nowDate = new Date();
-        //过期时间
+        //è¿‡æœŸæ—¶é—´
         Date expireDate = new Date(nowDate.getTime() + expire * 1000);
 
         return Jwts.builder()
@@ -62,8 +62,8 @@ public class JwtUtils {
     }
 
     /**
-     * token是否过期
-     * @return  true：过期
+     * tokenæ˜¯å¦è¿‡æœŸ
+     * @return  trueï¼šè¿‡æœŸ
      */
     public boolean isTokenExpired(Date expiration) {
         return expiration.before(new Date());

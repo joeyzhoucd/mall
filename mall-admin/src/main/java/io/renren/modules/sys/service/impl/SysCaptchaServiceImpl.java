@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service.impl;
@@ -25,7 +25,7 @@ import java.awt.image.BufferedImage;
 import java.util.Date;
 
 /**
- * 验证码
+ * éªŒè¯ç 
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -37,15 +37,15 @@ public class SysCaptchaServiceImpl extends ServiceImpl<SysCaptchaDao, SysCaptcha
     @Override
     public BufferedImage getCaptcha(String uuid) {
         if(StringUtils.isBlank(uuid)){
-            throw new RRException("uuid不能为空");
+            throw new RRException("uuidä¸èƒ½ä¸ºç©º");
         }
-        //生成文字验证码
+        //ç”Ÿæˆæ–‡å­—éªŒè¯ç 
         String code = producer.createText();
 
         SysCaptchaEntity captchaEntity = new SysCaptchaEntity();
         captchaEntity.setUuid(uuid);
         captchaEntity.setCode(code);
-        //5分钟后过期
+        //5åˆ†é’ŸåŽè¿‡æœŸ
         captchaEntity.setExpireTime(DateUtils.addDateMinutes(new Date(), 5));
         this.save(captchaEntity);
 
@@ -59,7 +59,7 @@ public class SysCaptchaServiceImpl extends ServiceImpl<SysCaptchaDao, SysCaptcha
             return false;
         }
 
-        //删除验证码
+        //åˆ é™¤éªŒè¯ç 
         this.removeById(uuid);
 
         if(captchaEntity.getCode().equalsIgnoreCase(code) && captchaEntity.getExpireTime().getTime() >= System.currentTimeMillis()){

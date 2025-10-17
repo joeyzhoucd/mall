@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.utils;
@@ -18,30 +18,30 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * 日期处理
+ * æ—¥æœŸå¤„ç†
  *
  * @author Mark sunlightcs@gmail.com
  */
 public class DateUtils {
-	/** 时间格式(yyyy-MM-dd) */
+	/** æ—¶é—´æ ¼å¼(yyyy-MM-dd) */
 	public final static String DATE_PATTERN = "yyyy-MM-dd";
-	/** 时间格式(yyyy-MM-dd HH:mm:ss) */
+	/** æ—¶é—´æ ¼å¼(yyyy-MM-dd HH:mm:ss) */
 	public final static String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
     /**
-     * 日期格式化 日期格式为：yyyy-MM-dd
-     * @param date  日期
-     * @return  返回yyyy-MM-dd格式日期
+     * æ—¥æœŸæ ¼å¼åŒ– æ—¥æœŸæ ¼å¼ä¸ºï¼šyyyy-MM-dd
+     * @param date  æ—¥æœŸ
+     * @return  è¿”å›žyyyy-MM-ddæ ¼å¼æ—¥æœŸ
      */
 	public static String format(Date date) {
         return format(date, DATE_PATTERN);
     }
 
     /**
-     * 日期格式化 日期格式为：yyyy-MM-dd
-     * @param date  日期
-     * @param pattern  格式，如：DateUtils.DATE_TIME_PATTERN
-     * @return  返回yyyy-MM-dd格式日期
+     * æ—¥æœŸæ ¼å¼åŒ– æ—¥æœŸæ ¼å¼ä¸ºï¼šyyyy-MM-dd
+     * @param date  æ—¥æœŸ
+     * @param pattern  æ ¼å¼ï¼Œå¦‚ï¼šDateUtils.DATE_TIME_PATTERN
+     * @return  è¿”å›žyyyy-MM-ddæ ¼å¼æ—¥æœŸ
      */
     public static String format(Date date, String pattern) {
         if(date != null){
@@ -52,9 +52,9 @@ public class DateUtils {
     }
 
     /**
-     * 字符串转换成日期
-     * @param strDate 日期字符串
-     * @param pattern 日期的格式，如：DateUtils.DATE_TIME_PATTERN
+     * å­—ç¬¦ä¸²è½¬æ¢æˆæ—¥æœŸ
+     * @param strDate æ—¥æœŸå­—ç¬¦ä¸²
+     * @param pattern æ—¥æœŸçš„æ ¼å¼ï¼Œå¦‚ï¼šDateUtils.DATE_TIME_PATTERN
      */
     public static Date stringToDate(String strDate, String pattern) {
         if (StringUtils.isBlank(strDate)){
@@ -66,9 +66,9 @@ public class DateUtils {
     }
 
     /**
-     * 根据周数，获取开始日期、结束日期
-     * @param week  周期  0本周，-1上周，-2上上周，1下周，2下下周
-     * @return  返回date[0]开始日期、date[1]结束日期
+     * æ ¹æ®å‘¨æ•°ï¼ŒèŽ·å–å¼€å§‹æ—¥æœŸã€ç»“æŸæ—¥æœŸ
+     * @param week  å‘¨æœŸ  0æœ¬å‘¨ï¼Œ-1ä¸Šå‘¨ï¼Œ-2ä¸Šä¸Šå‘¨ï¼Œ1ä¸‹å‘¨ï¼Œ2ä¸‹ä¸‹å‘¨
+     * @return  è¿”å›ždate[0]å¼€å§‹æ—¥æœŸã€date[1]ç»“æŸæ—¥æœŸ
      */
     public static Date[] getWeekStartAndEnd(int week) {
         DateTime dateTime = new DateTime();
@@ -81,11 +81,11 @@ public class DateUtils {
     }
 
     /**
-     * 对日期的【秒】进行加/减
+     * å¯¹æ—¥æœŸçš„ã€ç§’ã€‘è¿›è¡ŒåŠ /å‡
      *
-     * @param date 日期
-     * @param seconds 秒数，负数为减
-     * @return 加/减几秒后的日期
+     * @param date æ—¥æœŸ
+     * @param seconds ç§’æ•°ï¼Œè´Ÿæ•°ä¸ºå‡
+     * @return åŠ /å‡å‡ ç§’åŽçš„æ—¥æœŸ
      */
     public static Date addDateSeconds(Date date, int seconds) {
         DateTime dateTime = new DateTime(date);
@@ -93,11 +93,11 @@ public class DateUtils {
     }
 
     /**
-     * 对日期的【分钟】进行加/减
+     * å¯¹æ—¥æœŸçš„ã€åˆ†é’Ÿã€‘è¿›è¡ŒåŠ /å‡
      *
-     * @param date 日期
-     * @param minutes 分钟数，负数为减
-     * @return 加/减几分钟后的日期
+     * @param date æ—¥æœŸ
+     * @param minutes åˆ†é’Ÿæ•°ï¼Œè´Ÿæ•°ä¸ºå‡
+     * @return åŠ /å‡å‡ åˆ†é’ŸåŽçš„æ—¥æœŸ
      */
     public static Date addDateMinutes(Date date, int minutes) {
         DateTime dateTime = new DateTime(date);
@@ -105,11 +105,11 @@ public class DateUtils {
     }
 
     /**
-     * 对日期的【小时】进行加/减
+     * å¯¹æ—¥æœŸçš„ã€å°æ—¶ã€‘è¿›è¡ŒåŠ /å‡
      *
-     * @param date 日期
-     * @param hours 小时数，负数为减
-     * @return 加/减几小时后的日期
+     * @param date æ—¥æœŸ
+     * @param hours å°æ—¶æ•°ï¼Œè´Ÿæ•°ä¸ºå‡
+     * @return åŠ /å‡å‡ å°æ—¶åŽçš„æ—¥æœŸ
      */
     public static Date addDateHours(Date date, int hours) {
         DateTime dateTime = new DateTime(date);
@@ -117,11 +117,11 @@ public class DateUtils {
     }
 
     /**
-     * 对日期的【天】进行加/减
+     * å¯¹æ—¥æœŸçš„ã€å¤©ã€‘è¿›è¡ŒåŠ /å‡
      *
-     * @param date 日期
-     * @param days 天数，负数为减
-     * @return 加/减几天后的日期
+     * @param date æ—¥æœŸ
+     * @param days å¤©æ•°ï¼Œè´Ÿæ•°ä¸ºå‡
+     * @return åŠ /å‡å‡ å¤©åŽçš„æ—¥æœŸ
      */
     public static Date addDateDays(Date date, int days) {
         DateTime dateTime = new DateTime(date);
@@ -129,11 +129,11 @@ public class DateUtils {
     }
 
     /**
-     * 对日期的【周】进行加/减
+     * å¯¹æ—¥æœŸçš„ã€å‘¨ã€‘è¿›è¡ŒåŠ /å‡
      *
-     * @param date 日期
-     * @param weeks 周数，负数为减
-     * @return 加/减几周后的日期
+     * @param date æ—¥æœŸ
+     * @param weeks å‘¨æ•°ï¼Œè´Ÿæ•°ä¸ºå‡
+     * @return åŠ /å‡å‡ å‘¨åŽçš„æ—¥æœŸ
      */
     public static Date addDateWeeks(Date date, int weeks) {
         DateTime dateTime = new DateTime(date);
@@ -141,11 +141,11 @@ public class DateUtils {
     }
 
     /**
-     * 对日期的【月】进行加/减
+     * å¯¹æ—¥æœŸçš„ã€æœˆã€‘è¿›è¡ŒåŠ /å‡
      *
-     * @param date 日期
-     * @param months 月数，负数为减
-     * @return 加/减几月后的日期
+     * @param date æ—¥æœŸ
+     * @param months æœˆæ•°ï¼Œè´Ÿæ•°ä¸ºå‡
+     * @return åŠ /å‡å‡ æœˆåŽçš„æ—¥æœŸ
      */
     public static Date addDateMonths(Date date, int months) {
         DateTime dateTime = new DateTime(date);
@@ -153,11 +153,11 @@ public class DateUtils {
     }
 
     /**
-     * 对日期的【年】进行加/减
+     * å¯¹æ—¥æœŸçš„ã€å¹´ã€‘è¿›è¡ŒåŠ /å‡
      *
-     * @param date 日期
-     * @param years 年数，负数为减
-     * @return 加/减几年后的日期
+     * @param date æ—¥æœŸ
+     * @param years å¹´æ•°ï¼Œè´Ÿæ•°ä¸ºå‡
+     * @return åŠ /å‡å‡ å¹´åŽçš„æ—¥æœŸ
      */
     public static Date addDateYears(Date date, int years) {
         DateTime dateTime = new DateTime(date);

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service.impl;
@@ -20,7 +20,7 @@ import java.util.List;
 
 
 /**
- * 用户与角色对应关系
+ * ç”¨æˆ·ä¸Žè§’è‰²å¯¹åº”å…³ç³»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -29,14 +29,14 @@ public class SysUserRoleServiceImpl extends ServiceImpl<SysUserRoleDao, SysUserR
 
 	@Override
 	public void saveOrUpdate(Long userId, List<Long> roleIdList) {
-		//先删除用户与角色关系
+		//å…ˆåˆ é™¤ç”¨æˆ·ä¸Žè§’è‰²å…³ç³»
 		this.removeByMap(new MapUtils().put("user_id", userId));
 
 		if(roleIdList == null || roleIdList.size() == 0){
 			return ;
 		}
 
-		//保存用户与角色关系
+		//ä¿å­˜ç”¨æˆ·ä¸Žè§’è‰²å…³ç³»
 		for(Long roleId : roleIdList){
 			SysUserRoleEntity sysUserRoleEntity = new SysUserRoleEntity();
 			sysUserRoleEntity.setUserId(userId);

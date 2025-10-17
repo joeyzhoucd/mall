@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.entity;
@@ -15,7 +15,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 角色与菜单对应关系
+ * è§’è‰²ä¸Žèœå•å¯¹åº”å…³ç³»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -28,12 +28,12 @@ public class SysRoleMenuEntity implements Serializable {
 	private Long id;
 
 	/**
-	 * 角色ID
+	 * è§’è‰²ID
 	 */
 	private Long roleId;
 
 	/**
-	 * 菜单ID
+	 * èœå•ID
 	 */
 	private Long menuId;
 	

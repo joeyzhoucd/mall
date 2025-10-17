@@ -4,7 +4,7 @@ import org.apache.ibatis.annotations.Mapper;
 
 
 /**
- * MySQL代码生成器
+ * MySQLä»£ç ç”Ÿæˆå™¨
  *
  * @author Mark sunlightcs@gmail.com
  * @since 2018-07-24

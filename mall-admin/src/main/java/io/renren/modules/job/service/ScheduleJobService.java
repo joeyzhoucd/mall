@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.service;
@@ -15,7 +15,7 @@ import io.renren.modules.job.entity.ScheduleJobEntity;
 import java.util.Map;
 
 /**
- * 定时任务
+ * å®šæ—¶ä»»åŠ¡
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -24,37 +24,37 @@ public interface ScheduleJobService extends IService<ScheduleJobEntity> {
 	PageUtils queryPage(Map<String, Object> params);
 
 	/**
-	 * 保存定时任务
+	 * ä¿å­˜å®šæ—¶ä»»åŠ¡
 	 */
 	void saveJob(ScheduleJobEntity scheduleJob);
 	
 	/**
-	 * 更新定时任务
+	 * æ›´æ–°å®šæ—¶ä»»åŠ¡
 	 */
 	void update(ScheduleJobEntity scheduleJob);
 	
 	/**
-	 * 批量删除定时任务
+	 * æ‰¹é‡åˆ é™¤å®šæ—¶ä»»åŠ¡
 	 */
 	void deleteBatch(Long[] jobIds);
 	
 	/**
-	 * 批量更新定时任务状态
+	 * æ‰¹é‡æ›´æ–°å®šæ—¶ä»»åŠ¡çŠ¶æ€
 	 */
 	int updateBatch(Long[] jobIds, int status);
 	
 	/**
-	 * 立即执行
+	 * ç«‹å³æ‰§è¡Œ
 	 */
 	void run(Long[] jobIds);
 	
 	/**
-	 * 暂停运行
+	 * æš‚åœè¿è¡Œ
 	 */
 	void pause(Long[] jobIds);
 	
 	/**
-	 * 恢复运行
+	 * æ¢å¤è¿è¡Œ
 	 */
 	void resume(Long[] jobIds);
 }

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  * <p>
  * https://www.renren.io
  * <p>
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.validator;
@@ -17,9 +17,9 @@ import javax.validation.Validator;
 import java.util.Set;
 
 /**
- * hibernate-validator校验工具类
+ * hibernate-validatoræ ¡éªŒå·¥å…·ç±»
  *
- * 参考文档：http://docs.jboss.org/hibernate/validator/5.4/reference/en-US/html_single/
+ * å‚è€ƒæ–‡æ¡£ï¼šhttp://docs.jboss.org/hibernate/validator/5.4/reference/en-US/html_single/
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -31,10 +31,10 @@ public class ValidatorUtils {
     }
 
     /**
-     * 校验对象
-     * @param object        待校验对象
-     * @param groups        待校验的组
-     * @throws RRException  校验不通过，则报RRException异常
+     * æ ¡éªŒå¯¹è±¡
+     * @param object        å¾…æ ¡éªŒå¯¹è±¡
+     * @param groups        å¾…æ ¡éªŒçš„ç»„
+     * @throws RRException  æ ¡éªŒä¸é€šè¿‡ï¼Œåˆ™æŠ¥RRExceptionå¼‚å¸¸
      */
     public static void validateEntity(Object object, Class<?>... groups)
             throws RRException {

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.task;
@@ -13,9 +13,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * 测试定时任务(演示Demo，可删除)
+ * æµ‹è¯•å®šæ—¶ä»»åŠ¡(æ¼”ç¤ºDemoï¼Œå¯åˆ é™¤)
  *
- * testTask为spring bean的名称
+ * testTaskä¸ºspring beançš„åç§°
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -25,6 +25,6 @@ public class TestTask implements ITask {
 
 	@Override
 	public void run(String params){
-		logger.debug("TestTask定时任务正在执行，参数为：{}", params);
+		logger.debug("TestTaskå®šæ—¶ä»»åŠ¡æ­£åœ¨æ‰§è¡Œï¼Œå‚æ•°ä¸ºï¼š{}", params);
 	}
 }

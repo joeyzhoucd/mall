@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2018 人人开源 All rights reserved.
+ * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.datasource.config;
@@ -12,7 +12,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * 多数据源上下文
+ * å¤šæ•°æ®æºä¸Šä¸‹æ–‡
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -26,25 +26,25 @@ public class DynamicContextHolder {
     };
 
     /**
-     * 获得当前线程数据源
+     * èŽ·å¾—å½“å‰çº¿ç¨‹æ•°æ®æº
      *
-     * @return 数据源名称
+     * @return æ•°æ®æºåç§°
      */
     public static String peek() {
         return CONTEXT_HOLDER.get().peek();
     }
 
     /**
-     * 设置当前线程数据源
+     * è®¾ç½®å½“å‰çº¿ç¨‹æ•°æ®æº
      *
-     * @param dataSource 数据源名称
+     * @param dataSource æ•°æ®æºåç§°
      */
     public static void push(String dataSource) {
         CONTEXT_HOLDER.get().push(dataSource);
     }
 
     /**
-     * 清空当前线程数据源
+     * æ¸…ç©ºå½“å‰çº¿ç¨‹æ•°æ®æº
      */
     public static void poll() {
         Deque<String> deque = CONTEXT_HOLDER.get();

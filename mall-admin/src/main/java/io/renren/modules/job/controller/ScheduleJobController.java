@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.controller;
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * 定时任务
+ * å®šæ—¶ä»»åŠ¡
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -32,7 +32,7 @@ public class ScheduleJobController {
 	private ScheduleJobService scheduleJobService;
 	
 	/**
-	 * 定时任务列表
+	 * å®šæ—¶ä»»åŠ¡åˆ—è¡¨
 	 */
 	@RequestMapping("/list")
 	@RequiresPermissions("sys:schedule:list")
@@ -43,7 +43,7 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * 定时任务信息
+	 * å®šæ—¶ä»»åŠ¡ä¿¡æ¯
 	 */
 	@RequestMapping("/info/{jobId}")
 	@RequiresPermissions("sys:schedule:info")
@@ -54,9 +54,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * 保存定时任务
+	 * ä¿å­˜å®šæ—¶ä»»åŠ¡
 	 */
-	@SysLog("保存定时任务")
+	@SysLog("ä¿å­˜å®šæ—¶ä»»åŠ¡")
 	@RequestMapping("/save")
 	@RequiresPermissions("sys:schedule:save")
 	public R save(@RequestBody ScheduleJobEntity scheduleJob){
@@ -68,9 +68,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * 修改定时任务
+	 * ä¿®æ”¹å®šæ—¶ä»»åŠ¡
 	 */
-	@SysLog("修改定时任务")
+	@SysLog("ä¿®æ”¹å®šæ—¶ä»»åŠ¡")
 	@RequestMapping("/update")
 	@RequiresPermissions("sys:schedule:update")
 	public R update(@RequestBody ScheduleJobEntity scheduleJob){
@@ -82,9 +82,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * 删除定时任务
+	 * åˆ é™¤å®šæ—¶ä»»åŠ¡
 	 */
-	@SysLog("删除定时任务")
+	@SysLog("åˆ é™¤å®šæ—¶ä»»åŠ¡")
 	@RequestMapping("/delete")
 	@RequiresPermissions("sys:schedule:delete")
 	public R delete(@RequestBody Long[] jobIds){
@@ -94,9 +94,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * 立即执行任务
+	 * ç«‹å³æ‰§è¡Œä»»åŠ¡
 	 */
-	@SysLog("立即执行任务")
+	@SysLog("ç«‹å³æ‰§è¡Œä»»åŠ¡")
 	@RequestMapping("/run")
 	@RequiresPermissions("sys:schedule:run")
 	public R run(@RequestBody Long[] jobIds){
@@ -106,9 +106,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * 暂停定时任务
+	 * æš‚åœå®šæ—¶ä»»åŠ¡
 	 */
-	@SysLog("暂停定时任务")
+	@SysLog("æš‚åœå®šæ—¶ä»»åŠ¡")
 	@RequestMapping("/pause")
 	@RequiresPermissions("sys:schedule:pause")
 	public R pause(@RequestBody Long[] jobIds){
@@ -118,9 +118,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * 恢复定时任务
+	 * æ¢å¤å®šæ—¶ä»»åŠ¡
 	 */
-	@SysLog("恢复定时任务")
+	@SysLog("æ¢å¤å®šæ—¶ä»»åŠ¡")
 	@RequestMapping("/resume")
 	@RequiresPermissions("sys:schedule:resume")
 	public R resume(@RequestBody Long[] jobIds){

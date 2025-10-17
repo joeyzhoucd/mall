@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service;
@@ -16,7 +16,7 @@ import java.util.List;
 
 
 /**
- * 角色与菜单对应关系
+ * è§’è‰²ä¸Žèœå•å¯¹åº”å…³ç³»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -25,12 +25,12 @@ public interface SysRoleMenuService extends IService<SysRoleMenuEntity> {
 	void saveOrUpdate(Long roleId, List<Long> menuIdList);
 	
 	/**
-	 * 根据角色ID，获取菜单ID列表
+	 * æ ¹æ®è§’è‰²IDï¼ŒèŽ·å–èœå•IDåˆ—è¡¨
 	 */
 	List<Long> queryMenuIdList(Long roleId);
 
 	/**
-	 * 根据角色ID数组，批量删除
+	 * æ ¹æ®è§’è‰²IDæ•°ç»„ï¼Œæ‰¹é‡åˆ é™¤
 	 */
 	int deleteBatch(Long[] roleIds);
 	

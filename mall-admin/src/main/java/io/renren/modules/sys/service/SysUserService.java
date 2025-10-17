@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service;
@@ -17,7 +17,7 @@ import java.util.Map;
 
 
 /**
- * 系统用户
+ * ç³»ç»Ÿç”¨æˆ·
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -26,41 +26,41 @@ public interface SysUserService extends IService<SysUserEntity> {
 	PageUtils queryPage(Map<String, Object> params);
 
 	/**
-	 * 查询用户的所有权限
-	 * @param userId  用户ID
+	 * æŸ¥è¯¢ç”¨æˆ·çš„æ‰€æœ‰æƒé™
+	 * @param userId  ç”¨æˆ·ID
 	 */
 	List<String> queryAllPerms(Long userId);
 	
 	/**
-	 * 查询用户的所有菜单ID
+	 * æŸ¥è¯¢ç”¨æˆ·çš„æ‰€æœ‰èœå•ID
 	 */
 	List<Long> queryAllMenuId(Long userId);
 
 	/**
-	 * 根据用户名，查询系统用户
+	 * æ ¹æ®ç”¨æˆ·åï¼ŒæŸ¥è¯¢ç³»ç»Ÿç”¨æˆ·
 	 */
 	SysUserEntity queryByUserName(String username);
 
 	/**
-	 * 保存用户
+	 * ä¿å­˜ç”¨æˆ·
 	 */
 	void saveUser(SysUserEntity user);
 	
 	/**
-	 * 修改用户
+	 * ä¿®æ”¹ç”¨æˆ·
 	 */
 	void update(SysUserEntity user);
 	
 	/**
-	 * 删除用户
+	 * åˆ é™¤ç”¨æˆ·
 	 */
 	void deleteBatch(Long[] userIds);
 
 	/**
-	 * 修改密码
-	 * @param userId       用户ID
-	 * @param password     原密码
-	 * @param newPassword  新密码
+	 * ä¿®æ”¹å¯†ç 
+	 * @param userId       ç”¨æˆ·ID
+	 * @param password     åŽŸå¯†ç 
+	 * @param newPassword  æ–°å¯†ç 
 	 */
 	boolean updatePassword(Long userId, String password, String newPassword);
 }

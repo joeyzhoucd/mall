@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.entity;
@@ -18,7 +18,7 @@ import java.util.Date;
 
 
 /**
- * 系统用户Token
+ * ç³»ç»Ÿç”¨æˆ·Token
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -27,14 +27,14 @@ import java.util.Date;
 public class SysUserTokenEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
-	//用户ID
+	//ç”¨æˆ·ID
 	@TableId(type = IdType.INPUT)
 	private Long userId;
 	//token
 	private String token;
-	//过期时间
+	//è¿‡æœŸæ—¶é—´
 	private Date expireTime;
-	//更新时间
+	//æ›´æ–°æ—¶é—´
 	private Date updateTime;
 
 }

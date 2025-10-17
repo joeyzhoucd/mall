@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.entity;
@@ -22,7 +22,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * 系统用户
+ * ç³»ç»Ÿç”¨æˆ·
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -32,58 +32,58 @@ public class SysUserEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	/**
-	 * 用户ID
+	 * ç”¨æˆ·ID
 	 */
 	@TableId
 	private Long userId;
 
 	/**
-	 * 用户名
+	 * ç”¨æˆ·å
 	 */
-	@NotBlank(message="用户名不能为空", groups = {AddGroup.class, UpdateGroup.class})
+	@NotBlank(message="ç”¨æˆ·åä¸èƒ½ä¸ºç©º", groups = {AddGroup.class, UpdateGroup.class})
 	private String username;
 
 	/**
-	 * 密码
+	 * å¯†ç 
 	 */
-	@NotBlank(message="密码不能为空", groups = AddGroup.class)
+	@NotBlank(message="å¯†ç ä¸èƒ½ä¸ºç©º", groups = AddGroup.class)
 	private String password;
 
 	/**
-	 * 盐
+	 * ç›
 	 */
 	private String salt;
 
 	/**
-	 * 邮箱
+	 * é‚®ç®±
 	 */
-	@NotBlank(message="邮箱不能为空", groups = {AddGroup.class, UpdateGroup.class})
-	@Email(message="邮箱格式不正确", groups = {AddGroup.class, UpdateGroup.class})
+	@NotBlank(message="é‚®ç®±ä¸èƒ½ä¸ºç©º", groups = {AddGroup.class, UpdateGroup.class})
+	@Email(message="é‚®ç®±æ ¼å¼ä¸æ­£ç¡®", groups = {AddGroup.class, UpdateGroup.class})
 	private String email;
 
 	/**
-	 * 手机号
+	 * æ‰‹æœºå·
 	 */
 	private String mobile;
 
 	/**
-	 * 状态  0：禁用   1：正常
+	 * çŠ¶æ€  0ï¼šç¦ç”¨   1ï¼šæ­£å¸¸
 	 */
 	private Integer status;
 
 	/**
-	 * 角色ID列表
+	 * è§’è‰²IDåˆ—è¡¨
 	 */
 	@TableField(exist=false)
 	private List<Long> roleIdList;
 
 	/**
-	 * 创建者ID
+	 * åˆ›å»ºè€…ID
 	 */
 	private Long createUserId;
 
 	/**
-	 * 创建时间
+	 * åˆ›å»ºæ—¶é—´
 	 */
 	private Date createTime;
 

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.service.impl;
@@ -34,14 +34,14 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
     private Scheduler scheduler;
 	
 	/**
-	 * 项目启动时，初始化定时器
+	 * é¡¹ç›®å¯åŠ¨æ—¶ï¼Œåˆå§‹åŒ–å®šæ—¶å™¨
 	 */
 	@PostConstruct
 	public void init(){
 		List<ScheduleJobEntity> scheduleJobList = this.list();
 		for(ScheduleJobEntity scheduleJob : scheduleJobList){
 			CronTrigger cronTrigger = ScheduleUtils.getCronTrigger(scheduler, scheduleJob.getJobId());
-            //如果不存在，则创建
+            //å¦‚æžœä¸å­˜åœ¨ï¼Œåˆ™åˆ›å»º
             if(cronTrigger == null) {
                 ScheduleUtils.createScheduleJob(scheduler, scheduleJob);
             }else {
@@ -88,7 +88,7 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
     		ScheduleUtils.deleteScheduleJob(scheduler, jobId);
     	}
     	
-    	//删除数据
+    	//åˆ é™¤æ•°æ®
     	this.removeByIds(Arrays.asList(jobIds));
 	}
 

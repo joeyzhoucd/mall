@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.utils;
@@ -24,7 +24,7 @@ import java.util.Date;
 
 
 /**
- * 定时任务
+ * å®šæ—¶ä»»åŠ¡
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -36,42 +36,42 @@ public class ScheduleJob extends QuartzJobBean {
         ScheduleJobEntity scheduleJob = (ScheduleJobEntity) context.getMergedJobDataMap()
         		.get(ScheduleJobEntity.JOB_PARAM_KEY);
         
-        //获取spring bean
+        //èŽ·å–spring bean
         ScheduleJobLogService scheduleJobLogService = (ScheduleJobLogService) SpringContextUtils.getBean("scheduleJobLogService");
         
-        //数据库保存执行记录
+        //æ•°æ®åº“ä¿å­˜æ‰§è¡Œè®°å½•
         ScheduleJobLogEntity log = new ScheduleJobLogEntity();
         log.setJobId(scheduleJob.getJobId());
         log.setBeanName(scheduleJob.getBeanName());
         log.setParams(scheduleJob.getParams());
         log.setCreateTime(new Date());
         
-        //任务开始时间
+        //ä»»åŠ¡å¼€å§‹æ—¶é—´
         long startTime = System.currentTimeMillis();
         
         try {
-            //执行任务
-        	logger.debug("任务准备执行，任务ID：" + scheduleJob.getJobId());
+            //æ‰§è¡Œä»»åŠ¡
+        	logger.debug("ä»»åŠ¡å‡†å¤‡æ‰§è¡Œï¼Œä»»åŠ¡IDï¼š" + scheduleJob.getJobId());
 
 			Object target = SpringContextUtils.getBean(scheduleJob.getBeanName());
 			Method method = target.getClass().getDeclaredMethod("run", String.class);
 			method.invoke(target, scheduleJob.getParams());
 			
-			//任务执行总时长
+			//ä»»åŠ¡æ‰§è¡Œæ€»æ—¶é•¿
 			long times = System.currentTimeMillis() - startTime;
 			log.setTimes((int)times);
-			//任务状态    0：成功    1：失败
+			//ä»»åŠ¡çŠ¶æ€    0ï¼šæˆåŠŸ    1ï¼šå¤±è´¥
 			log.setStatus(0);
 			
-			logger.debug("任务执行完毕，任务ID：" + scheduleJob.getJobId() + "  总共耗时：" + times + "毫秒");
+			logger.debug("ä»»åŠ¡æ‰§è¡Œå®Œæ¯•ï¼Œä»»åŠ¡IDï¼š" + scheduleJob.getJobId() + "  æ€»å…±è€—æ—¶ï¼š" + times + "æ¯«ç§’");
 		} catch (Exception e) {
-			logger.error("任务执行失败，任务ID：" + scheduleJob.getJobId(), e);
+			logger.error("ä»»åŠ¡æ‰§è¡Œå¤±è´¥ï¼Œä»»åŠ¡IDï¼š" + scheduleJob.getJobId(), e);
 			
-			//任务执行总时长
+			//ä»»åŠ¡æ‰§è¡Œæ€»æ—¶é•¿
 			long times = System.currentTimeMillis() - startTime;
 			log.setTimes((int)times);
 			
-			//任务状态    0：成功    1：失败
+			//ä»»åŠ¡çŠ¶æ€    0ï¼šæˆåŠŸ    1ï¼šå¤±è´¥
 			log.setStatus(1);
 			log.setError(StringUtils.substring(e.toString(), 0, 2000));
 		}finally {

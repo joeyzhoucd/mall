@@ -29,7 +29,7 @@ public class MongoDBCollectionFactory {
 
     private static MongoDatabase mongoDatabase;
 
-    // 此处是为了兼容mongo相关内容和关系型数据库的静态耦合所导致的问题
+    // æ­¤å¤„æ˜¯ä¸ºäº†å…¼å®¹mongoç›¸å…³å†…å®¹å’Œå…³ç³»åž‹æ•°æ®åº“çš„é™æ€è€¦åˆæ‰€å¯¼è‡´çš„é—®é¢˜
 
     @Autowired
     private MongoDatabase database;
@@ -39,23 +39,23 @@ public class MongoDBCollectionFactory {
     }
 
     /***
-     * 通过表名获得查询对象
+     * é€šè¿‡è¡¨åèŽ·å¾—æŸ¥è¯¢å¯¹è±¡
      * @author gxz
      * @date  2020/5/9
-     * @param collectionName mongo的集合名(表名)
-     * @return 连接查询对象
+     * @param collectionName mongoçš„é›†åˆå(è¡¨å)
+     * @return è¿žæŽ¥æŸ¥è¯¢å¯¹è±¡
      **/
     public MongoCollection<Document> getCollection(String collectionName) {
         return mongoDatabase.getCollection(collectionName);
     }
 
     /***
-     * 获得当前数据库的集合名称
-     * 注: mongo相对关系型数据库较为特殊，查询表名无法分页，用stream实现
+     * èŽ·å¾—å½“å‰æ•°æ®åº“çš„é›†åˆåç§°
+     * æ³¨: mongoç›¸å¯¹å…³ç³»åž‹æ•°æ®åº“è¾ƒä¸ºç‰¹æ®Šï¼ŒæŸ¥è¯¢è¡¨åæ— æ³•åˆ†é¡µï¼Œç”¨streamå®žçŽ°
      * @author gxz
      * @date  2020/5/9
-     * @param map 这是查询条件 和关系型数据库一致
-     * @return 集合名称
+     * @param map è¿™æ˜¯æŸ¥è¯¢æ¡ä»¶ å’Œå…³ç³»åž‹æ•°æ®åº“ä¸€è‡´
+     * @return é›†åˆåç§°
      **/
     public static List<String>  getCollectionNames(Map<String, Object> map) {
         int limit = Integer.valueOf(map.get(LIMIT_KEY).toString());
@@ -69,10 +69,10 @@ public class MongoDBCollectionFactory {
         return names.stream().skip(skip).limit(limit).collect(Collectors.toList());
     }
     /***
-     * 获得集合名称总数(表的数量) 为了适配MyBatisPlus的分页插件 提供方法
+     * èŽ·å¾—é›†åˆåç§°æ€»æ•°(è¡¨çš„æ•°é‡) ä¸ºäº†é€‚é…MyBatisPlusçš„åˆ†é¡µæ’ä»¶ æä¾›æ–¹æ³•
      * @author gxz
      * @date  2020/5/9
-     * @param map 这是查询条件 和关系型数据库一致
+     * @param map è¿™æ˜¯æŸ¥è¯¢æ¡ä»¶ å’Œå…³ç³»åž‹æ•°æ®åº“ä¸€è‡´
      * @return int
      **/
     public static int getCollectionTotal(Map<String, Object> map) {

@@ -1,11 +1,11 @@
 package io.renren.utils;
 
 /**
- * 自定义异常
+ * è‡ªå®šä¹‰å¼‚å¸¸
  * 
  * @author chenshun
  * @email sunlightcs@gmail.com
- * @date 2016年10月27日 下午10:11:27
+ * @date 2016å¹´10æœˆ27æ—¥ ä¸‹åˆ10:11:27
  */
 public class RRException extends RuntimeException {
 	private static final long serialVersionUID = 1L;

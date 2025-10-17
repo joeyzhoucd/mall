@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service.impl;
@@ -35,7 +35,7 @@ public class ShiroServiceImpl implements ShiroService {
     public Set<String> getUserPermissions(long userId) {
         List<String> permsList;
 
-        //系统管理员，拥有最高权限
+        //ç³»ç»Ÿç®¡ç†å‘˜ï¼Œæ‹¥æœ‰æœ€é«˜æƒé™
         if(userId == Constant.SUPER_ADMIN){
             List<SysMenuEntity> menuList = sysMenuDao.selectList(null);
             permsList = new ArrayList<>(menuList.size());
@@ -45,7 +45,7 @@ public class ShiroServiceImpl implements ShiroService {
         }else{
             permsList = sysUserDao.queryAllPerms(userId);
         }
-        //用户权限列表
+        //ç”¨æˆ·æƒé™åˆ—è¡¨
         Set<String> permsSet = new HashSet<>();
         for(String perms : permsList){
             if(StringUtils.isBlank(perms)){

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service;
@@ -16,7 +16,7 @@ import java.util.List;
 
 
 /**
- * 用户与角色对应关系
+ * ç”¨æˆ·ä¸Žè§’è‰²å¯¹åº”å…³ç³»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -25,12 +25,12 @@ public interface SysUserRoleService extends IService<SysUserRoleEntity> {
 	void saveOrUpdate(Long userId, List<Long> roleIdList);
 	
 	/**
-	 * 根据用户ID，获取角色ID列表
+	 * æ ¹æ®ç”¨æˆ·IDï¼ŒèŽ·å–è§’è‰²IDåˆ—è¡¨
 	 */
 	List<Long> queryRoleIdList(Long userId);
 
 	/**
-	 * 根据角色ID数组，批量删除
+	 * æ ¹æ®è§’è‰²IDæ•°ç»„ï¼Œæ‰¹é‡åˆ é™¤
 	 */
 	int deleteBatch(Long[] roleIds);
 }

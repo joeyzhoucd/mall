@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.service;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 测试多数据源
+ * æµ‹è¯•å¤šæ•°æ®æº
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -51,7 +51,7 @@ public class DynamicDataSourceTestService {
         user.setMobile("13500000002");
         sysUserDao.updateById(user);
 
-        //测试事物
+        //æµ‹è¯•äº‹ç‰©
         int i = 1/0;
     }
 }

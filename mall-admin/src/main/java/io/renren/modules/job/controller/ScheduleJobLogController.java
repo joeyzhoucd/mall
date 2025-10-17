@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.controller;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * 定时任务日志
+ * å®šæ—¶ä»»åŠ¡æ—¥å¿—
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -33,7 +33,7 @@ public class ScheduleJobLogController {
 	private ScheduleJobLogService scheduleJobLogService;
 	
 	/**
-	 * 定时任务日志列表
+	 * å®šæ—¶ä»»åŠ¡æ—¥å¿—åˆ—è¡¨
 	 */
 	@RequestMapping("/list")
 	@RequiresPermissions("sys:schedule:log")
@@ -44,7 +44,7 @@ public class ScheduleJobLogController {
 	}
 	
 	/**
-	 * 定时任务日志信息
+	 * å®šæ—¶ä»»åŠ¡æ—¥å¿—ä¿¡æ¯
 	 */
 	@RequestMapping("/info/{logId}")
 	public R info(@PathVariable("logId") Long logId){

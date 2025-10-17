@@ -1,15 +1,15 @@
 /**
- * Copyright (c) 2018 人人开源 All rights reserved.
+ * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.datasource.properties;
 
 /**
- * 多数据源属性
+ * å¤šæ•°æ®æºå±žæ€§
  *
  * @author Mark sunlightcs@gmail.com
  * @since 1.0.0
@@ -21,7 +21,7 @@ public class DataSourceProperties {
     private String password;
 
     /**
-     * Druid默认参数
+     * Druidé»˜è®¤å‚æ•°
      */
     private int initialSize = 2;
     private int maxActive = 10;

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.oss.cloud;
@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * 腾讯云存储
+ * è…¾è®¯äº‘å­˜å‚¨
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -31,7 +31,7 @@ public class QcloudCloudStorageService extends CloudStorageService {
     public QcloudCloudStorageService(CloudStorageConfig config){
         this.config = config;
 
-        //初始化
+        //åˆå§‹åŒ–
         init();
     }
 
@@ -39,9 +39,9 @@ public class QcloudCloudStorageService extends CloudStorageService {
     	Credentials credentials = new Credentials(config.getQcloudAppId(), config.getQcloudSecretId(),
                 config.getQcloudSecretKey());
     	
-    	//初始化客户端配置
+    	//åˆå§‹åŒ–å®¢æˆ·ç«¯é…ç½®
         ClientConfig clientConfig = new ClientConfig();
-        //设置bucket所在的区域，华南：gz 华北：tj 华东：sh
+        //è®¾ç½®bucketæ‰€åœ¨çš„åŒºåŸŸï¼ŒåŽå—ï¼šgz åŽåŒ—ï¼štj åŽä¸œï¼šsh
         clientConfig.setRegion(config.getQcloudRegion());
         
     	client = new COSClient(clientConfig, credentials);
@@ -49,18 +49,18 @@ public class QcloudCloudStorageService extends CloudStorageService {
 
     @Override
     public String upload(byte[] data, String path) {
-        //腾讯云必需要以"/"开头
+        //è…¾è®¯äº‘å¿…éœ€è¦ä»¥"/"å¼€å¤´
         if(!path.startsWith("/")) {
             path = "/" + path;
         }
         
-        //上传到腾讯云
+        //ä¸Šä¼ åˆ°è…¾è®¯äº‘
         UploadFileRequest request = new UploadFileRequest(config.getQcloudBucketName(), path, data);
         String response = client.uploadFile(request);
 
         JSONObject jsonObject = JSONObject.parseObject(response);
         if(jsonObject.getInteger("code") != 0) {
-            throw new RRException("文件上传失败，" + jsonObject.getString("message"));
+            throw new RRException("æ–‡ä»¶ä¸Šä¼ å¤±è´¥ï¼Œ" + jsonObject.getString("message"));
         }
 
         return config.getQcloudDomain() + path;
@@ -72,7 +72,7 @@ public class QcloudCloudStorageService extends CloudStorageService {
             byte[] data = IOUtils.toByteArray(inputStream);
             return this.upload(data, path);
         } catch (IOException e) {
-            throw new RRException("上传文件失败", e);
+            throw new RRException("ä¸Šä¼ æ–‡ä»¶å¤±è´¥", e);
         }
     }
 

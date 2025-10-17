@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.config;
@@ -17,7 +17,7 @@ import org.springframework.web.filter.DelegatingFilterProxy;
 import javax.servlet.DispatcherType;
 
 /**
- * Filter配置
+ * Filteré…ç½®
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -28,7 +28,7 @@ public class FilterConfig {
     public FilterRegistrationBean shiroFilterRegistration() {
         FilterRegistrationBean registration = new FilterRegistrationBean();
         registration.setFilter(new DelegatingFilterProxy("shiroFilter"));
-        //该值缺省为false，表示生命周期由SpringApplicationContext管理，设置为true则表示由ServletContainer管理
+        //è¯¥å€¼ç¼ºçœä¸ºfalseï¼Œè¡¨ç¤ºç”Ÿå‘½å‘¨æœŸç”±SpringApplicationContextç®¡ç†ï¼Œè®¾ç½®ä¸ºtrueåˆ™è¡¨ç¤ºç”±ServletContainerç®¡ç†
         registration.addInitParameter("targetFilterLifecycle", "true");
         registration.setEnabled(true);
         registration.setOrder(Integer.MAX_VALUE - 1);

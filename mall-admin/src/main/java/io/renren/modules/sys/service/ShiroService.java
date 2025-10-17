@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service;
@@ -14,20 +14,20 @@ import io.renren.modules.sys.entity.SysUserTokenEntity;
 import java.util.Set;
 
 /**
- * shiro相关接口
+ * shiroç›¸å…³æŽ¥å£
  *
  * @author Mark sunlightcs@gmail.com
  */
 public interface ShiroService {
     /**
-     * 获取用户权限列表
+     * èŽ·å–ç”¨æˆ·æƒé™åˆ—è¡¨
      */
     Set<String> getUserPermissions(long userId);
 
     SysUserTokenEntity queryByToken(String token);
 
     /**
-     * 根据用户ID，查询用户
+     * æ ¹æ®ç”¨æˆ·IDï¼ŒæŸ¥è¯¢ç”¨æˆ·
      * @param userId
      */
     SysUserEntity queryUser(Long userId);

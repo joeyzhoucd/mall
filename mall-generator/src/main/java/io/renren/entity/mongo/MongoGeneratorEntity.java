@@ -7,16 +7,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * mysql一张表只需要一个表信息和列名信息
- * 但是mongo一张表可能需要多个实体类  所以单独用一个bean封装
+ * mysqlä¸€å¼ è¡¨åªéœ€è¦ä¸€ä¸ªè¡¨ä¿¡æ¯å’Œåˆ—åä¿¡æ¯
+ * ä½†æ˜¯mongoä¸€å¼ è¡¨å¯èƒ½éœ€è¦å¤šä¸ªå®žä½“ç±»  æ‰€ä»¥å•ç‹¬ç”¨ä¸€ä¸ªbeanå°è£…
  *
  * @author gxz
  * @date 2020/5/10 0:14
  */
 public class MongoGeneratorEntity {
-    /***表信息**/
+    /***è¡¨ä¿¡æ¯**/
     private Map<String, String> tableInfo;
-    /***主类的列名信息**/
+    /***ä¸»ç±»çš„åˆ—åä¿¡æ¯**/
     private List<Map<String, String>> columns;
 
 

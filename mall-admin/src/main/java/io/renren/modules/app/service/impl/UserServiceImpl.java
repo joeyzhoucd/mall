@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.app.service.impl;
@@ -32,11 +32,11 @@ public class UserServiceImpl extends ServiceImpl<UserDao, UserEntity> implements
 	@Override
 	public long login(LoginForm form) {
 		UserEntity user = queryByMobile(form.getMobile());
-		Assert.isNull(user, "手机号或密码错误");
+		Assert.isNull(user, "æ‰‹æœºå·æˆ–å¯†ç é”™è¯¯");
 
-		//密码错误
+		//å¯†ç é”™è¯¯
 		if(!user.getPassword().equals(DigestUtils.sha256Hex(form.getPassword()))){
-			throw new RRException("手机号或密码错误");
+			throw new RRException("æ‰‹æœºå·æˆ–å¯†ç é”™è¯¯");
 		}
 
 		return user.getUserId();

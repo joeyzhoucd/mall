@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.controller;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 角色管理
+ * è§’è‰²ç®¡ç†
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -38,12 +38,12 @@ public class SysRoleController extends AbstractController {
 	private SysRoleMenuService sysRoleMenuService;
 
 	/**
-	 * 角色列表
+	 * è§’è‰²åˆ—è¡¨
 	 */
 	@GetMapping("/list")
 	@RequiresPermissions("sys:role:list")
 	public R list(@RequestParam Map<String, Object> params){
-		//如果不是超级管理员，则只查询自己创建的角色列表
+		//å¦‚æžœä¸æ˜¯è¶…çº§ç®¡ç†å‘˜ï¼Œåˆ™åªæŸ¥è¯¢è‡ªå·±åˆ›å»ºçš„è§’è‰²åˆ—è¡¨
 		if(getUserId() != Constant.SUPER_ADMIN){
 			params.put("createUserId", getUserId());
 		}
@@ -54,14 +54,14 @@ public class SysRoleController extends AbstractController {
 	}
 	
 	/**
-	 * 角色列表
+	 * è§’è‰²åˆ—è¡¨
 	 */
 	@GetMapping("/select")
 	@RequiresPermissions("sys:role:select")
 	public R select(){
 		Map<String, Object> map = new HashMap<>();
 		
-		//如果不是超级管理员，则只查询自己所拥有的角色列表
+		//å¦‚æžœä¸æ˜¯è¶…çº§ç®¡ç†å‘˜ï¼Œåˆ™åªæŸ¥è¯¢è‡ªå·±æ‰€æ‹¥æœ‰çš„è§’è‰²åˆ—è¡¨
 		if(getUserId() != Constant.SUPER_ADMIN){
 			map.put("create_user_id", getUserId());
 		}
@@ -71,14 +71,14 @@ public class SysRoleController extends AbstractController {
 	}
 	
 	/**
-	 * 角色信息
+	 * è§’è‰²ä¿¡æ¯
 	 */
 	@GetMapping("/info/{roleId}")
 	@RequiresPermissions("sys:role:info")
 	public R info(@PathVariable("roleId") Long roleId){
 		SysRoleEntity role = sysRoleService.getById(roleId);
 		
-		//查询角色对应的菜单
+		//æŸ¥è¯¢è§’è‰²å¯¹åº”çš„èœå•
 		List<Long> menuIdList = sysRoleMenuService.queryMenuIdList(roleId);
 		role.setMenuIdList(menuIdList);
 		
@@ -86,9 +86,9 @@ public class SysRoleController extends AbstractController {
 	}
 	
 	/**
-	 * 保存角色
+	 * ä¿å­˜è§’è‰²
 	 */
-	@SysLog("保存角色")
+	@SysLog("ä¿å­˜è§’è‰²")
 	@PostMapping("/save")
 	@RequiresPermissions("sys:role:save")
 	public R save(@RequestBody SysRoleEntity role){
@@ -101,9 +101,9 @@ public class SysRoleController extends AbstractController {
 	}
 	
 	/**
-	 * 修改角色
+	 * ä¿®æ”¹è§’è‰²
 	 */
-	@SysLog("修改角色")
+	@SysLog("ä¿®æ”¹è§’è‰²")
 	@PostMapping("/update")
 	@RequiresPermissions("sys:role:update")
 	public R update(@RequestBody SysRoleEntity role){
@@ -116,9 +116,9 @@ public class SysRoleController extends AbstractController {
 	}
 	
 	/**
-	 * 删除角色
+	 * åˆ é™¤è§’è‰²
 	 */
-	@SysLog("删除角色")
+	@SysLog("åˆ é™¤è§’è‰²")
 	@PostMapping("/delete")
 	@RequiresPermissions("sys:role:delete")
 	public R delete(@RequestBody Long[] roleIds){

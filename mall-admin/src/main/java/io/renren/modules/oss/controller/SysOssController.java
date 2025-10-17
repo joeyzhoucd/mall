@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.oss.controller;
@@ -30,7 +30,7 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * 文件上传
+ * æ–‡ä»¶ä¸Šä¼ 
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -45,7 +45,7 @@ public class SysOssController {
     private final static String KEY = ConfigConstant.CLOUD_STORAGE_CONFIG_KEY;
 	
 	/**
-	 * 列表
+	 * åˆ—è¡¨
 	 */
 	@GetMapping("/list")
 	@RequiresPermissions("sys:oss:all")
@@ -57,7 +57,7 @@ public class SysOssController {
 
 
     /**
-     * 云存储配置信息
+     * äº‘å­˜å‚¨é…ç½®ä¿¡æ¯
      */
     @GetMapping("/config")
     @RequiresPermissions("sys:oss:all")
@@ -69,12 +69,12 @@ public class SysOssController {
 
 
 	/**
-	 * 保存云存储配置信息
+	 * ä¿å­˜äº‘å­˜å‚¨é…ç½®ä¿¡æ¯
 	 */
 	@PostMapping("/saveConfig")
 	@RequiresPermissions("sys:oss:all")
 	public R saveConfig(@RequestBody CloudStorageConfig config){
-		//校验类型
+		//æ ¡éªŒç±»åž‹
 		ValidatorUtils.validateEntity(config);
 		ValidatorUtils.validateEntity(config, Constant.CloudService.getByValue(config.getType()));
 
@@ -85,20 +85,20 @@ public class SysOssController {
 	
 
 	/**
-	 * 上传文件
+	 * ä¸Šä¼ æ–‡ä»¶
 	 */
 	@PostMapping("/upload")
 	@RequiresPermissions("sys:oss:all")
 	public R upload(@RequestParam("file") MultipartFile file) throws Exception {
 		if (file.isEmpty()) {
-			throw new RRException("上传文件不能为空");
+			throw new RRException("ä¸Šä¼ æ–‡ä»¶ä¸èƒ½ä¸ºç©º");
 		}
 
-		//上传文件
+		//ä¸Šä¼ æ–‡ä»¶
 		String suffix = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
 		String url = OSSFactory.build().uploadSuffix(file.getBytes(), suffix);
 
-		//保存文件信息
+		//ä¿å­˜æ–‡ä»¶ä¿¡æ¯
 		SysOssEntity ossEntity = new SysOssEntity();
 		ossEntity.setUrl(url);
 		ossEntity.setCreateDate(new Date());
@@ -109,7 +109,7 @@ public class SysOssController {
 
 
 	/**
-	 * 删除
+	 * åˆ é™¤
 	 */
 	@PostMapping("/delete")
 	@RequiresPermissions("sys:oss:all")

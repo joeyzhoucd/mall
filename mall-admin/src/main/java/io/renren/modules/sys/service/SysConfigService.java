@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service;
@@ -15,7 +15,7 @@ import io.renren.modules.sys.entity.SysConfigEntity;
 import java.util.Map;
 
 /**
- * 系统配置信息
+ * ç³»ç»Ÿé…ç½®ä¿¡æ¯
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -24,36 +24,36 @@ public interface SysConfigService extends IService<SysConfigEntity> {
 	PageUtils queryPage(Map<String, Object> params);
 	
 	/**
-	 * 保存配置信息
+	 * ä¿å­˜é…ç½®ä¿¡æ¯
 	 */
 	public void saveConfig(SysConfigEntity config);
 	
 	/**
-	 * 更新配置信息
+	 * æ›´æ–°é…ç½®ä¿¡æ¯
 	 */
 	public void update(SysConfigEntity config);
 	
 	/**
-	 * 根据key，更新value
+	 * æ ¹æ®keyï¼Œæ›´æ–°value
 	 */
 	public void updateValueByKey(String key, String value);
 	
 	/**
-	 * 删除配置信息
+	 * åˆ é™¤é…ç½®ä¿¡æ¯
 	 */
 	public void deleteBatch(Long[] ids);
 	
 	/**
-	 * 根据key，获取配置的value值
+	 * æ ¹æ®keyï¼ŒèŽ·å–é…ç½®çš„valueå€¼
 	 * 
 	 * @param key           key
 	 */
 	public String getValue(String key);
 	
 	/**
-	 * 根据key，获取value的Object对象
+	 * æ ¹æ®keyï¼ŒèŽ·å–valueçš„Objectå¯¹è±¡
 	 * @param key    key
-	 * @param clazz  Object对象
+	 * @param clazz  Objectå¯¹è±¡
 	 */
 	public <T> T getConfigObject(String key, Class<T> clazz);
 	

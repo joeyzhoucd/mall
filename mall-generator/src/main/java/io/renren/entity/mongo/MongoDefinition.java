@@ -8,29 +8,29 @@ import java.util.*;
 
 
 /**
- * 解析表之后得到的信息实体
- * 换句话说这个类就是一张mongo一张表的内容
+ * è§£æžè¡¨ä¹‹åŽå¾—åˆ°çš„ä¿¡æ¯å®žä½“
+ * æ¢å¥è¯è¯´è¿™ä¸ªç±»å°±æ˜¯ä¸€å¼ mongoä¸€å¼ è¡¨çš„å†…å®¹
  *
  * @author gxz 514190950@qq.com
  */
 
 public class MongoDefinition implements Serializable {
-    /***属性名**/
+    /***å±žæ€§å**/
     private String propertyName;
-    /***属性类型 对应mongodb api $type   如果没有类型 表示这是一个顶层实体  而不是内嵌属性**/
+    /***å±žæ€§ç±»åž‹ å¯¹åº”mongodb api $type   å¦‚æžœæ²¡æœ‰ç±»åž‹ è¡¨ç¤ºè¿™æ˜¯ä¸€ä¸ªé¡¶å±‚å®žä½“  è€Œä¸æ˜¯å†…åµŒå±žæ€§**/
     private Integer type;
-    /***此属性是否是数组**/
+    /***æ­¤å±žæ€§æ˜¯å¦æ˜¯æ•°ç»„**/
     private boolean array = false;
-    /***如果此属性是对象  那么他仍然有此类型的子类**/
+    /***å¦‚æžœæ­¤å±žæ€§æ˜¯å¯¹è±¡  é‚£ä¹ˆä»–ä»ç„¶æœ‰æ­¤ç±»åž‹çš„å­ç±»**/
     private List<MongoDefinition> child;
 
 
     public List<MongoGeneratorEntity> getChildrenInfo(String tableName) {
         List<MongoGeneratorEntity> result = new ArrayList<>();
         MongoGeneratorEntity info = new MongoGeneratorEntity();
-        // 表信息
+        // è¡¨ä¿¡æ¯
         Map<String, String> tableInfo = MongoTableInfoAdaptor.tableInfo(tableName);
-        // 列名信息
+        // åˆ—åä¿¡æ¯
         List<Map<String, String>> columnsInfo = new ArrayList<>();
         info.setColumns(columnsInfo);
         info.setTableInfo(tableInfo);

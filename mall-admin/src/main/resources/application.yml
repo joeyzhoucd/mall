@@ -11,10 +11,10 @@ server:
     context-path: /admin
 
 spring:
-  # 环境 dev|test|prod
+  #  dev|test|prod
   profiles:
     active: dev
-  # jackson时间格式化
+  # jackson
   jackson:
     time-zone: GMT+8
     date-format: yyyy-MM-dd HH:mm:ss
@@ -41,17 +41,17 @@ spring:
 #mybatis
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  #实体扫描，多个package用逗号或者分号分隔
+  #package
   typeAliasesPackage: io.renren.modules.*.entity
   global-config:
-    #数据库相关配置
+    #
     db-config:
-      #主键类型  AUTO:"数据库ID自增", INPUT:"用户输入ID", ID_WORKER:"全局唯一ID (数字类型唯一ID)", UUID:"全局唯一ID UUID";
+      #  AUTO:"ID", INPUT:"ID", ID_WORKER:"ID (ID)", UUID:"ID UUID";
       id-type: AUTO
       logic-delete-value: -1
       logic-not-delete-value: 0
     banner: false
-  #原生配置
+  #
   configuration:
     map-underscore-to-camel-case: true
     cache-enabled: false
@@ -64,10 +64,10 @@ renren:
     open: false
   shiro:
     redis: false
-  # APP模块，是通过jwt认证的，如果要使用APP模块，则需要修改【加密秘钥】
+  # APPjwtAPP
   jwt:
-    # 加密秘钥
+    # 
     secret: REDACTED-JWT-SECRET
-    # token有效时长，7天，单位秒
+    # token7
     expire: 604800
     header: token

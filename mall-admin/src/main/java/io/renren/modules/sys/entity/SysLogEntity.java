@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.entity;
@@ -17,7 +17,7 @@ import java.util.Date;
 
 
 /**
- * 系统日志
+ * ç³»ç»Ÿæ—¥å¿—
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -27,19 +27,19 @@ public class SysLogEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	@TableId
 	private Long id;
-	//用户名
+	//ç”¨æˆ·å
 	private String username;
-	//用户操作
+	//ç”¨æˆ·æ“ä½œ
 	private String operation;
-	//请求方法
+	//è¯·æ±‚æ–¹æ³•
 	private String method;
-	//请求参数
+	//è¯·æ±‚å‚æ•°
 	private String params;
-	//执行时长(毫秒)
+	//æ‰§è¡Œæ—¶é•¿(æ¯«ç§’)
 	private Long time;
-	//IP地址
+	//IPåœ°å€
 	private String ip;
-	//创建时间
+	//åˆ›å»ºæ—¶é—´
 	private Date createDate;
 
 }

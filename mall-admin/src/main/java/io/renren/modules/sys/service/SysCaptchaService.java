@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service;
@@ -14,22 +14,22 @@ import io.renren.modules.sys.entity.SysCaptchaEntity;
 import java.awt.image.BufferedImage;
 
 /**
- * 验证码
+ * éªŒè¯ç 
  *
  * @author Mark sunlightcs@gmail.com
  */
 public interface SysCaptchaService extends IService<SysCaptchaEntity> {
 
     /**
-     * 获取图片验证码
+     * èŽ·å–å›¾ç‰‡éªŒè¯ç 
      */
     BufferedImage getCaptcha(String uuid);
 
     /**
-     * 验证码效验
+     * éªŒè¯ç æ•ˆéªŒ
      * @param uuid  uuid
-     * @param code  验证码
-     * @return  true：成功  false：失败
+     * @param code  éªŒè¯ç 
+     * @return  trueï¼šæˆåŠŸ  falseï¼šå¤±è´¥
      */
     boolean validate(String uuid, String code);
 }

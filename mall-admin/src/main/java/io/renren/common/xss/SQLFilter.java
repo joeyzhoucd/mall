@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.xss;
@@ -12,36 +12,36 @@ import io.renren.common.exception.RRException;
 import org.apache.commons.lang.StringUtils;
 
 /**
- * SQL过滤
+ * SQLè¿‡æ»¤
  *
  * @author Mark sunlightcs@gmail.com
  */
 public class SQLFilter {
 
     /**
-     * SQL注入过滤
-     * @param str  待验证的字符串
+     * SQLæ³¨å…¥è¿‡æ»¤
+     * @param str  å¾…éªŒè¯çš„å­—ç¬¦ä¸²
      */
     public static String sqlInject(String str){
         if(StringUtils.isBlank(str)){
             return null;
         }
-        //去掉'|"|;|\字符
+        //åŽ»æŽ‰'|"|;|\å­—ç¬¦
         str = StringUtils.replace(str, "'", "");
         str = StringUtils.replace(str, "\"", "");
         str = StringUtils.replace(str, ";", "");
         str = StringUtils.replace(str, "\\", "");
 
-        //转换成小写
+        //è½¬æ¢æˆå°å†™
         str = str.toLowerCase();
 
-        //非法字符
+        //éžæ³•å­—ç¬¦
         String[] keywords = {"master", "truncate", "insert", "select", "delete", "update", "declare", "alter", "drop"};
 
-        //判断是否包含非法字符
+        //åˆ¤æ–­æ˜¯å¦åŒ…å«éžæ³•å­—ç¬¦
         for(String keyword : keywords){
             if(str.indexOf(keyword) != -1){
-                throw new RRException("包含非法字符");
+                throw new RRException("åŒ…å«éžæ³•å­—ç¬¦");
             }
         }
 

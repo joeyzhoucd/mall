@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service.impl;
@@ -34,7 +34,7 @@ import java.util.Map;
 
 
 /**
- * 系统用户
+ * ç³»ç»Ÿç”¨æˆ·
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -79,16 +79,16 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserDao, SysUserEntity> i
 	@Transactional
 	public void saveUser(SysUserEntity user) {
 		user.setCreateTime(new Date());
-		//sha256加密
+		//sha256åŠ å¯†
 		String salt = RandomStringUtils.randomAlphanumeric(20);
 		user.setPassword(new Sha256Hash(user.getPassword(), salt).toHex());
 		user.setSalt(salt);
 		this.save(user);
 		
-		//检查角色是否越权
+		//æ£€æŸ¥è§’è‰²æ˜¯å¦è¶Šæƒ
 		checkRole(user);
 		
-		//保存用户与角色关系
+		//ä¿å­˜ç”¨æˆ·ä¸Žè§’è‰²å…³ç³»
 		sysUserRoleService.saveOrUpdate(user.getUserId(), user.getRoleIdList());
 	}
 
@@ -102,10 +102,10 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserDao, SysUserEntity> i
 		}
 		this.updateById(user);
 		
-		//检查角色是否越权
+		//æ£€æŸ¥è§’è‰²æ˜¯å¦è¶Šæƒ
 		checkRole(user);
 		
-		//保存用户与角色关系
+		//ä¿å­˜ç”¨æˆ·ä¸Žè§’è‰²å…³ç³»
 		sysUserRoleService.saveOrUpdate(user.getUserId(), user.getRoleIdList());
 	}
 
@@ -123,23 +123,23 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserDao, SysUserEntity> i
 	}
 	
 	/**
-	 * 检查角色是否越权
+	 * æ£€æŸ¥è§’è‰²æ˜¯å¦è¶Šæƒ
 	 */
 	private void checkRole(SysUserEntity user){
 		if(user.getRoleIdList() == null || user.getRoleIdList().size() == 0){
 			return;
 		}
-		//如果不是超级管理员，则需要判断用户的角色是否自己创建
+		//å¦‚æžœä¸æ˜¯è¶…çº§ç®¡ç†å‘˜ï¼Œåˆ™éœ€è¦åˆ¤æ–­ç”¨æˆ·çš„è§’è‰²æ˜¯å¦è‡ªå·±åˆ›å»º
 		if(user.getCreateUserId() == Constant.SUPER_ADMIN){
 			return ;
 		}
 		
-		//查询用户创建的角色列表
+		//æŸ¥è¯¢ç”¨æˆ·åˆ›å»ºçš„è§’è‰²åˆ—è¡¨
 		List<Long> roleIdList = sysRoleService.queryRoleIdList(user.getCreateUserId());
 
-		//判断是否越权
+		//åˆ¤æ–­æ˜¯å¦è¶Šæƒ
 		if(!roleIdList.containsAll(user.getRoleIdList())){
-			throw new RRException("新增用户所选角色，不是本人创建");
+			throw new RRException("æ–°å¢žç”¨æˆ·æ‰€é€‰è§’è‰²ï¼Œä¸æ˜¯æœ¬äººåˆ›å»º");
 		}
 	}
 }

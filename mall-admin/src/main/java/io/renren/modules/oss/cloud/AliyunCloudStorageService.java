@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.oss.cloud;
@@ -15,7 +15,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 
 /**
- * 阿里云存储
+ * é˜¿é‡Œäº‘å­˜å‚¨
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -25,7 +25,7 @@ public class AliyunCloudStorageService extends CloudStorageService {
     public AliyunCloudStorageService(CloudStorageConfig config){
         this.config = config;
 
-        //初始化
+        //åˆå§‹åŒ–
         init();
     }
 
@@ -44,7 +44,7 @@ public class AliyunCloudStorageService extends CloudStorageService {
         try {
             client.putObject(config.getAliyunBucketName(), path, inputStream);
         } catch (Exception e){
-            throw new RRException("上传文件失败，请检查配置信息", e);
+            throw new RRException("ä¸Šä¼ æ–‡ä»¶å¤±è´¥ï¼Œè¯·æ£€æŸ¥é…ç½®ä¿¡æ¯", e);
         }
 
         return config.getAliyunDomain() + "/" + path;

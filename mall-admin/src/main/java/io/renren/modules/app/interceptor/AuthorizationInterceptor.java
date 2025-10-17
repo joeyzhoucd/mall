@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.app.interceptor;
@@ -24,7 +24,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * 权限(Token)验证
+ * æƒé™(Token)éªŒè¯
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -48,23 +48,23 @@ public class AuthorizationInterceptor extends HandlerInterceptorAdapter {
             return true;
         }
 
-        //获取用户凭证
+        //èŽ·å–ç”¨æˆ·å‡­è¯
         String token = request.getHeader(jwtUtils.getHeader());
         if(StringUtils.isBlank(token)){
             token = request.getParameter(jwtUtils.getHeader());
         }
 
-        //凭证为空
+        //å‡­è¯ä¸ºç©º
         if(StringUtils.isBlank(token)){
-            throw new RRException(jwtUtils.getHeader() + "不能为空", HttpStatus.UNAUTHORIZED.value());
+            throw new RRException(jwtUtils.getHeader() + "ä¸èƒ½ä¸ºç©º", HttpStatus.UNAUTHORIZED.value());
         }
 
         Claims claims = jwtUtils.getClaimByToken(token);
         if(claims == null || jwtUtils.isTokenExpired(claims.getExpiration())){
-            throw new RRException(jwtUtils.getHeader() + "失效，请重新登录", HttpStatus.UNAUTHORIZED.value());
+            throw new RRException(jwtUtils.getHeader() + "å¤±æ•ˆï¼Œè¯·é‡æ–°ç™»å½•", HttpStatus.UNAUTHORIZED.value());
         }
 
-        //设置userId到request里，后续根据userId，获取用户信息
+        //è®¾ç½®userIdåˆ°requesté‡Œï¼ŒåŽç»­æ ¹æ®userIdï¼ŒèŽ·å–ç”¨æˆ·ä¿¡æ¯
         request.setAttribute(USER_KEY, Long.parseLong(claims.getSubject()));
 
         return true;

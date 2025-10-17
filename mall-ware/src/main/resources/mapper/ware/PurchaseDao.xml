@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.joeyzhoucd.ware.dao.PurchaseDao">
+<mapper namespace="com.mall.ware.dao.PurchaseDao">
 
-    <resultMap id="purchaseMap" type="com.joeyzhoucd.ware.entity.PurchaseEntity">
+    <resultMap id="purchaseMap" type="com.mall.ware.entity.PurchaseEntity">
         <result property="id" column="id"/>
         <result property="assigneeId" column="assignee_id"/>
         <result property="assigneeName" column="assignee_name"/>

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.entity;
@@ -19,7 +19,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * 角色
+ * è§’è‰²
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -29,24 +29,24 @@ public class SysRoleEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	/**
-	 * 角色ID
+	 * è§’è‰²ID
 	 */
 	@TableId
 	private Long roleId;
 
 	/**
-	 * 角色名称
+	 * è§’è‰²åç§°
 	 */
-	@NotBlank(message="角色名称不能为空")
+	@NotBlank(message="è§’è‰²åç§°ä¸èƒ½ä¸ºç©º")
 	private String roleName;
 
 	/**
-	 * 备注
+	 * å¤‡æ³¨
 	 */
 	private String remark;
 	
 	/**
-	 * 创建者ID
+	 * åˆ›å»ºè€…ID
 	 */
 	private Long createUserId;
 
@@ -54,7 +54,7 @@ public class SysRoleEntity implements Serializable {
 	private List<Long> menuIdList;
 	
 	/**
-	 * 创建时间
+	 * åˆ›å»ºæ—¶é—´
 	 */
 	private Date createTime;
 

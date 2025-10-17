@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.app.controller;
@@ -26,13 +26,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * APP登录授权
+ * APPç™»å½•æŽˆæƒ
  *
  * @author Mark sunlightcs@gmail.com
  */
 @RestController
 @RequestMapping("/app")
-@Api("APP登录接口")
+@Api("APPç™»å½•æŽ¥å£")
 public class AppLoginController {
     @Autowired
     private UserService userService;
@@ -40,18 +40,18 @@ public class AppLoginController {
     private JwtUtils jwtUtils;
 
     /**
-     * 登录
+     * ç™»å½•
      */
     @PostMapping("login")
-    @ApiOperation("登录")
+    @ApiOperation("ç™»å½•")
     public R login(@RequestBody LoginForm form){
-        //表单校验
+        //è¡¨å•æ ¡éªŒ
         ValidatorUtils.validateEntity(form);
 
-        //用户登录
+        //ç”¨æˆ·ç™»å½•
         long userId = userService.login(form);
 
-        //生成token
+        //ç”Ÿæˆtoken
         String token = jwtUtils.generateToken(userId);
 
         Map<String, Object> map = new HashMap<>();

@@ -4,11 +4,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 返回数据
+ * è¿”å›žæ•°æ®
  * 
  * @author chenshun
  * @email sunlightcs@gmail.com
- * @date 2016年10月27日 下午9:59:27
+ * @date 2016å¹´10æœˆ27æ—¥ ä¸‹åˆ9:59:27
  */
 public class R extends HashMap<String, Object> {
 	private static final long serialVersionUID = 1L;
@@ -18,7 +18,7 @@ public class R extends HashMap<String, Object> {
 	}
 	
 	public static R error() {
-		return error(500, "未知异常，请联系管理员");
+		return error(500, "æœªçŸ¥å¼‚å¸¸ï¼Œè¯·è”ç³»ç®¡ç†å‘˜");
 	}
 	
 	public static R error(String msg) {

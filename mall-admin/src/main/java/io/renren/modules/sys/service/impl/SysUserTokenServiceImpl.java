@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service.impl;
@@ -21,21 +21,21 @@ import java.util.Date;
 
 @Service("sysUserTokenService")
 public class SysUserTokenServiceImpl extends ServiceImpl<SysUserTokenDao, SysUserTokenEntity> implements SysUserTokenService {
-	//12小时后过期
+	//12å°æ—¶åŽè¿‡æœŸ
 	private final static int EXPIRE = 3600 * 12;
 
 
 	@Override
 	public R createToken(long userId) {
-		//生成一个token
+		//ç”Ÿæˆä¸€ä¸ªtoken
 		String token = TokenGenerator.generateValue();
 
-		//当前时间
+		//å½“å‰æ—¶é—´
 		Date now = new Date();
-		//过期时间
+		//è¿‡æœŸæ—¶é—´
 		Date expireTime = new Date(now.getTime() + EXPIRE * 1000);
 
-		//判断是否生成过token
+		//åˆ¤æ–­æ˜¯å¦ç”Ÿæˆè¿‡token
 		SysUserTokenEntity tokenEntity = this.getById(userId);
 		if(tokenEntity == null){
 			tokenEntity = new SysUserTokenEntity();
@@ -44,14 +44,14 @@ public class SysUserTokenServiceImpl extends ServiceImpl<SysUserTokenDao, SysUse
 			tokenEntity.setUpdateTime(now);
 			tokenEntity.setExpireTime(expireTime);
 
-			//保存token
+			//ä¿å­˜token
 			this.save(tokenEntity);
 		}else{
 			tokenEntity.setToken(token);
 			tokenEntity.setUpdateTime(now);
 			tokenEntity.setExpireTime(expireTime);
 
-			//更新token
+			//æ›´æ–°token
 			this.updateById(tokenEntity);
 		}
 
@@ -62,10 +62,10 @@ public class SysUserTokenServiceImpl extends ServiceImpl<SysUserTokenDao, SysUse
 
 	@Override
 	public void logout(long userId) {
-		//生成一个token
+		//ç”Ÿæˆä¸€ä¸ªtoken
 		String token = TokenGenerator.generateValue();
 
-		//修改token
+		//ä¿®æ”¹token
 		SysUserTokenEntity tokenEntity = new SysUserTokenEntity();
 		tokenEntity.setUserId(userId);
 		tokenEntity.setToken(token);

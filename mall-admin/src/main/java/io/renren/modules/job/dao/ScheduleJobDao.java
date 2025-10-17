@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.dao;
@@ -15,7 +15,7 @@ import org.apache.ibatis.annotations.Mapper;
 import java.util.Map;
 
 /**
- * 定时任务
+ * å®šæ—¶ä»»åŠ¡
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -23,7 +23,7 @@ import java.util.Map;
 public interface ScheduleJobDao extends BaseMapper<ScheduleJobEntity> {
 	
 	/**
-	 * 批量更新状态
+	 * æ‰¹é‡æ›´æ–°çŠ¶æ€
 	 */
 	int updateBatch(Map<String, Object> map);
 }

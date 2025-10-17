@@ -1,11 +1,11 @@
 package io.renren.utils;
 
 /**
- * 常量
+ * å¸¸é‡
  * 
  * @author chenshun
  * @email sunlightcs@gmail.com
- * @date 2016年11月15日 下午1:23:52
+ * @date 2016å¹´11æœˆ15æ—¥ ä¸‹åˆ1:23:52
  */
 public class Constant {
 

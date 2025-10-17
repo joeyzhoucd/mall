@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.aspect;
@@ -18,7 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Redis切面处理类
+ * Redisåˆ‡é¢å¤„ç†ç±»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -26,7 +26,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RedisAspect {
     private Logger logger = LoggerFactory.getLogger(getClass());
-    //是否开启redis缓存  true开启   false关闭
+    //æ˜¯å¦å¼€å¯redisç¼“å­˜  trueå¼€å¯   falseå…³é—­
     @Value("${spring.redis.open: false}")
     private boolean open;
 
@@ -38,7 +38,7 @@ public class RedisAspect {
                 result = point.proceed();
             }catch (Exception e){
                 logger.error("redis error", e);
-                throw new RRException("Redis服务异常");
+                throw new RRException("RedisæœåŠ¡å¼‚å¸¸");
             }
         }
         return result;

@@ -1,0 +1,43 @@
+package com.mall.member.entity;
+
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+import java.io.Serializable;
+
+/**
+ * ä¼šå‘˜æ”¶è—çš„ä¸“é¢˜æ´»åŠ¨
+ * 
+ * @author joeyzhou
+ * @email eryueshier@gmail.com
+ * @date 2025-03-30 23:25:02
+ */
+@Data
+@TableName("ums_member_collect_subject")
+public class MemberCollectSubjectEntity implements Serializable {
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * id
+	 */
+	@TableId
+	private Long id;
+	/**
+	 * subject_id
+	 */
+	private Long subjectId;
+	/**
+	 * subject_name
+	 */
+	private String subjectName;
+	/**
+	 * subject_img
+	 */
+	private String subjectImg;
+	/**
+	 * æ´»åŠ¨url
+	 */
+	private String subjectUrll;
+
+}

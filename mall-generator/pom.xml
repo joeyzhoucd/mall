@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.joeyzhoucd</groupId>
+	<groupId>com.mall</groupId>
 	<artifactId>mall-generator</artifactId>
 	<version>1.0.0</version>
 	<packaging>jar</packaging>
@@ -98,30 +98,30 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-		<!-- mysql驱动 -->
+		<!-- mysqlé©±åŠ¨ -->
 		<dependency>
 			<groupId>mysql</groupId>
 			<artifactId>mysql-connector-java</artifactId>
 			<version>${mysql.version}</version>
 		</dependency>
-		<!-- oracle驱动 -->
+		<!-- oracleé©±åŠ¨ -->
 		<dependency>
 			<groupId>com.oracle</groupId>
 			<artifactId>ojdbc6</artifactId>
 			<version>${oracle.version}</version>
 		</dependency>
-		<!-- sqlserver驱动 -->
+		<!-- sqlserveré©±åŠ¨ -->
 		<dependency>
 			<groupId>com.microsoft.sqlserver</groupId>
 			<artifactId>sqljdbc4</artifactId>
 			<version>${mssql.version}</version>
 		</dependency>
-		<!-- postgresql驱动 -->
+		<!-- postgresqlé©±åŠ¨ -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 		</dependency>
-		<!-- mongo驱动 -->
+		<!-- mongoé©±åŠ¨ -->
 		<dependency>
 			<groupId>org.mongodb</groupId>
 			<artifactId>mongo-java-driver</artifactId>

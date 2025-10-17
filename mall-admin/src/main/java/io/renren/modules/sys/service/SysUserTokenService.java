@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service;
@@ -13,21 +13,21 @@ import io.renren.common.utils.R;
 import io.renren.modules.sys.entity.SysUserTokenEntity;
 
 /**
- * 用户Token
+ * ç”¨æˆ·Token
  *
  * @author Mark sunlightcs@gmail.com
  */
 public interface SysUserTokenService extends IService<SysUserTokenEntity> {
 
 	/**
-	 * 生成token
-	 * @param userId  用户ID
+	 * ç”Ÿæˆtoken
+	 * @param userId  ç”¨æˆ·ID
 	 */
 	R createToken(long userId);
 
 	/**
-	 * 退出，修改token值
-	 * @param userId  用户ID
+	 * é€€å‡ºï¼Œä¿®æ”¹tokenå€¼
+	 * @param userId  ç”¨æˆ·ID
 	 */
 	void logout(long userId);
 

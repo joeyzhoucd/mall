@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.validator.group;
@@ -11,7 +11,7 @@ package io.renren.common.validator.group;
 import javax.validation.GroupSequence;
 
 /**
- * 定义校验顺序，如果AddGroup组失败，则UpdateGroup组不会再校验
+ * å®šä¹‰æ ¡éªŒé¡ºåºï¼Œå¦‚æžœAddGroupç»„å¤±è´¥ï¼Œåˆ™UpdateGroupç»„ä¸ä¼šå†æ ¡éªŒ
  *
  * @author Mark sunlightcs@gmail.com
  */

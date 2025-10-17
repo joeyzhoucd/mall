@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.utils;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Redis工具类
+ * Rediså·¥å…·ç±»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -34,9 +34,9 @@ public class RedisUtils {
     private SetOperations<String, Object> setOperations;
     @Autowired
     private ZSetOperations<String, Object> zSetOperations;
-    /**  默认过期时长，单位：秒 */
+    /**  é»˜è®¤è¿‡æœŸæ—¶é•¿ï¼Œå•ä½ï¼šç§’ */
     public final static long DEFAULT_EXPIRE = 60 * 60 * 24;
-    /**  不设置过期时长 */
+    /**  ä¸è®¾ç½®è¿‡æœŸæ—¶é•¿ */
     public final static long NOT_EXPIRE = -1;
     private final static Gson gson = new Gson();
 
@@ -80,7 +80,7 @@ public class RedisUtils {
     }
 
     /**
-     * Object转成JSON数据
+     * Objectè½¬æˆJSONæ•°æ®
      */
     private String toJson(Object object){
         if(object instanceof Integer || object instanceof Long || object instanceof Float ||
@@ -91,7 +91,7 @@ public class RedisUtils {
     }
 
     /**
-     * JSON数据，转成Object
+     * JSONæ•°æ®ï¼Œè½¬æˆObject
      */
     private <T> T fromJson(String json, Class<T> clazz){
         return gson.fromJson(json, clazz);

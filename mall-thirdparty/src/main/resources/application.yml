@@ -9,13 +9,13 @@ feign:
   client:
     config:
       default:
-        connectTimeout: 5000  # 连接超时时间（毫秒）
-        readTimeout: 5000     # 读取超时时间（毫秒）
-        loggerLevel: full     # 日志级别（basic、headers、full 等）
+        connectTimeout: 5000  # 
+        readTimeout: 5000     # 
+        loggerLevel: full     # basicheadersfull 
   httpclient:
-    enabled: true          # 启用 Apache HttpClient 替代默认客户端
-    max-connections: 200  # 最大连接数
-    max-connections-per-route: 50  # 每个路由的最大连接数
+    enabled: true          #  Apache HttpClient 
+    max-connections: 200  # 
+    max-connections-per-route: 50  # 
 aliyun:
   oss:
     endpoint: oss-cn-chengdu.aliyuncs.com

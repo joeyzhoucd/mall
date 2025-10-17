@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service;
@@ -16,37 +16,37 @@ import java.util.List;
 
 
 /**
- * 菜单管理
+ * èœå•ç®¡ç†
  *
  * @author Mark sunlightcs@gmail.com
  */
 public interface SysMenuService extends IService<SysMenuEntity> {
 
 	/**
-	 * 根据父菜单，查询子菜单
-	 * @param parentId 父菜单ID
-	 * @param menuIdList  用户菜单ID
+	 * æ ¹æ®çˆ¶èœå•ï¼ŒæŸ¥è¯¢å­èœå•
+	 * @param parentId çˆ¶èœå•ID
+	 * @param menuIdList  ç”¨æˆ·èœå•ID
 	 */
 	List<SysMenuEntity> queryListParentId(Long parentId, List<Long> menuIdList);
 
 	/**
-	 * 根据父菜单，查询子菜单
-	 * @param parentId 父菜单ID
+	 * æ ¹æ®çˆ¶èœå•ï¼ŒæŸ¥è¯¢å­èœå•
+	 * @param parentId çˆ¶èœå•ID
 	 */
 	List<SysMenuEntity> queryListParentId(Long parentId);
 	
 	/**
-	 * 获取不包含按钮的菜单列表
+	 * èŽ·å–ä¸åŒ…å«æŒ‰é’®çš„èœå•åˆ—è¡¨
 	 */
 	List<SysMenuEntity> queryNotButtonList();
 	
 	/**
-	 * 获取用户菜单列表
+	 * èŽ·å–ç”¨æˆ·èœå•åˆ—è¡¨
 	 */
 	List<SysMenuEntity> getUserMenuList(Long userId);
 
 	/**
-	 * 删除
+	 * åˆ é™¤
 	 */
 	void delete(Long menuId);
 }

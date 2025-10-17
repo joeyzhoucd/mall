@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.dao;
@@ -15,7 +15,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 /**
- * 系统配置信息
+ * ç³»ç»Ÿé…ç½®ä¿¡æ¯
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -23,12 +23,12 @@ import org.apache.ibatis.annotations.Param;
 public interface SysConfigDao extends BaseMapper<SysConfigEntity> {
 
 	/**
-	 * 根据key，查询value
+	 * æ ¹æ®keyï¼ŒæŸ¥è¯¢value
 	 */
 	SysConfigEntity queryByKey(String paramKey);
 
 	/**
-	 * 根据key，更新value
+	 * æ ¹æ®keyï¼Œæ›´æ–°value
 	 */
 	int updateValueByKey(@Param("paramKey") String paramKey, @Param("paramValue") String paramValue);
 	

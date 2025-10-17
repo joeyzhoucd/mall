@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.config;
@@ -34,9 +34,9 @@ public class SwaggerConfig implements WebMvcConfigurer {
         return new Docket(DocumentationType.SWAGGER_2)
             .apiInfo(apiInfo())
             .select()
-            //加了ApiOperation注解的类，才生成接口文档
+            //åŠ äº†ApiOperationæ³¨è§£çš„ç±»ï¼Œæ‰ç”ŸæˆæŽ¥å£æ–‡æ¡£
             .apis(RequestHandlerSelectors.withMethodAnnotation(ApiOperation.class))
-            //包下的类，才生成接口文档
+            //åŒ…ä¸‹çš„ç±»ï¼Œæ‰ç”ŸæˆæŽ¥å£æ–‡æ¡£
             //.apis(RequestHandlerSelectors.basePackage("io.renren.controller"))
             .paths(PathSelectors.any())
             .build()
@@ -45,8 +45,8 @@ public class SwaggerConfig implements WebMvcConfigurer {
 
     private ApiInfo apiInfo() {
         return new ApiInfoBuilder()
-            .title("人人开源")
-            .description("renren-fast文档")
+            .title("äººäººå¼€æº")
+            .description("renren-fastæ–‡æ¡£")
             .termsOfServiceUrl("https://www.renren.io")
             .version("3.0.0")
             .build();

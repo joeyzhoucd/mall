@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.common.xss;
@@ -23,14 +23,14 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * XSS过滤处理
+ * XSSè¿‡æ»¤å¤„ç†
  *
  * @author Mark sunlightcs@gmail.com
  */
 public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
-    //没被包装过的HttpServletRequest（特殊场景，需要自己过滤）
+    //æ²¡è¢«åŒ…è£…è¿‡çš„HttpServletRequestï¼ˆç‰¹æ®Šåœºæ™¯ï¼Œéœ€è¦è‡ªå·±è¿‡æ»¤ï¼‰
     HttpServletRequest orgRequest;
-    //html过滤
+    //htmlè¿‡æ»¤
     private final static HTMLFilter htmlFilter = new HTMLFilter();
 
     public XssHttpServletRequestWrapper(HttpServletRequest request) {
@@ -40,18 +40,18 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
 
     @Override
     public ServletInputStream getInputStream() throws IOException {
-        //非json类型，直接返回
+        //éžjsonç±»åž‹ï¼Œç›´æŽ¥è¿”å›ž
         if(!MediaType.APPLICATION_JSON_VALUE.equalsIgnoreCase(super.getHeader(HttpHeaders.CONTENT_TYPE))){
             return super.getInputStream();
         }
 
-        //为空，直接返回
+        //ä¸ºç©ºï¼Œç›´æŽ¥è¿”å›ž
         String json = IOUtils.toString(super.getInputStream(), "utf-8");
         if (StringUtils.isBlank(json)) {
             return super.getInputStream();
         }
 
-        //xss过滤
+        //xssè¿‡æ»¤
         json = xssEncode(json);
         final ByteArrayInputStream bis = new ByteArrayInputStream(json.getBytes("utf-8"));
         return new ServletInputStream() {
@@ -127,14 +127,14 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
     }
 
     /**
-     * 获取最原始的request
+     * èŽ·å–æœ€åŽŸå§‹çš„request
      */
     public HttpServletRequest getOrgRequest() {
         return orgRequest;
     }
 
     /**
-     * 获取最原始的request
+     * èŽ·å–æœ€åŽŸå§‹çš„request
      */
     public static HttpServletRequest getOrgRequest(HttpServletRequest request) {
         if (request instanceof XssHttpServletRequestWrapper) {

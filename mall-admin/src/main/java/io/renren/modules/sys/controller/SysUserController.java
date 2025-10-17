@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.controller;
@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 系统用户
+ * ç³»ç»Ÿç”¨æˆ·
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -44,12 +44,12 @@ public class SysUserController extends AbstractController {
 
 
 	/**
-	 * 所有用户列表
+	 * æ‰€æœ‰ç”¨æˆ·åˆ—è¡¨
 	 */
 	@GetMapping("/list")
 	@RequiresPermissions("sys:user:list")
 	public R list(@RequestParam Map<String, Object> params){
-		//只有超级管理员，才能查看所有管理员列表
+		//åªæœ‰è¶…çº§ç®¡ç†å‘˜ï¼Œæ‰èƒ½æŸ¥çœ‹æ‰€æœ‰ç®¡ç†å‘˜åˆ—è¡¨
 		if(getUserId() != Constant.SUPER_ADMIN){
 			params.put("createUserId", getUserId());
 		}
@@ -59,7 +59,7 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * 获取登录的用户信息
+	 * èŽ·å–ç™»å½•çš„ç”¨æˆ·ä¿¡æ¯
 	 */
 	@GetMapping("/info")
 	public R info(){
@@ -67,36 +67,36 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * 修改登录用户密码
+	 * ä¿®æ”¹ç™»å½•ç”¨æˆ·å¯†ç 
 	 */
-	@SysLog("修改密码")
+	@SysLog("ä¿®æ”¹å¯†ç ")
 	@PostMapping("/password")
 	public R password(@RequestBody PasswordForm form){
-		Assert.isBlank(form.getNewPassword(), "新密码不为能空");
+		Assert.isBlank(form.getNewPassword(), "æ–°å¯†ç ä¸ä¸ºèƒ½ç©º");
 		
-		//sha256加密
+		//sha256åŠ å¯†
 		String password = new Sha256Hash(form.getPassword(), getUser().getSalt()).toHex();
-		//sha256加密
+		//sha256åŠ å¯†
 		String newPassword = new Sha256Hash(form.getNewPassword(), getUser().getSalt()).toHex();
 				
-		//更新密码
+		//æ›´æ–°å¯†ç 
 		boolean flag = sysUserService.updatePassword(getUserId(), password, newPassword);
 		if(!flag){
-			return R.error("原密码不正确");
+			return R.error("åŽŸå¯†ç ä¸æ­£ç¡®");
 		}
 		
 		return R.ok();
 	}
 	
 	/**
-	 * 用户信息
+	 * ç”¨æˆ·ä¿¡æ¯
 	 */
 	@GetMapping("/info/{userId}")
 	@RequiresPermissions("sys:user:info")
 	public R info(@PathVariable("userId") Long userId){
 		SysUserEntity user = sysUserService.getById(userId);
 		
-		//获取用户所属的角色列表
+		//èŽ·å–ç”¨æˆ·æ‰€å±žçš„è§’è‰²åˆ—è¡¨
 		List<Long> roleIdList = sysUserRoleService.queryRoleIdList(userId);
 		user.setRoleIdList(roleIdList);
 		
@@ -104,9 +104,9 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * 保存用户
+	 * ä¿å­˜ç”¨æˆ·
 	 */
-	@SysLog("保存用户")
+	@SysLog("ä¿å­˜ç”¨æˆ·")
 	@PostMapping("/save")
 	@RequiresPermissions("sys:user:save")
 	public R save(@RequestBody SysUserEntity user){
@@ -119,9 +119,9 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * 修改用户
+	 * ä¿®æ”¹ç”¨æˆ·
 	 */
-	@SysLog("修改用户")
+	@SysLog("ä¿®æ”¹ç”¨æˆ·")
 	@PostMapping("/update")
 	@RequiresPermissions("sys:user:update")
 	public R update(@RequestBody SysUserEntity user){
@@ -134,18 +134,18 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * 删除用户
+	 * åˆ é™¤ç”¨æˆ·
 	 */
-	@SysLog("删除用户")
+	@SysLog("åˆ é™¤ç”¨æˆ·")
 	@PostMapping("/delete")
 	@RequiresPermissions("sys:user:delete")
 	public R delete(@RequestBody Long[] userIds){
 		if(ArrayUtils.contains(userIds, 1L)){
-			return R.error("系统管理员不能删除");
+			return R.error("ç³»ç»Ÿç®¡ç†å‘˜ä¸èƒ½åˆ é™¤");
 		}
 		
 		if(ArrayUtils.contains(userIds, getUserId())){
-			return R.error("当前用户不能删除");
+			return R.error("å½“å‰ç”¨æˆ·ä¸èƒ½åˆ é™¤");
 		}
 		
 		sysUserService.deleteBatch(userIds);

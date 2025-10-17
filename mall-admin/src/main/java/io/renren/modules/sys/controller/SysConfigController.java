@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.controller;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * 系统配置信息
+ * ç³»ç»Ÿé…ç½®ä¿¡æ¯
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -33,7 +33,7 @@ public class SysConfigController extends AbstractController {
 	private SysConfigService sysConfigService;
 	
 	/**
-	 * 所有配置列表
+	 * æ‰€æœ‰é…ç½®åˆ—è¡¨
 	 */
 	@GetMapping("/list")
 	@RequiresPermissions("sys:config:list")
@@ -45,7 +45,7 @@ public class SysConfigController extends AbstractController {
 	
 	
 	/**
-	 * 配置信息
+	 * é…ç½®ä¿¡æ¯
 	 */
 	@GetMapping("/info/{id}")
 	@RequiresPermissions("sys:config:info")
@@ -56,9 +56,9 @@ public class SysConfigController extends AbstractController {
 	}
 	
 	/**
-	 * 保存配置
+	 * ä¿å­˜é…ç½®
 	 */
-	@SysLog("保存配置")
+	@SysLog("ä¿å­˜é…ç½®")
 	@PostMapping("/save")
 	@RequiresPermissions("sys:config:save")
 	public R save(@RequestBody SysConfigEntity config){
@@ -70,9 +70,9 @@ public class SysConfigController extends AbstractController {
 	}
 	
 	/**
-	 * 修改配置
+	 * ä¿®æ”¹é…ç½®
 	 */
-	@SysLog("修改配置")
+	@SysLog("ä¿®æ”¹é…ç½®")
 	@PostMapping("/update")
 	@RequiresPermissions("sys:config:update")
 	public R update(@RequestBody SysConfigEntity config){
@@ -84,9 +84,9 @@ public class SysConfigController extends AbstractController {
 	}
 	
 	/**
-	 * 删除配置
+	 * åˆ é™¤é…ç½®
 	 */
-	@SysLog("删除配置")
+	@SysLog("åˆ é™¤é…ç½®")
 	@PostMapping("/delete")
 	@RequiresPermissions("sys:config:delete")
 	public R delete(@RequestBody Long[] ids){

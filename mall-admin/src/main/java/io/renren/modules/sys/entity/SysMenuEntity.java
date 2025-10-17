@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.entity;
@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 菜单管理
+ * èœå•ç®¡ç†
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -28,54 +28,54 @@ public class SysMenuEntity implements Serializable,Comparable<SysMenuEntity> {
 	private static final long serialVersionUID = 1L;
 	
 	/**
-	 * 菜单ID
+	 * èœå•ID
 	 */
 	@TableId
 	private Long menuId;
 
 	/**
-	 * 父菜单ID，一级菜单为0
+	 * çˆ¶èœå•IDï¼Œä¸€çº§èœå•ä¸º0
 	 */
 	private Long parentId;
 	
 	/**
-	 * 父菜单名称
+	 * çˆ¶èœå•åç§°
 	 */
 	@TableField(exist=false)
 	private String parentName;
 
 	/**
-	 * 菜单名称
+	 * èœå•åç§°
 	 */
 	private String name;
 
 	/**
-	 * 菜单URL
+	 * èœå•URL
 	 */
 	private String url;
 
 	/**
-	 * 授权(多个用逗号分隔，如：user:list,user:create)
+	 * æŽˆæƒ(å¤šä¸ªç”¨é€—å·åˆ†éš”ï¼Œå¦‚ï¼šuser:list,user:create)
 	 */
 	private String perms;
 
 	/**
-	 * 类型     0：目录   1：菜单   2：按钮
+	 * ç±»åž‹     0ï¼šç›®å½•   1ï¼šèœå•   2ï¼šæŒ‰é’®
 	 */
 	private Integer type;
 
 	/**
-	 * 菜单图标
+	 * èœå•å›¾æ ‡
 	 */
 	private String icon;
 
 	/**
-	 * 排序
+	 * æŽ’åº
 	 */
 	private Integer orderNum;
 	
 	/**
-	 * ztree属性
+	 * ztreeå±žæ€§
 	 */
 	@TableField(exist=false)
 	private Boolean open;

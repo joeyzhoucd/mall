@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.oss.service;
@@ -15,7 +15,7 @@ import io.renren.modules.oss.entity.SysOssEntity;
 import java.util.Map;
 
 /**
- * 文件上传
+ * æ–‡ä»¶ä¸Šä¼ 
  *
  * @author Mark sunlightcs@gmail.com
  */

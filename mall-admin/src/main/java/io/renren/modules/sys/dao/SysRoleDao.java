@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.dao;
@@ -15,7 +15,7 @@ import org.apache.ibatis.annotations.Mapper;
 import java.util.List;
 
 /**
- * 角色管理
+ * è§’è‰²ç®¡ç†
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -23,7 +23,7 @@ import java.util.List;
 public interface SysRoleDao extends BaseMapper<SysRoleEntity> {
 	
 	/**
-	 * 查询用户创建的角色ID列表
+	 * æŸ¥è¯¢ç”¨æˆ·åˆ›å»ºçš„è§’è‰²IDåˆ—è¡¨
 	 */
 	List<Long> queryRoleIdList(Long createUserId);
 }

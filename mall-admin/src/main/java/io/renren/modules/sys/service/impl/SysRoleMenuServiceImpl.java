@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.sys.service.impl;
@@ -20,7 +20,7 @@ import java.util.List;
 
 
 /**
- * 角色与菜单对应关系
+ * è§’è‰²ä¸Žèœå•å¯¹åº”å…³ç³»
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -30,14 +30,14 @@ public class SysRoleMenuServiceImpl extends ServiceImpl<SysRoleMenuDao, SysRoleM
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void saveOrUpdate(Long roleId, List<Long> menuIdList) {
-		//先删除角色与菜单关系
+		//å…ˆåˆ é™¤è§’è‰²ä¸Žèœå•å…³ç³»
 		deleteBatch(new Long[]{roleId});
 
 		if(menuIdList.size() == 0){
 			return ;
 		}
 
-		//保存角色与菜单关系
+		//ä¿å­˜è§’è‰²ä¸Žèœå•å…³ç³»
 		for(Long menuId : menuIdList){
 			SysRoleMenuEntity sysRoleMenuEntity = new SysRoleMenuEntity();
 			sysRoleMenuEntity.setMenuId(menuId);

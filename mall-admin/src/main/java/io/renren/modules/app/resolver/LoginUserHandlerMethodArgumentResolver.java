@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.app.resolver;
@@ -22,7 +22,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 /**
- * 有@LoginUser注解的方法参数，注入当前登录用户
+ * æœ‰@LoginUseræ³¨è§£çš„æ–¹æ³•å‚æ•°ï¼Œæ³¨å…¥å½“å‰ç™»å½•ç”¨æˆ·
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -39,13 +39,13 @@ public class LoginUserHandlerMethodArgumentResolver implements HandlerMethodArgu
     @Override
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer container,
                                   NativeWebRequest request, WebDataBinderFactory factory) throws Exception {
-        //获取用户ID
+        //èŽ·å–ç”¨æˆ·ID
         Object object = request.getAttribute(AuthorizationInterceptor.USER_KEY, RequestAttributes.SCOPE_REQUEST);
         if(object == null){
             return null;
         }
 
-        //获取用户信息
+        //èŽ·å–ç”¨æˆ·ä¿¡æ¯
         UserEntity user = userService.getById((Long)object);
 
         return user;

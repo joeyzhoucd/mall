@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.entity;
@@ -18,7 +18,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * 定时任务
+ * å®šæ—¶ä»»åŠ¡
  *
  * @author Mark sunlightcs@gmail.com
  */
@@ -28,45 +28,45 @@ public class ScheduleJobEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	/**
-	 * 任务调度参数key
+	 * ä»»åŠ¡è°ƒåº¦å‚æ•°key
 	 */
     public static final String JOB_PARAM_KEY = "JOB_PARAM_KEY";
 	
 	/**
-	 * 任务id
+	 * ä»»åŠ¡id
 	 */
 	@TableId
 	private Long jobId;
 
 	/**
-	 * spring bean名称
+	 * spring beanåç§°
 	 */
-	@NotBlank(message="bean名称不能为空")
+	@NotBlank(message="beanåç§°ä¸èƒ½ä¸ºç©º")
 	private String beanName;
 	
 	/**
-	 * 参数
+	 * å‚æ•°
 	 */
 	private String params;
 	
 	/**
-	 * cron表达式
+	 * cronè¡¨è¾¾å¼
 	 */
-	@NotBlank(message="cron表达式不能为空")
+	@NotBlank(message="cronè¡¨è¾¾å¼ä¸èƒ½ä¸ºç©º")
 	private String cronExpression;
 
 	/**
-	 * 任务状态
+	 * ä»»åŠ¡çŠ¶æ€
 	 */
 	private Integer status;
 
 	/**
-	 * 备注
+	 * å¤‡æ³¨
 	 */
 	private String remark;
 
 	/**
-	 * 创建时间
+	 * åˆ›å»ºæ—¶é—´
 	 */
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private Date createTime;

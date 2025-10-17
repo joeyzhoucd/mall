@@ -49,12 +49,12 @@ public class MongoScanner {
     }
 
     private void scan() {
-        // 初始化
+        // åˆå§‹åŒ–
         initColNames();
-        // 解析属性值
+        // è§£æžå±žæ€§å€¼
         mongoDefinition = scanType();
         MongoManager.putInfo(collection.getNamespace().getCollectionName(), mongoDefinition);
-        // 解析完成之后释放链接资源
+        // è§£æžå®Œæˆä¹‹åŽé‡Šæ”¾é“¾æŽ¥èµ„æº
         this.collection = null;
 
     }
@@ -65,7 +65,7 @@ public class MongoScanner {
 
 
     /**
-     * 功能描述:分组发送聚合函数(获得一级属性名)
+     * åŠŸèƒ½æè¿°:åˆ†ç»„å‘é€èšåˆå‡½æ•°(èŽ·å¾—ä¸€çº§å±žæ€§å)
      *
      * @author : gxz
      */
@@ -81,7 +81,7 @@ public class MongoScanner {
         filed.append("allkeys", new BasicDBObject("$addToSet", "$arrayofkeyvalue.k"));
         BasicDBObject $group = new BasicDBObject("$group", filed);
         List<BasicDBObject> dbStages = Arrays.asList($project, $skip, $limit, $unwind, $group);
-        // System.out.println(dbStages);  发送的聚合函数   获得所有参数名称
+        // System.out.println(dbStages);  å‘é€çš„èšåˆå‡½æ•°   èŽ·å¾—æ‰€æœ‰å‚æ•°åç§°
         AggregateIterable<Document> aggregate = collection.aggregate(dbStages);
         Document document = aggregate.first();
         if (document == null) {
@@ -102,12 +102,12 @@ public class MongoScanner {
 
 
     /**
-     * 如果一个文档是对象类型  获得这个属性的下一级的属性名的集合
-     * 例子: user:{name:"张三",age:12}  传入user  返回[name,age]
+     * å¦‚æžœä¸€ä¸ªæ–‡æ¡£æ˜¯å¯¹è±¡ç±»åž‹  èŽ·å¾—è¿™ä¸ªå±žæ€§çš„ä¸‹ä¸€çº§çš„å±žæ€§åçš„é›†åˆ
+     * ä¾‹å­: user:{name:"å¼ ä¸‰",age:12}  ä¼ å…¥user  è¿”å›ž[name,age]
      *
-     * @param parameterName 上层参数名  这个参数名可以包含一个或多个.
-     *                      注: 参数传递之前需确认:  1.上层属性一定是对象类型
-     * @return 返回这个属性内的所有属性名
+     * @param parameterName ä¸Šå±‚å‚æ•°å  è¿™ä¸ªå‚æ•°åå¯ä»¥åŒ…å«ä¸€ä¸ªæˆ–å¤šä¸ª.
+     *                      æ³¨: å‚æ•°ä¼ é€’ä¹‹å‰éœ€ç¡®è®¤:  1.ä¸Šå±‚å±žæ€§ä¸€å®šæ˜¯å¯¹è±¡ç±»åž‹
+     * @return è¿”å›žè¿™ä¸ªå±žæ€§å†…çš„æ‰€æœ‰å±žæ€§å
      */
     public Set<String> getNextParameterNames(String parameterName) {
         Document condition = new Document(parameterName, new Document("$exists", true));
@@ -129,17 +129,17 @@ public class MongoScanner {
                 names.addAll(documentNames);
             }
         }
-        logger.info("解析" + parameterName + "有" + names.size() + "个子属性");
+        logger.info("è§£æž" + parameterName + "æœ‰" + names.size() + "ä¸ªå­å±žæ€§");
         return names;
     }
 
 
     /**
-     * 功能描述:提供属性名 解析属性类型
-     * 获取相应的属性信息  封装成generator对象
+     * åŠŸèƒ½æè¿°:æä¾›å±žæ€§å è§£æžå±žæ€§ç±»åž‹
+     * èŽ·å–ç›¸åº”çš„å±žæ€§ä¿¡æ¯  å°è£…æˆgeneratorå¯¹è±¡
      *
-     * @return : 解析之后的Model {@see #MongoDefinition}
-     * @param: propertyName 属性名 可以是层级名  比如 name 也可以是info.name
+     * @return : è§£æžä¹‹åŽçš„Model {@see #MongoDefinition}
+     * @param: propertyName å±žæ€§å å¯ä»¥æ˜¯å±‚çº§å  æ¯”å¦‚ name ä¹Ÿå¯ä»¥æ˜¯info.name
      * @see MongoDefinition
      */
 
@@ -161,9 +161,9 @@ public class MongoScanner {
                     if (i == 3) {
                         result.setChild(this.produceChildList(propertyName));
                     }
-                    //1是double 2是string 3是对象 4是数组 16是int 18 是long
+                    //1æ˜¯double 2æ˜¯string 3æ˜¯å¯¹è±¡ 4æ˜¯æ•°ç»„ 16æ˜¯int 18 æ˜¯long
                     result.setType(i);
-                    logger.info("解析[" + propertyName + "]是[List][" + Type.typeInfo(result.getType()) + "]");
+                    logger.info("è§£æž[" + propertyName + "]æ˜¯[List][" + Type.typeInfo(result.getType()) + "]");
                     return result;
                 }
             }
@@ -174,16 +174,16 @@ public class MongoScanner {
                     if (i == 3) {
                         result.setChild(this.produceChildList(propertyName));
                     }
-                    //1是double 2是string 3是对象 4是数组 16是int 18 是long
-                    //到这里就是数组了
+                    //1æ˜¯double 2æ˜¯string 3æ˜¯å¯¹è±¡ 4æ˜¯æ•°ç»„ 16æ˜¯int 18 æ˜¯long
+                    //åˆ°è¿™é‡Œå°±æ˜¯æ•°ç»„äº†
                     result.setType(i);
-                    logger.info("解析[" + propertyName + "]是[" + Type.typeInfo(result.getType()) + "]");
+                    logger.info("è§£æž[" + propertyName + "]æ˜¯[" + Type.typeInfo(result.getType()) + "]");
                     return result;
                 }
             }
             result.setType(2);
         }
-        logger.info("解析[" + propertyName + "]是[" + Type.typeInfo(result.getType()) + "]");
+        logger.info("è§£æž[" + propertyName + "]æ˜¯[" + Type.typeInfo(result.getType()) + "]");
         return result;
     }
 
@@ -205,7 +205,7 @@ public class MongoScanner {
 
 
     /**
-     * 功能描述:解析这个集合的列名  用ForkJoin框架实现
+     * åŠŸèƒ½æè¿°:è§£æžè¿™ä¸ªé›†åˆçš„åˆ—å  ç”¨ForkJoinæ¡†æž¶å®žçŽ°
      */
     private void initColNames() {
         long start = System.currentTimeMillis();
@@ -220,7 +220,7 @@ public class MongoScanner {
         }
         this.colNames = pool.invoke(task);
         logger.info("collection[" + this.collection.getNamespace().getCollectionName() +
-                "]初始化列名成功.....     用时: " + (System.currentTimeMillis() - start) + "毫秒");
+                "]åˆå§‹åŒ–åˆ—åæˆåŠŸ.....     ç”¨æ—¶: " + (System.currentTimeMillis() - start) + "æ¯«ç§’");
     }
 
     private MongoDefinition scanType() {
@@ -233,7 +233,7 @@ public class MongoScanner {
     }
 
     /**
-     * 功能描述:forkJoin多线程框架的实现  通过业务拆分解析类型
+     * åŠŸèƒ½æè¿°:forkJoinå¤šçº¿ç¨‹æ¡†æž¶çš„å®žçŽ°  é€šè¿‡ä¸šåŠ¡æ‹†åˆ†è§£æžç±»åž‹
      */
     class ForkJoinProcessType extends RecursiveTask<List<MongoDefinition>> {
         List<String> names;
@@ -267,10 +267,10 @@ public class MongoScanner {
     }
 
     /**
-     * 功能描述:forkJoin多线程框架的实现  通过业务拆分获得属性名
+     * åŠŸèƒ½æè¿°:forkJoinå¤šçº¿ç¨‹æ¡†æž¶çš„å®žçŽ°  é€šè¿‡ä¸šåŠ¡æ‹†åˆ†èŽ·å¾—å±žæ€§å
      */
     class ForkJoinGetProcessName extends RecursiveTask<List<String>> {
-        private int begin; //查询开始位置
+        private int begin; //æŸ¥è¯¢å¼€å§‹ä½ç½®
         private int end;
         private final int THRESHOLD = 5000;
 
@@ -290,7 +290,7 @@ public class MongoScanner {
                 pre.fork();
                 ForkJoinGetProcessName next = new ForkJoinGetProcessName(middle + 1, end);
                 next.fork();
-                return distinctAndJoin(pre.join(), next.join()); //去重合并
+                return distinctAndJoin(pre.join(), next.join()); //åŽ»é‡åˆå¹¶
             }
         }
     }

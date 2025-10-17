@@ -1,24 +1,24 @@
 /**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
+ * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
  *
  * https://www.renren.io
  *
- * 版权所有，侵权必究！
+ * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
  */
 
 package io.renren.modules.job.task;
 
 /**
- * 定时任务接口，所有定时任务都要实现该接口
+ * å®šæ—¶ä»»åŠ¡æŽ¥å£ï¼Œæ‰€æœ‰å®šæ—¶ä»»åŠ¡éƒ½è¦å®žçŽ°è¯¥æŽ¥å£
  *
  * @author Mark sunlightcs@gmail.com
  */
 public interface ITask {
 
     /**
-     * 执行定时任务接口
+     * æ‰§è¡Œå®šæ—¶ä»»åŠ¡æŽ¥å£
      *
-     * @param params   参数，多参数使用JSON数据
+     * @param params   å‚æ•°ï¼Œå¤šå‚æ•°ä½¿ç”¨JSONæ•°æ®
      */
     void run(String params);
 }

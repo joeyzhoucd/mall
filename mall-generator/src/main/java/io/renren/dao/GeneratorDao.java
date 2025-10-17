@@ -1,5 +1,5 @@
 /**
- * Copyright 2018 人人开源 http://www.renren.io
+ * Copyright 2018 äººäººå¼€æº http://www.renren.io
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 数据库接口
+ * æ•°æ®åº“æŽ¥å£
  *
  * @author Mark sunlightcs@gmail.com
  * @since 2018-07-24
