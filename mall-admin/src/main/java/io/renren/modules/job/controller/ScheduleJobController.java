@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.job.controller;
 
 import io.renren.common.annotation.SysLog;
@@ -21,9 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * å®šæ—¶ä»»åŠ¡
- *
- * @author Mark sunlightcs@gmail.com
+ * Schedule job controller
  */
 @RestController
 @RequestMapping("/sys/schedule")
@@ -32,7 +22,7 @@ public class ScheduleJobController {
 	private ScheduleJobService scheduleJobService;
 	
 	/**
-	 * å®šæ—¶ä»»åŠ¡åˆ—è¡¨
+	 * List schedule jobs
 	 */
 	@RequestMapping("/list")
 	@RequiresPermissions("sys:schedule:list")
@@ -43,7 +33,7 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * å®šæ—¶ä»»åŠ¡ä¿¡æ¯
+	 * Get schedule job info
 	 */
 	@RequestMapping("/info/{jobId}")
 	@RequiresPermissions("sys:schedule:info")
@@ -54,9 +44,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * ä¿å­˜å®šæ—¶ä»»åŠ¡
+	 * Save schedule job
 	 */
-	@SysLog("ä¿å­˜å®šæ—¶ä»»åŠ¡")
+	@SysLog("Save schedule job")
 	@RequestMapping("/save")
 	@RequiresPermissions("sys:schedule:save")
 	public R save(@RequestBody ScheduleJobEntity scheduleJob){
@@ -68,9 +58,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * ä¿®æ”¹å®šæ—¶ä»»åŠ¡
+	 * Update schedule job
 	 */
-	@SysLog("ä¿®æ”¹å®šæ—¶ä»»åŠ¡")
+	@SysLog("Update schedule job")
 	@RequestMapping("/update")
 	@RequiresPermissions("sys:schedule:update")
 	public R update(@RequestBody ScheduleJobEntity scheduleJob){
@@ -82,9 +72,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * åˆ é™¤å®šæ—¶ä»»åŠ¡
+	 * Delete schedule job
 	 */
-	@SysLog("åˆ é™¤å®šæ—¶ä»»åŠ¡")
+	@SysLog("Delete schedule job")
 	@RequestMapping("/delete")
 	@RequiresPermissions("sys:schedule:delete")
 	public R delete(@RequestBody Long[] jobIds){
@@ -94,9 +84,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * ç«‹å³æ‰§è¡Œä»»åŠ¡
+	 * Run schedule job
 	 */
-	@SysLog("ç«‹å³æ‰§è¡Œä»»åŠ¡")
+	@SysLog("Run schedule job")
 	@RequestMapping("/run")
 	@RequiresPermissions("sys:schedule:run")
 	public R run(@RequestBody Long[] jobIds){
@@ -106,9 +96,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * æš‚åœå®šæ—¶ä»»åŠ¡
+	 * Pause schedule job
 	 */
-	@SysLog("æš‚åœå®šæ—¶ä»»åŠ¡")
+	@SysLog("Pause schedule job")
 	@RequestMapping("/pause")
 	@RequiresPermissions("sys:schedule:pause")
 	public R pause(@RequestBody Long[] jobIds){
@@ -118,9 +108,9 @@ public class ScheduleJobController {
 	}
 	
 	/**
-	 * æ¢å¤å®šæ—¶ä»»åŠ¡
+	 * Resume schedule job
 	 */
-	@SysLog("æ¢å¤å®šæ—¶ä»»åŠ¡")
+	@SysLog("Resume schedule job")
 	@RequestMapping("/resume")
 	@RequiresPermissions("sys:schedule:resume")
 	public R resume(@RequestBody Long[] jobIds){

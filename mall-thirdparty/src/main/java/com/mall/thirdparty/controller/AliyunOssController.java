@@ -25,61 +25,59 @@ public class AliyunOssController {
     @Autowired
     private OssProperties properties;
 
-    /**
-     * ç”Ÿæˆ OSS POST Policy å’Œç­¾åï¼Œç”¨äºŽå‰ç«¯ç›´ä¼ 
-     */
+    
     @GetMapping("/policy")
     public R policy() {
         try {
-            // ç”Ÿæˆæ—¥æœŸç›®å½•ï¼ˆæ ¼å¼ï¼šyyyy-MM-dd/ï¼Œå¦‚ 2025-08-28/ï¼‰
+            // Generate directory path with current date format yyyy-MM-dd/
             String dateDir = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + "/";
 
-            // è®¾ç½® Policy è¿‡æœŸæ—¶é—´ï¼ˆ1 å°æ—¶åŽï¼‰ï¼Œæ ¼å¼ä¸º ISO8601ï¼ŒåŒ…å«æ¯«ç§’
+            // Create Policy with expiration time of 1 hour from now
             long expireTime = Instant.now().getEpochSecond() + 3600;
             String expiration = Instant.ofEpochSecond(expireTime)
                     .atZone(ZoneOffset.UTC)
                     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
 
-            // åˆ›å»º Policy JSON
+            // Create Policy JSON
             Map<String, Object> policyMap = new HashMap<>();
             policyMap.put("expiration", expiration);
 
-            // åˆ›å»º conditions åˆ—è¡¨ï¼Œéµå¾ªå®˜æ–¹ V1 ç­¾åç¤ºä¾‹
+            // Create conditions list for V1 signature
             List<Object> conditions = new ArrayList<>();
-            // æ·»åŠ  bucket æ¡ä»¶ï¼ˆå¯¹è±¡æ ¼å¼ï¼‰
+            // Add bucket condition
             Map<String, String> bucketCondition = new HashMap<>();
             bucketCondition.put("bucket", properties.getBucketName());
             conditions.add(bucketCondition);
-            // æ·»åŠ  content-length-range æ¡ä»¶ï¼Œé™åˆ¶æ–‡ä»¶å¤§å°ï¼ˆ1 åˆ° 10MBï¼‰
+            // Add content-length-range condition (1 byte to 10MB)
             conditions.add(new Object[]{"content-length-range", 1, 10485760});
-            // æ·»åŠ  key å‰ç¼€æ¡ä»¶
+            // Add key condition
             conditions.add(new String[]{"starts-with", "$key", dateDir});
-            // æ·»åŠ  success_action_status æ¡ä»¶ï¼ˆä¸Žå®˜æ–¹ç¤ºä¾‹ä¸€è‡´ï¼Œä½¿ç”¨ 201ï¼‰
+            // Add success_action_status condition for 201 response
             conditions.add(new String[]{"eq", "$success_action_status", "201"});
 
             policyMap.put("conditions", conditions);
 
-            // å°† Policy è½¬æ¢ä¸º JSON
+            // Convert Policy to JSON
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String policyJson = mapper.writeValueAsString(policyMap);
-            // ä½¿ç”¨é˜¿é‡Œäº‘ SDK çš„ Base64 ç¼–ç 
+            // Encode using SDK Base64
             String encodedPolicy = BinaryUtil.toBase64String(policyJson.getBytes(StandardCharsets.UTF_8));
 
-            // è°ƒè¯•æ—¥å¿—
+            // Debug output
             log.debug("Policy JSON: {}", policyJson);
             log.debug("Encoded Policy: {}", encodedPolicy);
-            // éªŒè¯ Base64 è§£ç 
+            // Decode Base64 for verification
             String decodedPolicy = new String(Base64.getDecoder().decode(encodedPolicy), StandardCharsets.UTF_8);
             log.debug("Decoded Policy: {}", decodedPolicy);
             log.debug("AccessKeySecret: {}{}", properties.getAccessKeySecret().substring(0, 4), "****");
 
-            // ä½¿ç”¨é˜¿é‡Œäº‘ SDK çš„ ServiceSignature è®¡ç®—ç­¾åï¼ˆV1 ç­¾åï¼‰
+            // Generate signature using SDK ServiceSignature for V1 signature
             String signature = ServiceSignature.create().computeSignature(properties.getAccessKeySecret(), encodedPolicy);
 
-            // è°ƒè¯•ç­¾å
+            // Debug signature
             log.debug("Signature: {}", signature);
 
-            // æž„é€ è¿”å›žæ•°æ®
+            // Return response data
             Map<String, String> data = new HashMap<>();
             data.put("accessKeyId", properties.getAccessKeyId());
             data.put("host", "https://" + properties.getBucketName() + "." + properties.getEndpoint());
@@ -91,7 +89,7 @@ public class AliyunOssController {
             return R.ok().put("data", data);
         } catch (Exception e) {
             e.printStackTrace();
-            return R.error("ç”Ÿæˆ OSS ä¸Šä¼ ç­¾åå¤±è´¥: " + e.getMessage());
+            return R.error("Generate OSS signature failed: " + e.getMessage());
         }
     }
 }

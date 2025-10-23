@@ -8,12 +8,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@MapperScan("com.joeyzhoudc.product.dao")
+@MapperScan("com.mall.product.dao")
 public class MybatisPlusConfig {
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        //æ˜¯ MySQLï¼Œè¿™é‡Œç›´æŽ¥ new PaginationInnerInterceptor()
+        // For MySQL, use new PaginationInnerInterceptor()
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
         return interceptor;
     }

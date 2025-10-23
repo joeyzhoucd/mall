@@ -1,27 +1,23 @@
 package io.renren.entity;
 
 /**
- * åˆ—çš„å±žæ€§
- * 
- * @author chenshun
- * @email sunlightcs@gmail.com
- * @date 2016å¹´12æœˆ20æ—¥ ä¸Šåˆ12:01:45
+ * Column entity for code generation
  */
 public class ColumnEntity {
-	//åˆ—å
+	// Column name
     private String columnName;
-    //åˆ—åç±»åž‹
+    // Column data type
     private String dataType;
-    //åˆ—åå¤‡æ³¨
+    // Column comment
     private String comments;
     
-    //å±žæ€§åç§°(ç¬¬ä¸€ä¸ªå­—æ¯å¤§å†™)ï¼Œå¦‚ï¼šuser_name => UserName
+    // Attribute name (first letter uppercase) e.g. user_name => UserName
     private String attrName;
-    //å±žæ€§åç§°(ç¬¬ä¸€ä¸ªå­—æ¯å°å†™)ï¼Œå¦‚ï¼šuser_name => userName
+    // Attribute name (first letter lowercase) e.g. user_name => userName
     private String attrname;
-    //å±žæ€§ç±»åž‹
+    // Attribute type
     private String attrType;
-    //auto_increment
+    // auto_increment
     private String extra;
     
 	public String getColumnName() {

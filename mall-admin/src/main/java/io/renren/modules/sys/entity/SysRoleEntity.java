@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -19,9 +11,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * è§’è‰²
- *
- * @author Mark sunlightcs@gmail.com
+ * System role entity
  */
 @Data
 @TableName("sys_role")
@@ -29,24 +19,24 @@ public class SysRoleEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	/**
-	 * è§’è‰²ID
+	 * Role ID
 	 */
 	@TableId
 	private Long roleId;
 
 	/**
-	 * è§’è‰²åç§°
+	 * Role name
 	 */
-	@NotBlank(message="è§’è‰²åç§°ä¸èƒ½ä¸ºç©º")
+	@NotBlank(message="Role name cannot be empty")
 	private String roleName;
 
 	/**
-	 * å¤‡æ³¨
+	 * Remark
 	 */
 	private String remark;
 	
 	/**
-	 * åˆ›å»ºè€…ID
+	 * Creator ID
 	 */
 	private Long createUserId;
 
@@ -54,9 +44,8 @@ public class SysRoleEntity implements Serializable {
 	private List<Long> menuIdList;
 	
 	/**
-	 * åˆ›å»ºæ—¶é—´
+	 * Create time
 	 */
 	private Date createTime;
 
-	
 }

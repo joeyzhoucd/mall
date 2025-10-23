@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.jwt;
 
 import io.renren.common.exception.RRException;
@@ -14,9 +6,7 @@ import java.security.MessageDigest;
 import java.util.UUID;
 
 /**
- * ç”Ÿæˆtoken
- *
- * @author Mark sunlightcs@gmail.com
+ * Token generator utility
  */
 public class TokenGenerator {
 
@@ -46,7 +36,7 @@ public class TokenGenerator {
             byte[] messageDigest = algorithm.digest();
             return toHexString(messageDigest);
         } catch (Exception e) {
-            throw new RRException("ç”ŸæˆTokenå¤±è´¥", e);
+            throw new RRException("Generate Token error", e);
         }
     }
 }

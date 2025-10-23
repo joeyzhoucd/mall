@@ -1,10 +1,3 @@
-/**
- * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
- * <p>
- * https://www.renren.io
- * <p>
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
 
 package io.renren.service;
 
@@ -26,11 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipOutputStream;
 
-/**
- * ä»£ç ç”Ÿæˆå™¨
- *
- * @author Mark sunlightcs@gmail.com
- */
+
 @Service
 public class SysGeneratorService {
     @Autowired
@@ -60,11 +49,11 @@ public class SysGeneratorService {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ZipOutputStream zip = new ZipOutputStream(outputStream);
         for (String tableName : tableNames) {
-            //æŸ¥è¯¢è¡¨ä¿¡æ¯
+            //查询表信息
             Map<String, String> table = queryTable(tableName);
-            //æŸ¥è¯¢åˆ—ä¿¡æ¯
+            //查询列信息
             List<Map<String, String>> columns = queryColumns(tableName);
-            //ç”Ÿæˆä»£ç 
+            //生成代码
             GenUtils.generatorCode(table, columns, zip);
         }
         if (MongoManager.isMongo()) {

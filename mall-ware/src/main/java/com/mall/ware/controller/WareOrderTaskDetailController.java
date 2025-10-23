@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * åº“å­˜å·¥ä½œå•
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:27:58
- */
+
 @RestController
 @RequestMapping("ware/wareordertaskdetail")
 public class WareOrderTaskDetailController {
     @Autowired
     private WareOrderTaskDetailService wareOrderTaskDetailService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = wareOrderTaskDetailService.queryPage(params);
@@ -36,9 +28,7 @@ public class WareOrderTaskDetailController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		WareOrderTaskDetailEntity wareOrderTaskDetail = wareOrderTaskDetailService.getById(id);
@@ -46,9 +36,7 @@ public class WareOrderTaskDetailController {
         return R.ok().put("wareOrderTaskDetail", wareOrderTaskDetail);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody WareOrderTaskDetailEntity wareOrderTaskDetail){
 		wareOrderTaskDetailService.save(wareOrderTaskDetail);
@@ -56,9 +44,7 @@ public class WareOrderTaskDetailController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody WareOrderTaskDetailEntity wareOrderTaskDetail){
 		wareOrderTaskDetailService.updateById(wareOrderTaskDetail);
@@ -66,9 +52,7 @@ public class WareOrderTaskDetailController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		wareOrderTaskDetailService.removeByIds(Arrays.asList(ids));

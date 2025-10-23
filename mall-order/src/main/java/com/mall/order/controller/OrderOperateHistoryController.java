@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * è®¢å•æ“ä½œåŽ†å²è®°å½•
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 22:49:21
- */
+
 @RestController
 @RequestMapping("order/orderoperatehistory")
 public class OrderOperateHistoryController {
     @Autowired
     private OrderOperateHistoryService orderOperateHistoryService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = orderOperateHistoryService.queryPage(params);
@@ -36,9 +28,7 @@ public class OrderOperateHistoryController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		OrderOperateHistoryEntity orderOperateHistory = orderOperateHistoryService.getById(id);
@@ -46,9 +36,7 @@ public class OrderOperateHistoryController {
         return R.ok().put("orderOperateHistory", orderOperateHistory);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody OrderOperateHistoryEntity orderOperateHistory){
 		orderOperateHistoryService.save(orderOperateHistory);
@@ -56,9 +44,7 @@ public class OrderOperateHistoryController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody OrderOperateHistoryEntity orderOperateHistory){
 		orderOperateHistoryService.updateById(orderOperateHistory);
@@ -66,9 +52,7 @@ public class OrderOperateHistoryController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		orderOperateHistoryService.removeByIds(Arrays.asList(ids));

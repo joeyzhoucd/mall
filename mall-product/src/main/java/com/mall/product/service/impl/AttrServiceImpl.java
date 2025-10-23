@@ -31,14 +31,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 
-/**
- * å•†å“å±žæ€§æœåŠ¡å®žçŽ°ç±»
- * ä¸“é—¨å¤„ç†è§„æ ¼å‚æ•°ç›¸å…³çš„ä¸šåŠ¡é€»è¾‘
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-28 02:39:50
- */
+
 @Service("attrService")
 public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements AttrService {
 
@@ -83,7 +76,7 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
                         vo.setAttrGroupId(attrGroupEntity.getAttrGroupId());
                         vo.setAttrGroupName(attrGroupEntity.getAttrGroupName());
                     } else {
-                        // æ¸…ç†æ— æ•ˆçš„å…³è”å…³ç³»
+                        // Clean up invalid relations
                         attrAttrgroupRelationDao.delete(
                                 new QueryWrapper<AttrAttrgroupRelationEntity>()
                                         .eq("attr_id", vo.getAttrId())
@@ -105,10 +98,10 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
     @Override
     public List<AttrEntity> queryUnRelatedAttr(Long attrgroupId) {
         AttrGroupEntity attrGroup = attrGroupService.getById(attrgroupId);
-        Assert.notNull(attrGroup, "å½“å‰å±žæ€§åˆ†ç»„ä¸å­˜åœ¨!");
+        Assert.notNull(attrGroup, "Attribute group not found!");
         Long categoryId = attrGroup.getCategoryId();
 
-        // 2. æ‰¾å‡ºå½“å‰åˆ†ç±»ä¸‹ï¼Œæ‰€æœ‰å·²ç»è¢«ä»»ä½•å±žæ€§ç»„å¼•ç”¨è¿‡çš„å±žæ€§ idï¼ˆåŒ…æ‹¬å½“å‰åˆ†ç»„ï¼‰
+        // 2. Get all used attributes in the same category and exclude them
         List<Long> usedAttrIds = attrAttrgroupRelationDao.selectList(
                         new LambdaQueryWrapper<AttrAttrgroupRelationEntity>()
                 ).stream()
@@ -116,13 +109,13 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
                 .distinct()
                 .collect(Collectors.toList());
 
-        // 3. æž„å»ºæŸ¥è¯¢æ¡ä»¶
+        // 3. Build query conditions
         LambdaQueryWrapper<AttrEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(AttrEntity::getCategoryId, categoryId)     // å½“å‰åˆ†ç±»
-                .eq(AttrEntity::getAttrType, 1);          // åŸºæœ¬å±žæ€§
+        wrapper.eq(AttrEntity::getCategoryId, categoryId)     // Same category
+                .eq(AttrEntity::getAttrType, 1);          // Specification attributes
 
         if (!CollectionUtils.isEmpty(usedAttrIds)) {
-            wrapper.notIn(AttrEntity::getAttrId, usedAttrIds); // æœªè¢«ä»»ä½•ç»„å¼•ç”¨
+            wrapper.notIn(AttrEntity::getAttrId, usedAttrIds); // Exclude used ones
         }
 
         return this.list(wrapper);
@@ -132,24 +125,24 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
     @Transactional
     @Override
     public void saveBaseAttr(AttrSaveRequestVO req) {
-        AttrEntity entity = buildAttrEntity(req, 1); // è§„æ ¼å‚æ•°
+        AttrEntity entity = buildAttrEntity(req, 1); // Specification
         this.save(entity);
 
-        // å¤„ç†åˆ†ç»„å…³è”å…³ç³»
+        // Handle attribute group relations
         handleAttrGroupRelation(req, entity.getAttrId());
     }
 
     @Transactional
     @Override
     public void updateBaseAttr(AttrSaveRequestVO req) {
-        AttrEntity entity = buildAttrEntity(req, 1); // è§„æ ¼å‚æ•°
+        AttrEntity entity = buildAttrEntity(req, 1); // Specification
         this.updateById(entity);
 
-        // å¤„ç†åˆ†ç»„å…³è”å…³ç³»
+        // Handle attribute group relations
         handleAttrGroupRelation(req, req.getAttrId());
     }
 
-    // ==================== é”€å”®å±žæ€§ç›¸å…³æ–¹æ³•å®žçŽ° ====================
+    // ==================== Sale Attributes ====================
 
     @Override
     public PageUtils querySaleAttrPage(Map<String, Object> params) {
@@ -160,22 +153,20 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
     @Transactional
     @Override
     public void saveSaleAttr(AttrSaveRequestVO req) {
-        AttrEntity entity = buildAttrEntity(req, 0); // é”€å”®å±žæ€§
+        AttrEntity entity = buildAttrEntity(req, 0); // Sale attributes
         this.save(entity);
-        // é”€å”®å±žæ€§ä¸éœ€è¦å¤„ç†åˆ†ç»„å…³è”å…³ç³»
+        // Sale attributes don't need group relations
     }
 
     @Transactional
     @Override
     public void updateSaleAttr(AttrSaveRequestVO req) {
-        AttrEntity entity = buildAttrEntity(req, 0); // é”€å”®å±žæ€§
+        AttrEntity entity = buildAttrEntity(req, 0); // Sale attributes
         this.updateById(entity);
-        // é”€å”®å±žæ€§ä¸éœ€è¦å¤„ç†åˆ†ç»„å…³è”å…³ç³»
+        // Sale attributes don't need group relations
     }
 
-    /**
-     * æž„å»ºå±žæ€§å®žä½“å¯¹è±¡
-     */
+    
     private AttrEntity buildAttrEntity(AttrSaveRequestVO req, Integer attrType) {
         AttrEntity entity = new AttrEntity();
         entity.setAttrId(req.getAttrId());
@@ -190,23 +181,21 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
         return entity;
     }
 
-    /**
-     * å¤„ç†å±žæ€§åˆ†ç»„å…³è”å…³ç³»
-     */
+    
     private void handleAttrGroupRelation(AttrSaveRequestVO req, Long attrId) {
-        // åªæœ‰å½“æ˜Žç¡®ä¼ é€’äº†attrGroupIdæ—¶æ‰æ›´æ–°å…³è”å…³ç³»
+        // If attrGroupId is provided, create new relation
         if (req.getAttrGroupId() != null && !req.getAttrGroupId().trim().isEmpty()) {
             Long attrGroupId = Long.valueOf(req.getAttrGroupId());
-            // éªŒè¯åˆ†ç»„æ˜¯å¦å­˜åœ¨
+            // Validate group exists
             AttrGroupEntity attrGroupEntity = attrGroupService.getById(attrGroupId);
             if (attrGroupEntity != null) {
-                // å…ˆåˆ é™¤åŽŸæœ‰çš„å…³è”å…³ç³»
+                // Delete existing relations
                 attrAttrgroupRelationDao.delete(
                         new QueryWrapper<AttrAttrgroupRelationEntity>()
                                 .eq("attr_id", attrId)
                 );
 
-                // åˆ›å»ºæ–°çš„å…³è”å…³ç³»
+                // Create new relation
                 AttrAttrgroupRelationEntity relation = new AttrAttrgroupRelationEntity();
                 relation.setAttrId(attrId);
                 relation.setAttrGroupId(attrGroupId);
@@ -216,31 +205,31 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
         }
     }
 
-    // ==================== åˆ é™¤ç›¸å…³æ–¹æ³•å®žçŽ° ====================
+    // ==================== Delete Operations ====================
 
     @Transactional
     @Override
     public void deleteAttrWithRelations(Long attrId) {
-        // 1. åˆ é™¤å±žæ€§åˆ†ç»„å…³è”å…³ç³»
+        // 1. Delete attribute group relations
         attrAttrgroupRelationDao.delete(
                 new QueryWrapper<AttrAttrgroupRelationEntity>()
                         .eq("attr_id", attrId)
         );
 
-        // 2. åˆ é™¤å±žæ€§æœ¬èº«
+        // 2. Delete attribute
         this.removeById(attrId);
     }
 
     @Transactional
     @Override
     public void deleteAttrsWithRelations(Long[] attrIds) {
-        // 1. æ‰¹é‡åˆ é™¤å±žæ€§åˆ†ç»„å…³è”å…³ç³»
+        // 1. Batch delete attribute group relations
         attrAttrgroupRelationDao.delete(
                 new QueryWrapper<AttrAttrgroupRelationEntity>()
                         .in("attr_id", Arrays.asList(attrIds))
         );
 
-        // 2. æ‰¹é‡åˆ é™¤å±žæ€§æœ¬èº«
+        // 2. Batch delete attributes
         this.removeByIds(Arrays.asList(attrIds));
     }
 }

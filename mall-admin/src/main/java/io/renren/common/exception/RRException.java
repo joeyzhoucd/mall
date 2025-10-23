@@ -1,18 +1,8 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
+
 
 package io.renren.common.exception;
 
-/**
- * è‡ªå®šä¹‰å¼‚å¸¸
- *
- * @author Mark sunlightcs@gmail.com
- */
+
 public class RRException extends RuntimeException {
 	private static final long serialVersionUID = 1L;
 	

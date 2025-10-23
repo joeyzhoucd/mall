@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * è®¢å•é…ç½®ä¿¡æ¯
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 22:49:21
- */
+
 @RestController
 @RequestMapping("order/ordersetting")
 public class OrderSettingController {
     @Autowired
     private OrderSettingService orderSettingService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = orderSettingService.queryPage(params);
@@ -36,9 +28,7 @@ public class OrderSettingController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		OrderSettingEntity orderSetting = orderSettingService.getById(id);
@@ -46,9 +36,7 @@ public class OrderSettingController {
         return R.ok().put("orderSetting", orderSetting);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody OrderSettingEntity orderSetting){
 		orderSettingService.save(orderSetting);
@@ -56,9 +44,7 @@ public class OrderSettingController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody OrderSettingEntity orderSetting){
 		orderSettingService.updateById(orderSetting);
@@ -66,9 +52,7 @@ public class OrderSettingController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		orderSettingService.removeByIds(Arrays.asList(ids));

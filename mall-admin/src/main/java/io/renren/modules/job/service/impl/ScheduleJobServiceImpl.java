@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.job.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -28,20 +20,23 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.PostConstruct;
 import java.util.*;
 
+/**
+ * Schedule job service implementation
+ */
 @Service("scheduleJobService")
 public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, ScheduleJobEntity> implements ScheduleJobService {
 	@Autowired
     private Scheduler scheduler;
 	
 	/**
-	 * é¡¹ç›®å¯åŠ¨æ—¶ï¼Œåˆå§‹åŒ–å®šæ—¶å™¨
+	 * Initialize schedule jobs
 	 */
 	@PostConstruct
 	public void init(){
 		List<ScheduleJobEntity> scheduleJobList = this.list();
 		for(ScheduleJobEntity scheduleJob : scheduleJobList){
 			CronTrigger cronTrigger = ScheduleUtils.getCronTrigger(scheduler, scheduleJob.getJobId());
-            //å¦‚æžœä¸å­˜åœ¨ï¼Œåˆ™åˆ›å»º
+            // If trigger is null, create new job
             if(cronTrigger == null) {
                 ScheduleUtils.createScheduleJob(scheduler, scheduleJob);
             }else {
@@ -62,7 +57,9 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
 		return new PageUtils(page);
 	}
 
-
+	/**
+	 * Save schedule job
+	 */
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void saveJob(ScheduleJobEntity scheduleJob) {
@@ -73,6 +70,9 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
         ScheduleUtils.createScheduleJob(scheduler, scheduleJob);
     }
 	
+	/**
+	 * Update schedule job
+	 */
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void update(ScheduleJobEntity scheduleJob) {
@@ -81,6 +81,9 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
         this.updateById(scheduleJob);
     }
 
+	/**
+	 * Delete schedule jobs
+	 */
 	@Override
 	@Transactional(rollbackFor = Exception.class)
     public void deleteBatch(Long[] jobIds) {
@@ -88,10 +91,13 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
     		ScheduleUtils.deleteScheduleJob(scheduler, jobId);
     	}
     	
-    	//åˆ é™¤æ•°æ®
+    	// Delete from database
     	this.removeByIds(Arrays.asList(jobIds));
 	}
 
+	/**
+	 * Update batch
+	 */
 	@Override
     public int updateBatch(Long[] jobIds, int status){
     	Map<String, Object> map = new HashMap<>(2);
@@ -100,6 +106,9 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
     	return baseMapper.updateBatch(map);
     }
     
+	/**
+	 * Run schedule jobs
+	 */
 	@Override
 	@Transactional(rollbackFor = Exception.class)
     public void run(Long[] jobIds) {
@@ -108,6 +117,9 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
     	}
     }
 
+	/**
+	 * Pause schedule jobs
+	 */
 	@Override
 	@Transactional(rollbackFor = Exception.class)
     public void pause(Long[] jobIds) {
@@ -118,6 +130,9 @@ public class ScheduleJobServiceImpl extends ServiceImpl<ScheduleJobDao, Schedule
     	updateBatch(jobIds, Constant.ScheduleStatus.PAUSE.getValue());
     }
 
+	/**
+	 * Resume schedule jobs
+	 */
 	@Override
 	@Transactional(rollbackFor = Exception.class)
     public void resume(Long[] jobIds) {

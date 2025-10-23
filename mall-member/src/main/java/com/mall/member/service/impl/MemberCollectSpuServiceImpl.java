@@ -20,7 +20,7 @@ public class MemberCollectSpuServiceImpl extends ServiceImpl<MemberCollectSpuDao
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<MemberCollectSpuEntity> page = this.page(
                 new Query<MemberCollectSpuEntity>().getPage(params),
-                new QueryWrapper<MemberCollectSpuEntity>()
+                new QueryWrapper<>()
         );
 
         return new PageUtils(page);

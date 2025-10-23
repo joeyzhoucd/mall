@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.config;
 
 import com.google.code.kaptcha.impl.DefaultKaptcha;
@@ -15,11 +7,8 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.Properties;
 
-
 /**
- * ç”ŸæˆéªŒè¯ç é…ç½®
- *
- * @author Mark sunlightcs@gmail.com
+ * Kaptcha configuration
  */
 @Configuration
 public class KaptchaConfig {
@@ -30,7 +19,7 @@ public class KaptchaConfig {
         properties.put("kaptcha.border", "no");
         properties.put("kaptcha.textproducer.font.color", "black");
         properties.put("kaptcha.textproducer.char.space", "5");
-        properties.put("kaptcha.textproducer.font.names", "Arial,Courier,cmr10,å®‹ä½“,æ¥·ä½“,å¾®è½¯é›…é»‘");
+        properties.put("kaptcha.textproducer.font.names", "Arial,Courier,cmr10,宋体,楷体,微软雅黑");
         Config config = new Config(properties);
         DefaultKaptcha defaultKaptcha = new DefaultKaptcha();
         defaultKaptcha.setConfig(config);

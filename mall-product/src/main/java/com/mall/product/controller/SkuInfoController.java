@@ -10,22 +10,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-/**
- * skuä¿¡æ¯
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-28 02:39:50
- */
+
 @RestController
 @RequestMapping("product/skuinfo")
 public class SkuInfoController {
     @Autowired
     private SkuInfoService skuInfoService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = skuInfoService.queryPageWithDetails(params);

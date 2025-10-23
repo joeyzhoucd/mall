@@ -1,10 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
 
 package io.renren.modules.app.resolver;
 
@@ -21,11 +14,7 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-/**
- * æœ‰@LoginUseræ³¨è§£çš„æ–¹æ³•å‚æ•°ï¼Œæ³¨å…¥å½“å‰ç™»å½•ç”¨æˆ·
- *
- * @author Mark sunlightcs@gmail.com
- */
+
 @Component
 public class LoginUserHandlerMethodArgumentResolver implements HandlerMethodArgumentResolver {
     @Autowired
@@ -39,13 +28,13 @@ public class LoginUserHandlerMethodArgumentResolver implements HandlerMethodArgu
     @Override
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer container,
                                   NativeWebRequest request, WebDataBinderFactory factory) throws Exception {
-        //èŽ·å–ç”¨æˆ·ID
+        //获取用户ID
         Object object = request.getAttribute(AuthorizationInterceptor.USER_KEY, RequestAttributes.SCOPE_REQUEST);
         if(object == null){
             return null;
         }
 
-        //èŽ·å–ç”¨æˆ·ä¿¡æ¯
+        //获取用户信息
         UserEntity user = userService.getById((Long)object);
 
         return user;

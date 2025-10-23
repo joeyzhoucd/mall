@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * ç§’æ€æ´»åŠ¨å•†å“å…³è”
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:08:26
- */
+
 @RestController
 @RequestMapping("coupon/seckillskurelation")
 public class SeckillSkuRelationController {
     @Autowired
     private SeckillSkuRelationService seckillSkuRelationService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = seckillSkuRelationService.queryPage(params);
@@ -36,9 +28,7 @@ public class SeckillSkuRelationController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		SeckillSkuRelationEntity seckillSkuRelation = seckillSkuRelationService.getById(id);
@@ -46,9 +36,7 @@ public class SeckillSkuRelationController {
         return R.ok().put("seckillSkuRelation", seckillSkuRelation);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody SeckillSkuRelationEntity seckillSkuRelation){
 		seckillSkuRelationService.save(seckillSkuRelation);
@@ -56,9 +44,7 @@ public class SeckillSkuRelationController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody SeckillSkuRelationEntity seckillSkuRelation){
 		seckillSkuRelationService.updateById(seckillSkuRelation);
@@ -66,9 +52,7 @@ public class SeckillSkuRelationController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		seckillSkuRelationService.removeByIds(Arrays.asList(ids));

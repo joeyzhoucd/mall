@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.app.utils;
 
 import io.jsonwebtoken.Claims;
@@ -19,9 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 
 /**
- * jwtå·¥å…·ç±»
- *
- * @author Mark sunlightcs@gmail.com
+ * JWT utilities
  */
 @ConfigurationProperties(prefix = "renren.jwt")
 @Component
@@ -33,11 +23,11 @@ public class JwtUtils {
     private String header;
 
     /**
-     * ç”Ÿæˆjwt token
+     * Generate token
      */
     public String generateToken(long userId) {
         Date nowDate = new Date();
-        //è¿‡æœŸæ—¶é—´
+        // Expire time
         Date expireDate = new Date(nowDate.getTime() + expire * 1000);
 
         return Jwts.builder()
@@ -49,6 +39,9 @@ public class JwtUtils {
                 .compact();
     }
 
+    /**
+     * Get claims by token
+     */
     public Claims getClaimByToken(String token) {
         try {
             return Jwts.parser()
@@ -62,8 +55,7 @@ public class JwtUtils {
     }
 
     /**
-     * tokenæ˜¯å¦è¿‡æœŸ
-     * @return  trueï¼šè¿‡æœŸ
+     * Check if token is expired
      */
     public boolean isTokenExpired(Date expiration) {
         return expiration.before(new Date());

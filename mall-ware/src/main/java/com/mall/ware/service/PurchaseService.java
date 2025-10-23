@@ -15,4 +15,3 @@ public interface PurchaseService extends IService<PurchaseEntity> {
     void receive(java.util.List<Long> purchaseIds, Long receiverId, String receiverName);
     void finish(Long purchaseId, java.util.List<Long> successDetailIds, java.util.List<Long> failedDetailIds);
 }
-

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
@@ -20,7 +20,7 @@
         <module>mall-generator</module>
     </modules>
 
-    <!--  è¿™é‡Œçš„å±žæ€§ä¼šè¢«å­æ¨¡å—ç»§æ‰¿  -->
+    <!-- 可根据需要自定义是否启用映射配置 -->
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -100,7 +100,7 @@
         </dependencies>
     </dependencyManagement>
 
-    <!--  è¿™é‡Œçš„ä¾èµ–ä¼šè¢«å­æ¨¡å—ç»§æ‰¿  -->
+    <!-- 可根据需要自定义是否启用映射配置 -->
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>

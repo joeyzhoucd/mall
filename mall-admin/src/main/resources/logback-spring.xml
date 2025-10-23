@@ -1,17 +1,17 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <include resource="org/springframework/boot/logging/logback/base.xml" />
     <logger name="org.springframework.web" level="INFO"/>
     <logger name="org.springboot.sample" level="TRACE" />
 
-    <!-- å¼€å‘ã€æµ‹è¯•çŽ¯å¢ƒ -->
+    <!-- 可根据需要自定义是否启用映射配置 -->
     <springProfile name="dev,test">
         <logger name="org.springframework.web" level="INFO"/>
         <logger name="org.springboot.sample" level="INFO" />
         <logger name="io.renren" level="DEBUG" />
     </springProfile>
 
-    <!-- ç”Ÿäº§çŽ¯å¢ƒ -->
+    <!-- 可根据需要自定义是否启用映射配置 -->
     <springProfile name="prod">
         <logger name="org.springframework.web" level="ERROR"/>
         <logger name="org.springboot.sample" level="ERROR" />

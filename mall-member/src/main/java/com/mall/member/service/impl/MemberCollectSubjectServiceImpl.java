@@ -20,7 +20,7 @@ public class MemberCollectSubjectServiceImpl extends ServiceImpl<MemberCollectSu
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<MemberCollectSubjectEntity> page = this.page(
                 new Query<MemberCollectSubjectEntity>().getPage(params),
-                new QueryWrapper<MemberCollectSubjectEntity>()
+                new QueryWrapper<>()
         );
 
         return new PageUtils(page);

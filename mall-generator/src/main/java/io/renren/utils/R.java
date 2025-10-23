@@ -3,13 +3,7 @@ package io.renren.utils;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * è¿”å›žæ•°æ®
- * 
- * @author chenshun
- * @email sunlightcs@gmail.com
- * @date 2016å¹´10æœˆ27æ—¥ ä¸‹åˆ9:59:27
- */
+
 public class R extends HashMap<String, Object> {
 	private static final long serialVersionUID = 1L;
 	
@@ -18,7 +12,7 @@ public class R extends HashMap<String, Object> {
 	}
 	
 	public static R error() {
-		return error(500, "æœªçŸ¥å¼‚å¸¸ï¼Œè¯·è”ç³»ç®¡ç†å‘˜");
+		return error(500, "未知异常，请联系管理员");
 	}
 	
 	public static R error(String msg) {

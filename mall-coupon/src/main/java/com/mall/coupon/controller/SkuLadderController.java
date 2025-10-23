@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * å•†å“é˜¶æ¢¯ä»·æ ¼
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:08:26
- */
+
 @RestController
 @RequestMapping("coupon/skuladder")
 public class SkuLadderController {
     @Autowired
     private SkuLadderService skuLadderService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = skuLadderService.queryPage(params);
@@ -36,9 +28,7 @@ public class SkuLadderController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		SkuLadderEntity skuLadder = skuLadderService.getById(id);
@@ -46,9 +36,7 @@ public class SkuLadderController {
         return R.ok().put("skuLadder", skuLadder);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody SkuLadderEntity skuLadder){
 		skuLadderService.save(skuLadder);
@@ -56,9 +44,7 @@ public class SkuLadderController {
         return R.ok();
     }
 
-    /**
-     * ä¿å­˜ï¼ˆé€šè¿‡Mapå‚æ•°ï¼‰
-     */
+    
     @PostMapping("/saveFromMap")
     public R saveFromMap(@RequestBody Map<String, String> params){
         SkuLadderEntity skuLadder = new SkuLadderEntity();
@@ -72,9 +58,7 @@ public class SkuLadderController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody SkuLadderEntity skuLadder){
 		skuLadderService.updateById(skuLadder);
@@ -82,9 +66,7 @@ public class SkuLadderController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		skuLadderService.removeByIds(Arrays.asList(ids));

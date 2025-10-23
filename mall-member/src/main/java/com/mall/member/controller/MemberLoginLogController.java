@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * ä¼šå‘˜ç™»å½•è®°å½•
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:25:02
- */
+
 @RestController
 @RequestMapping("member/memberloginlog")
 public class MemberLoginLogController {
     @Autowired
     private MemberLoginLogService memberLoginLogService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = memberLoginLogService.queryPage(params);
@@ -36,9 +28,7 @@ public class MemberLoginLogController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		MemberLoginLogEntity memberLoginLog = memberLoginLogService.getById(id);
@@ -46,9 +36,7 @@ public class MemberLoginLogController {
         return R.ok().put("memberLoginLog", memberLoginLog);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody MemberLoginLogEntity memberLoginLog){
 		memberLoginLogService.save(memberLoginLog);
@@ -56,9 +44,7 @@ public class MemberLoginLogController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody MemberLoginLogEntity memberLoginLog){
 		memberLoginLogService.updateById(memberLoginLog);
@@ -66,9 +52,7 @@ public class MemberLoginLogController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		memberLoginLogService.removeByIds(Arrays.asList(ids));

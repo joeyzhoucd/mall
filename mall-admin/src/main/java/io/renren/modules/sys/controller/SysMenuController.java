@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.controller;
 
 import io.renren.common.annotation.SysLog;
@@ -22,11 +14,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
-
 /**
- * ç³»ç»Ÿèœå•
- *
- * @author Mark sunlightcs@gmail.com
+ * System menu controller
  */
 @RestController
 @RequestMapping("/sys/menu")
@@ -37,7 +26,7 @@ public class SysMenuController extends AbstractController {
 	private ShiroService shiroService;
 
 	/**
-	 * å¯¼èˆªèœå•
+	 * Get navigation menu
 	 */
 	@GetMapping("/nav")
 	public R nav(){
@@ -47,14 +36,14 @@ public class SysMenuController extends AbstractController {
 	}
 	
 	/**
-	 * æ‰€æœ‰èœå•åˆ—è¡¨
+	 * List all menus
 	 */
 	@GetMapping("/list")
 	@RequiresPermissions("sys:menu:list")
 	public List<SysMenuEntity> list(){
 		List<SysMenuEntity> menuList = sysMenuService.list();
 
-		//æŸ¥è¯¢å®Œæˆ å¯¹æ­¤listç›´æŽ¥æŽ’åº
+		// Sort by order
 		Collections.sort(menuList);
 
 		HashMap<Long, SysMenuEntity> menuMap = new HashMap<>(12);
@@ -69,23 +58,22 @@ public class SysMenuController extends AbstractController {
 
 		}
 
-
 		return menuList;
 	}
 	
 	/**
-	 * é€‰æ‹©èœå•(æ·»åŠ ã€ä¿®æ”¹èœå•)
+	 * Select menu
 	 */
 	@GetMapping("/select")
 	@RequiresPermissions("sys:menu:select")
 	public R select(){
-		//æŸ¥è¯¢åˆ—è¡¨æ•°æ®
+		// Query list
 		List<SysMenuEntity> menuList = sysMenuService.queryNotButtonList();
 		
-		//æ·»åŠ é¡¶çº§èœå•
+		// Add root menu
 		SysMenuEntity root = new SysMenuEntity();
 		root.setMenuId(0L);
-		root.setName("ä¸€çº§èœå•");
+		root.setName("Root menu");
 		root.setParentId(-1L);
 		root.setOpen(true);
 		menuList.add(root);
@@ -94,7 +82,7 @@ public class SysMenuController extends AbstractController {
 	}
 	
 	/**
-	 * èœå•ä¿¡æ¯
+	 * Get menu info
 	 */
 	@GetMapping("/info/{menuId}")
 	@RequiresPermissions("sys:menu:info")
@@ -104,13 +92,13 @@ public class SysMenuController extends AbstractController {
 	}
 	
 	/**
-	 * ä¿å­˜
+	 * Save menu
 	 */
-	@SysLog("ä¿å­˜èœå•")
+	@SysLog("Save menu")
 	@PostMapping("/save")
 	@RequiresPermissions("sys:menu:save")
 	public R save(@RequestBody SysMenuEntity menu){
-		//æ•°æ®æ ¡éªŒ
+		// Data validation
 		verifyForm(menu);
 		
 		sysMenuService.save(menu);
@@ -119,13 +107,13 @@ public class SysMenuController extends AbstractController {
 	}
 	
 	/**
-	 * ä¿®æ”¹
+	 * Update menu
 	 */
-	@SysLog("ä¿®æ”¹èœå•")
+	@SysLog("Update menu")
 	@PostMapping("/update")
 	@RequiresPermissions("sys:menu:update")
 	public R update(@RequestBody SysMenuEntity menu){
-		//æ•°æ®æ ¡éªŒ
+		// Data validation
 		verifyForm(menu);
 				
 		sysMenuService.updateById(menu);
@@ -134,20 +122,20 @@ public class SysMenuController extends AbstractController {
 	}
 	
 	/**
-	 * åˆ é™¤
+	 * Delete menu
 	 */
-	@SysLog("åˆ é™¤èœå•")
+	@SysLog("Delete menu")
 	@PostMapping("/delete/{menuId}")
 	@RequiresPermissions("sys:menu:delete")
 	public R delete(@PathVariable("menuId") long menuId){
 		if(menuId <= 31){
-			return R.error("ç³»ç»Ÿèœå•ï¼Œä¸èƒ½åˆ é™¤");
+			return R.error("System menu cannot be deleted");
 		}
 
-		//åˆ¤æ–­æ˜¯å¦æœ‰å­èœå•æˆ–æŒ‰é’®
+		// Check if there are sub menus
 		List<SysMenuEntity> menuList = sysMenuService.queryListParentId(menuId);
 		if(menuList.size() > 0){
-			return R.error("è¯·å…ˆåˆ é™¤å­èœå•æˆ–æŒ‰é’®");
+			return R.error("Please delete sub menus first");
 		}
 
 		sysMenuService.delete(menuId);
@@ -156,44 +144,44 @@ public class SysMenuController extends AbstractController {
 	}
 	
 	/**
-	 * éªŒè¯å‚æ•°æ˜¯å¦æ­£ç¡®
+	 * Verify form data
 	 */
 	private void verifyForm(SysMenuEntity menu){
 		if(StringUtils.isBlank(menu.getName())){
-			throw new RRException("èœå•åç§°ä¸èƒ½ä¸ºç©º");
+			throw new RRException("Menu name cannot be empty");
 		}
 		
 		if(menu.getParentId() == null){
-			throw new RRException("ä¸Šçº§èœå•ä¸èƒ½ä¸ºç©º");
+			throw new RRException("Parent menu cannot be empty");
 		}
 		
-		//èœå•
+		// Menu
 		if(menu.getType() == Constant.MenuType.MENU.getValue()){
 			if(StringUtils.isBlank(menu.getUrl())){
-				throw new RRException("èœå•URLä¸èƒ½ä¸ºç©º");
+				throw new RRException("Menu URL cannot be empty");
 			}
 		}
 		
-		//ä¸Šçº§èœå•ç±»åž‹
+		// Parent menu type
 		int parentType = Constant.MenuType.CATALOG.getValue();
 		if(menu.getParentId() != 0){
 			SysMenuEntity parentMenu = sysMenuService.getById(menu.getParentId());
 			parentType = parentMenu.getType();
 		}
 		
-		//ç›®å½•ã€èœå•
+		// Catalog and menu
 		if(menu.getType() == Constant.MenuType.CATALOG.getValue() ||
 				menu.getType() == Constant.MenuType.MENU.getValue()){
 			if(parentType != Constant.MenuType.CATALOG.getValue()){
-				throw new RRException("ä¸Šçº§èœå•åªèƒ½ä¸ºç›®å½•ç±»åž‹");
+				throw new RRException("Parent menu must be catalog type");
 			}
 			return ;
 		}
 		
-		//æŒ‰é’®
+		// Button
 		if(menu.getType() == Constant.MenuType.BUTTON.getValue()){
 			if(parentType != Constant.MenuType.MENU.getValue()){
-				throw new RRException("ä¸Šçº§èœå•åªèƒ½ä¸ºèœå•ç±»åž‹");
+				throw new RRException("Parent menu must be menu type");
 			}
 			return ;
 		}

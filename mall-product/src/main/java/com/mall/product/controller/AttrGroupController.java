@@ -13,22 +13,14 @@ import java.util.List;
 import java.util.Map;
 
 
-/**
- * å±žæ€§åˆ†ç»„
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-28 02:39:50
- */
+
 @RestController
 @RequestMapping("product/attrgroup")
 public class AttrGroupController {
     @Autowired
     private AttrGroupService attrGroupService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params) {
         PageUtils page = attrGroupService.queryPage(params);
@@ -42,9 +34,7 @@ public class AttrGroupController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{attrGroupId}")
     public R info(@PathVariable("attrGroupId") Long attrGroupId) {
         AttrGroupEntity attrGroup = attrGroupService.getById(attrGroupId);
@@ -52,9 +42,7 @@ public class AttrGroupController {
         return R.ok().put("data", attrGroup);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody AttrGroupEntity attrGroup) {
         attrGroupService.save(attrGroup);
@@ -62,9 +50,7 @@ public class AttrGroupController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody AttrGroupEntity attrGroup) {
         attrGroupService.updateById(attrGroup);
@@ -72,9 +58,7 @@ public class AttrGroupController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] attrGroupIds) {
         attrGroupService.removeByIds(Arrays.asList(attrGroupIds));

@@ -20,7 +20,7 @@ public class SkuImagesServiceImpl extends ServiceImpl<SkuImagesDao, SkuImagesEnt
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SkuImagesEntity> page = this.page(
                 new Query<SkuImagesEntity>().getPage(params),
-                new QueryWrapper<SkuImagesEntity>()
+                new QueryWrapper<>()
         );
 
         return new PageUtils(page);

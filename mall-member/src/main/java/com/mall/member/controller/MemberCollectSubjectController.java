@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * ä¼šå‘˜æ”¶è—çš„ä¸“é¢˜æ´»åŠ¨
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:25:02
- */
+
 @RestController
 @RequestMapping("member/membercollectsubject")
 public class MemberCollectSubjectController {
     @Autowired
     private MemberCollectSubjectService memberCollectSubjectService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = memberCollectSubjectService.queryPage(params);
@@ -36,9 +28,7 @@ public class MemberCollectSubjectController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		MemberCollectSubjectEntity memberCollectSubject = memberCollectSubjectService.getById(id);
@@ -46,9 +36,7 @@ public class MemberCollectSubjectController {
         return R.ok().put("memberCollectSubject", memberCollectSubject);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody MemberCollectSubjectEntity memberCollectSubject){
 		memberCollectSubjectService.save(memberCollectSubject);
@@ -56,9 +44,7 @@ public class MemberCollectSubjectController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody MemberCollectSubjectEntity memberCollectSubject){
 		memberCollectSubjectService.updateById(memberCollectSubject);
@@ -66,9 +52,7 @@ public class MemberCollectSubjectController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		memberCollectSubjectService.removeByIds(Arrays.asList(ids));

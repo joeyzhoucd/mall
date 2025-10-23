@@ -45,7 +45,7 @@ public class AttrGroupServiceImpl extends ServiceImpl<AttrGroupDao, AttrGroupEnt
 
     @Override
     public List<AttrGroupWithAttrVO> getAttrGroupWithAttrs(Long categoryId) {
-        //é€šè¿‡categoryæ‰¾åˆ°attr group
+        // Query attr groups by category
         LambdaQueryWrapper<AttrGroupEntity> lqw = Wrappers.lambdaQuery();
         lqw.eq(categoryId != null, AttrGroupEntity::getCategoryId, categoryId);
         List<AttrGroupEntity> attrGroupEntities = this.list(lqw);

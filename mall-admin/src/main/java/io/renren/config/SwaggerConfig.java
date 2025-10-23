@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.config;
 
 import io.swagger.annotations.ApiOperation;
@@ -25,6 +17,9 @@ import java.util.List;
 
 import static com.google.common.collect.Lists.newArrayList;
 
+/**
+ * Swagger configuration
+ */
 @Configuration
 @EnableSwagger2
 public class SwaggerConfig implements WebMvcConfigurer {
@@ -34,9 +29,9 @@ public class SwaggerConfig implements WebMvcConfigurer {
         return new Docket(DocumentationType.SWAGGER_2)
             .apiInfo(apiInfo())
             .select()
-            //åŠ äº†ApiOperationæ³¨è§£çš„ç±»ï¼Œæ‰ç”ŸæˆæŽ¥å£æ–‡æ¡£
+            // Only scan interfaces with ApiOperation annotation
             .apis(RequestHandlerSelectors.withMethodAnnotation(ApiOperation.class))
-            //åŒ…ä¸‹çš„ç±»ï¼Œæ‰ç”ŸæˆæŽ¥å£æ–‡æ¡£
+            // Scan all interfaces
             //.apis(RequestHandlerSelectors.basePackage("io.renren.controller"))
             .paths(PathSelectors.any())
             .build()
@@ -45,8 +40,8 @@ public class SwaggerConfig implements WebMvcConfigurer {
 
     private ApiInfo apiInfo() {
         return new ApiInfoBuilder()
-            .title("äººäººå¼€æº")
-            .description("renren-fastæ–‡æ¡£")
+            .title("人人开源")
+            .description("renren-fast接口")
             .termsOfServiceUrl("https://www.renren.io")
             .version("3.0.0")
             .build();

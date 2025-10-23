@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.app.controller;
-
 
 import io.renren.common.utils.R;
 import io.renren.common.validator.ValidatorUtils;
@@ -26,13 +17,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * APPç™»å½•æŽˆæƒ
- *
- * @author Mark sunlightcs@gmail.com
+ * APP login controller
  */
 @RestController
 @RequestMapping("/app")
-@Api("APPç™»å½•æŽ¥å£")
+@Api("APP login interface")
 public class AppLoginController {
     @Autowired
     private UserService userService;
@@ -40,18 +29,18 @@ public class AppLoginController {
     private JwtUtils jwtUtils;
 
     /**
-     * ç™»å½•
+     * Login
      */
     @PostMapping("login")
-    @ApiOperation("ç™»å½•")
+    @ApiOperation("Login")
     public R login(@RequestBody LoginForm form){
-        //è¡¨å•æ ¡éªŒ
+        // Data validation
         ValidatorUtils.validateEntity(form);
 
-        //ç”¨æˆ·ç™»å½•
+        // User login
         long userId = userService.login(form);
 
-        //ç”Ÿæˆtoken
+        // Generate token
         String token = jwtUtils.generateToken(userId);
 
         Map<String, Object> map = new HashMap<>();

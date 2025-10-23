@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.datasource.config;
 
 import com.alibaba.druid.pool.DruidDataSource;
@@ -21,9 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * é…ç½®å¤šæ•°æ®æº
- *
- * @author Mark sunlightcs@gmail.com
+ * Dynamic data source configuration
  */
 @Configuration
 @EnableConfigurationProperties(DynamicDataSourceProperties.class)
@@ -42,7 +32,7 @@ public class DynamicDataSourceConfig {
         DynamicDataSource dynamicDataSource = new DynamicDataSource();
         dynamicDataSource.setTargetDataSources(getDynamicDataSource());
 
-        //é»˜è®¤æ•°æ®æº
+        // Default data source
         DruidDataSource defaultDataSource = DynamicDataSourceFactory.buildDruidDataSource(dataSourceProperties);
         dynamicDataSource.setDefaultTargetDataSource(defaultDataSource);
 

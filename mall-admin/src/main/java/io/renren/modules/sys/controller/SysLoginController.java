@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.controller;
 
 import io.renren.common.utils.R;
@@ -30,9 +22,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * ç™»å½•ç›¸å…³
- *
- * @author Mark sunlightcs@gmail.com
+ * System login controller
  */
 @RestController
 public class SysLoginController extends AbstractController {
@@ -44,14 +34,14 @@ public class SysLoginController extends AbstractController {
 	private SysCaptchaService sysCaptchaService;
 
 	/**
-	 * éªŒè¯ç 
+	 * Get captcha image
 	 */
 	@GetMapping("captcha.jpg")
 	public void captcha(HttpServletResponse response, String uuid)throws IOException {
 		response.setHeader("Cache-Control", "no-store, no-cache");
 		response.setContentType("image/jpeg");
 
-		//èŽ·å–å›¾ç‰‡éªŒè¯ç 
+		// Generate verification code
 		BufferedImage image = sysCaptchaService.getCaptcha(uuid);
 
 		ServletOutputStream out = response.getOutputStream();
@@ -60,36 +50,35 @@ public class SysLoginController extends AbstractController {
 	}
 
 	/**
-	 * ç™»å½•
+	 * User login
 	 */
 	@PostMapping("/sys/login")
 	public Map<String, Object> login(@RequestBody SysLoginForm form)throws IOException {
 		boolean captcha = sysCaptchaService.validate(form.getUuid(), form.getCaptcha());
 		if(!captcha){
-			return R.error("éªŒè¯ç ä¸æ­£ç¡®");
+			return R.error("Verification code error");
 		}
 
-		//ç”¨æˆ·ä¿¡æ¯
+		// User info
 		SysUserEntity user = sysUserService.queryByUserName(form.getUsername());
 
-		//è´¦å·ä¸å­˜åœ¨ã€å¯†ç é”™è¯¯
+		// Username or password error
 		if(user == null || !user.getPassword().equals(new Sha256Hash(form.getPassword(), user.getSalt()).toHex())) {
-			return R.error("è´¦å·æˆ–å¯†ç ä¸æ­£ç¡®");
+			return R.error("Username or password error");
 		}
 
-		//è´¦å·é”å®š
+		// Account locked
 		if(user.getStatus() == 0){
-			return R.error("è´¦å·å·²è¢«é”å®š,è¯·è”ç³»ç®¡ç†å‘˜");
+			return R.error("Account locked, please contact administrator");
 		}
 
-		//ç”Ÿæˆtokenï¼Œå¹¶ä¿å­˜åˆ°æ•°æ®åº“
+		// Generate token and return user info
 		R r = sysUserTokenService.createToken(user.getUserId());
 		return r;
 	}
 
-
 	/**
-	 * é€€å‡º
+	 * User logout
 	 */
 	@PostMapping("/sys/logout")
 	public R logout() {

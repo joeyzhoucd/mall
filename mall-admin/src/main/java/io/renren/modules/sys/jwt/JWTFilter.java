@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.jwt;
 
 import com.google.gson.Gson;
@@ -25,15 +17,13 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * jwt tokenè¿‡æ»¤å™¨
- *
- * @author Mark sunlightcs@gmail.com
+ * JWT authentication filter
  */
 public class JWTFilter extends AuthenticatingFilter {
 
     @Override
     protected AuthenticationToken createToken(ServletRequest request, ServletResponse response) throws Exception {
-        //èŽ·å–è¯·æ±‚token
+        // Get token from request
         String token = getRequestToken((HttpServletRequest) request);
 
         if(StringUtils.isBlank(token)){
@@ -54,7 +44,7 @@ public class JWTFilter extends AuthenticatingFilter {
 
     @Override
     protected boolean onAccessDenied(ServletRequest request, ServletResponse response) throws Exception {
-        //èŽ·å–è¯·æ±‚tokenï¼Œå¦‚æžœtokenä¸å­˜åœ¨ï¼Œç›´æŽ¥è¿”å›ž401
+        // Get token from request, if no token return 401
         String token = getRequestToken((HttpServletRequest) request);
         if(StringUtils.isBlank(token)){
             HttpServletResponse httpResponse = (HttpServletResponse) response;
@@ -78,7 +68,7 @@ public class JWTFilter extends AuthenticatingFilter {
         httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
         httpResponse.setHeader("Access-Control-Allow-Origin", HttpContextUtils.getOrigin());
         try {
-            //å¤„ç†ç™»å½•å¤±è´¥çš„å¼‚å¸¸
+            // Handle exception
             Throwable throwable = e.getCause() == null ? e : e.getCause();
             R r = R.error(HttpStatus.SC_UNAUTHORIZED, throwable.getMessage());
 
@@ -92,19 +82,18 @@ public class JWTFilter extends AuthenticatingFilter {
     }
 
     /**
-     * èŽ·å–è¯·æ±‚çš„token
+     * Get token from request
      */
     private String getRequestToken(HttpServletRequest httpRequest){
-        //ä»Žheaderä¸­èŽ·å–token
+        // Get token from header
         String token = httpRequest.getHeader("token");
 
-        //å¦‚æžœheaderä¸­ä¸å­˜åœ¨tokenï¼Œåˆ™ä»Žå‚æ•°ä¸­èŽ·å–token
+        // If no token in header, get from parameter
         if(StringUtils.isBlank(token)){
             token = httpRequest.getParameter("token");
         }
 
         return token;
     }
-
 
 }

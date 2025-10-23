@@ -19,25 +19,25 @@ public class PurchaseDetailServiceImpl extends ServiceImpl<PurchaseDetailDao, Pu
     public PageUtils queryPage(Map<String, Object> params) {
         QueryWrapper<PurchaseDetailEntity> wrapper = new QueryWrapper<>();
 
-        // é‡‡è´­å•IDç­›é€‰
+        // Filter by purchase ID
         Object purchaseId = params.get("purchaseId");
         if (purchaseId != null && StringUtils.isNotBlank(purchaseId.toString())) {
             wrapper.eq("purchase_id", purchaseId);
         }
 
-        // ä»“åº“IDç­›é€‰
+        // Filter by warehouse ID
         Object wareId = params.get("wareId");
         if (wareId != null && StringUtils.isNotBlank(wareId.toString())) {
             wrapper.eq("ware_id", wareId);
         }
 
-        // çŠ¶æ€ç­›é€‰
+        // Filter by status
         Object status = params.get("status");
         if (status != null && StringUtils.isNotBlank(status.toString())) {
             wrapper.eq("status", status);
         }
 
-        // å…³é”®è¯æœç´¢ï¼ˆæ”¯æŒIDã€SKU IDã€é‡‡è´­å•IDï¼‰
+        // Search by key: detail ID, SKU ID, purchase ID or SKU name
         String key = (String) params.get("key");
         if (StringUtils.isNotBlank(key)) {
             wrapper.and(w -> {
@@ -45,7 +45,7 @@ public class PurchaseDetailServiceImpl extends ServiceImpl<PurchaseDetailDao, Pu
                     Long id = Long.valueOf(key);
                     w.eq("id", id).or().eq("sku_id", id).or().eq("purchase_id", id);
                 } catch (NumberFormatException e) {
-                    // å¦‚æžœä¸æ˜¯æ•°å­—ï¼Œåˆ™æŒ‰SKUåç§°æ¨¡ç³ŠæŸ¥è¯¢
+                    // If not a number, search by SKU name
                     w.like("sku_name", key);
                 }
             });

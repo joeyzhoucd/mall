@@ -20,7 +20,7 @@ public class IntegrationChangeHistoryServiceImpl extends ServiceImpl<Integration
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<IntegrationChangeHistoryEntity> page = this.page(
                 new Query<IntegrationChangeHistoryEntity>().getPage(params),
-                new QueryWrapper<IntegrationChangeHistoryEntity>()
+                new QueryWrapper<>()
         );
 
         return new PageUtils(page);

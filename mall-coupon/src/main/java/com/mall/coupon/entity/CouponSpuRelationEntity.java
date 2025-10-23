@@ -6,34 +6,20 @@ import lombok.Data;
 
 import java.io.Serializable;
 
-/**
- * ä¼˜æƒ åˆ¸ä¸Žäº§å“å…³è”
- * 
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:08:26
- */
+
 @Data
 @TableName("sms_coupon_spu_relation")
 public class CouponSpuRelationEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	/**
-	 * id
-	 */
+	
 	@TableId
 	private Long id;
-	/**
-	 * ä¼˜æƒ åˆ¸id
-	 */
+	
 	private Long couponId;
-	/**
-	 * spu_id
-	 */
+	
 	private Long spuId;
-	/**
-	 * spu_name
-	 */
+	
 	private String spuName;
 
 }

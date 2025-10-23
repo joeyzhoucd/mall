@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.job.entity;
 
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -18,9 +10,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * å®šæ—¶ä»»åŠ¡
- *
- * @author Mark sunlightcs@gmail.com
+ * Schedule job entity
  */
 @Data
 @TableName("schedule_job")
@@ -28,45 +18,45 @@ public class ScheduleJobEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	/**
-	 * ä»»åŠ¡è°ƒåº¦å‚æ•°key
+	 * Job parameter key
 	 */
     public static final String JOB_PARAM_KEY = "JOB_PARAM_KEY";
 	
 	/**
-	 * ä»»åŠ¡id
+	 * Job ID
 	 */
 	@TableId
 	private Long jobId;
 
 	/**
-	 * spring beanåç§°
+	 * Bean name
 	 */
-	@NotBlank(message="beanåç§°ä¸èƒ½ä¸ºç©º")
+	@NotBlank(message="Bean name cannot be empty")
 	private String beanName;
 	
 	/**
-	 * å‚æ•°
+	 * Parameters
 	 */
 	private String params;
 	
 	/**
-	 * cronè¡¨è¾¾å¼
+	 * Cron expression
 	 */
-	@NotBlank(message="cronè¡¨è¾¾å¼ä¸èƒ½ä¸ºç©º")
+	@NotBlank(message="Cron expression cannot be empty")
 	private String cronExpression;
 
 	/**
-	 * ä»»åŠ¡çŠ¶æ€
+	 * Status
 	 */
 	private Integer status;
 
 	/**
-	 * å¤‡æ³¨
+	 * Remark
 	 */
 	private String remark;
 
 	/**
-	 * åˆ›å»ºæ—¶é—´
+	 * Create time
 	 */
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private Date createTime;

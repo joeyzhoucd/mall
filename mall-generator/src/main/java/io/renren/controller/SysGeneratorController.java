@@ -1,10 +1,4 @@
-/**
- * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
+
 
 package io.renren.controller;
 
@@ -23,20 +17,14 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 
-/**
- * ä»£ç ç”Ÿæˆå™¨
- * 
- * @author Mark sunlightcs@gmail.com
- */
+
 @Controller
 @RequestMapping("/sys/generator")
 public class SysGeneratorController {
 	@Autowired
 	private SysGeneratorService sysGeneratorService;
 	
-	/**
-	 * åˆ—è¡¨
-	 */
+	
 	@ResponseBody
 	@RequestMapping("/list")
 	public R list(@RequestParam Map<String, Object> params){
@@ -45,9 +33,7 @@ public class SysGeneratorController {
 		return R.ok().put("page", pageUtil);
 	}
 	
-	/**
-	 * ç”Ÿæˆä»£ç 
-	 */
+	
 	@RequestMapping("/code")
 	public void code(String tables, HttpServletResponse response) throws IOException{
 		byte[] data = sysGeneratorService.generatorCode(tables.split(","));

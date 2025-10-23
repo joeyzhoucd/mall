@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -17,12 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-
-
 /**
- * è§’è‰²ä¸Žèœå•å¯¹åº”å…³ç³»
- *
- * @author Mark sunlightcs@gmail.com
+ * System role menu service implementation
  */
 @Service("sysRoleMenuService")
 public class SysRoleMenuServiceImpl extends ServiceImpl<SysRoleMenuDao, SysRoleMenuEntity> implements SysRoleMenuService {
@@ -30,14 +18,14 @@ public class SysRoleMenuServiceImpl extends ServiceImpl<SysRoleMenuDao, SysRoleM
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void saveOrUpdate(Long roleId, List<Long> menuIdList) {
-		//å…ˆåˆ é™¤è§’è‰²ä¸Žèœå•å…³ç³»
+		// Delete role menu relations
 		deleteBatch(new Long[]{roleId});
 
 		if(menuIdList.size() == 0){
 			return ;
 		}
 
-		//ä¿å­˜è§’è‰²ä¸Žèœå•å…³ç³»
+		// Save role menu relations
 		for(Long menuId : menuIdList){
 			SysRoleMenuEntity sysRoleMenuEntity = new SysRoleMenuEntity();
 			sysRoleMenuEntity.setMenuId(menuId);

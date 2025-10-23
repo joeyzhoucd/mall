@@ -3,25 +3,21 @@ package io.renren.entity;
 import java.util.List;
 
 /**
- * è¡¨æ•°æ®
- * 
- * @author chenshun
- * @email sunlightcs@gmail.com
- * @date 2016å¹´12æœˆ20æ—¥ ä¸Šåˆ12:02:55
+ * Table entity for code generation
  */
 public class TableEntity {
-	//è¡¨çš„åç§°
+	// Table name
 	private String tableName;
-	//è¡¨çš„å¤‡æ³¨
+	// Table comment
 	private String comments;
-	//è¡¨çš„ä¸»é”®
+	// Primary key
 	private ColumnEntity pk;
-	//è¡¨çš„åˆ—å(ä¸åŒ…å«ä¸»é”®)
+	// Table columns (excluding primary key)
 	private List<ColumnEntity> columns;
 	
-	//ç±»å(ç¬¬ä¸€ä¸ªå­—æ¯å¤§å†™)ï¼Œå¦‚ï¼šsys_user => SysUser
+	// Class name (first letter uppercase) e.g. sys_user => SysUser
 	private String className;
-	//ç±»å(ç¬¬ä¸€ä¸ªå­—æ¯å°å†™)ï¼Œå¦‚ï¼šsys_user => sysUser
+	// Class name (first letter lowercase) e.g. sys_user => sysUser
 	private String classname;
 	
 	public String getTableName() {

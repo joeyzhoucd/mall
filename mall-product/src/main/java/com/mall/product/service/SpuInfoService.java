@@ -7,20 +7,11 @@ import com.mall.product.vo.SpuSaveVo;
 
 import java.util.Map;
 
-/**
- * spuä¿¡æ¯
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-28 02:39:50
- */
+
 public interface SpuInfoService extends IService<SpuInfoEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
 
-    /**
-     * ä¿å­˜SPUä¿¡æ¯
-     */
+    
     void saveSpuInfo(SpuSaveVo spuSaveVo);
 }
-

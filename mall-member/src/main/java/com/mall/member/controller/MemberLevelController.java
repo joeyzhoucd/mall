@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * ä¼šå‘˜ç­‰çº§
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:25:02
- */
+
 @RestController
 @RequestMapping("member/memberlevel")
 public class MemberLevelController {
     @Autowired
     private MemberLevelService memberLevelService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = memberLevelService.queryPage(params);
@@ -36,9 +28,7 @@ public class MemberLevelController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		MemberLevelEntity memberLevel = memberLevelService.getById(id);
@@ -46,9 +36,7 @@ public class MemberLevelController {
         return R.ok().put("memberLevel", memberLevel);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody MemberLevelEntity memberLevel){
 		memberLevelService.save(memberLevel);
@@ -56,9 +44,7 @@ public class MemberLevelController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody MemberLevelEntity memberLevel){
 		memberLevelService.updateById(memberLevel);
@@ -66,9 +52,7 @@ public class MemberLevelController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		memberLevelService.removeByIds(Arrays.asList(ids));

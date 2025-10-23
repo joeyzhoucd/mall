@@ -11,7 +11,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 /**
- * å•†å“åº“å­˜
+ * Warehouse SKU Controller
  *
  * @author joeyzhou
  * @email eryueshier@gmail.com
@@ -24,7 +24,7 @@ public class WareSkuController {
     private WareSkuService wareSkuService;
 
     /**
-     * åˆ—è¡¨
+     * Get warehouse SKU list
      */
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
@@ -33,7 +33,7 @@ public class WareSkuController {
     }
 
     /**
-     * ä¿¡æ¯
+     * Get warehouse SKU info by ID
      */
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
@@ -42,7 +42,7 @@ public class WareSkuController {
     }
 
     /**
-     * ä¿å­˜
+     * Save warehouse SKU
      */
     @RequestMapping("/save")
     public R save(@RequestBody WareSkuEntity wareSku){
@@ -51,7 +51,7 @@ public class WareSkuController {
     }
 
     /**
-     * ä¿®æ”¹
+     * Update warehouse SKU
      */
     @RequestMapping("/update")
     public R update(@RequestBody WareSkuEntity wareSku){
@@ -60,7 +60,7 @@ public class WareSkuController {
     }
 
     /**
-     * åˆ é™¤
+     * Delete warehouse SKU
      */
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){

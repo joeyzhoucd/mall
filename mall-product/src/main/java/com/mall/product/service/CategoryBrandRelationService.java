@@ -7,13 +7,7 @@ import com.mall.product.entity.CategoryBrandRelationEntity;
 import java.util.List;
 import java.util.Map;
 
-/**
- * åˆ†ç±»&å“ç‰Œ åˆ†ç»„å…³è”
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-28 02:39:50
- */
+
 public interface CategoryBrandRelationService extends IService<CategoryBrandRelationEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
@@ -26,4 +20,3 @@ public interface CategoryBrandRelationService extends IService<CategoryBrandRela
 
     List<CategoryBrandRelationEntity> getRelationsByCategoryId(Long categoryId);
 }
-

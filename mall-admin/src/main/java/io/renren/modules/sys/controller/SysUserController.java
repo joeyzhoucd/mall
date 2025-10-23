@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.controller;
 
 import io.renren.common.annotation.SysLog;
@@ -30,9 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ç³»ç»Ÿç”¨æˆ·
- *
- * @author Mark sunlightcs@gmail.com
+ * System user controller
  */
 @RestController
 @RequestMapping("/sys/user")
@@ -42,14 +32,13 @@ public class SysUserController extends AbstractController {
 	@Autowired
 	private SysUserRoleService sysUserRoleService;
 
-
 	/**
-	 * æ‰€æœ‰ç”¨æˆ·åˆ—è¡¨
+	 * List users
 	 */
 	@GetMapping("/list")
 	@RequiresPermissions("sys:user:list")
 	public R list(@RequestParam Map<String, Object> params){
-		//åªæœ‰è¶…çº§ç®¡ç†å‘˜ï¼Œæ‰èƒ½æŸ¥çœ‹æ‰€æœ‰ç®¡ç†å‘˜åˆ—è¡¨
+		// Super admin can see all users
 		if(getUserId() != Constant.SUPER_ADMIN){
 			params.put("createUserId", getUserId());
 		}
@@ -59,7 +48,7 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * èŽ·å–ç™»å½•çš„ç”¨æˆ·ä¿¡æ¯
+	 * Get current user info
 	 */
 	@GetMapping("/info")
 	public R info(){
@@ -67,36 +56,36 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * ä¿®æ”¹ç™»å½•ç”¨æˆ·å¯†ç 
+	 * Update password
 	 */
-	@SysLog("ä¿®æ”¹å¯†ç ")
+	@SysLog("Update password")
 	@PostMapping("/password")
 	public R password(@RequestBody PasswordForm form){
-		Assert.isBlank(form.getNewPassword(), "æ–°å¯†ç ä¸ä¸ºèƒ½ç©º");
+		Assert.isBlank(form.getNewPassword(), "New password cannot be empty");
 		
-		//sha256åŠ å¯†
+		// sha256 encryption
 		String password = new Sha256Hash(form.getPassword(), getUser().getSalt()).toHex();
-		//sha256åŠ å¯†
+		// sha256 encryption
 		String newPassword = new Sha256Hash(form.getNewPassword(), getUser().getSalt()).toHex();
 				
-		//æ›´æ–°å¯†ç 
+		// Update password
 		boolean flag = sysUserService.updatePassword(getUserId(), password, newPassword);
 		if(!flag){
-			return R.error("åŽŸå¯†ç ä¸æ­£ç¡®");
+			return R.error("Old password error");
 		}
 		
 		return R.ok();
 	}
 	
 	/**
-	 * ç”¨æˆ·ä¿¡æ¯
+	 * Get user info
 	 */
 	@GetMapping("/info/{userId}")
 	@RequiresPermissions("sys:user:info")
 	public R info(@PathVariable("userId") Long userId){
 		SysUserEntity user = sysUserService.getById(userId);
 		
-		//èŽ·å–ç”¨æˆ·æ‰€å±žçš„è§’è‰²åˆ—è¡¨
+		// Query user role list
 		List<Long> roleIdList = sysUserRoleService.queryRoleIdList(userId);
 		user.setRoleIdList(roleIdList);
 		
@@ -104,9 +93,9 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * ä¿å­˜ç”¨æˆ·
+	 * Save user
 	 */
-	@SysLog("ä¿å­˜ç”¨æˆ·")
+	@SysLog("Save user")
 	@PostMapping("/save")
 	@RequiresPermissions("sys:user:save")
 	public R save(@RequestBody SysUserEntity user){
@@ -119,9 +108,9 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * ä¿®æ”¹ç”¨æˆ·
+	 * Update user
 	 */
-	@SysLog("ä¿®æ”¹ç”¨æˆ·")
+	@SysLog("Update user")
 	@PostMapping("/update")
 	@RequiresPermissions("sys:user:update")
 	public R update(@RequestBody SysUserEntity user){
@@ -134,18 +123,18 @@ public class SysUserController extends AbstractController {
 	}
 	
 	/**
-	 * åˆ é™¤ç”¨æˆ·
+	 * Delete user
 	 */
-	@SysLog("åˆ é™¤ç”¨æˆ·")
+	@SysLog("Delete user")
 	@PostMapping("/delete")
 	@RequiresPermissions("sys:user:delete")
 	public R delete(@RequestBody Long[] userIds){
 		if(ArrayUtils.contains(userIds, 1L)){
-			return R.error("ç³»ç»Ÿç®¡ç†å‘˜ä¸èƒ½åˆ é™¤");
+			return R.error("Super admin cannot be deleted");
 		}
 		
 		if(ArrayUtils.contains(userIds, getUserId())){
-			return R.error("å½“å‰ç”¨æˆ·ä¸èƒ½åˆ é™¤");
+			return R.error("Current user cannot be deleted");
 		}
 		
 		sysUserService.deleteBatch(userIds);

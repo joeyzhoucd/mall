@@ -1,18 +1,7 @@
-/**
- * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.datasource.properties;
 
 /**
- * å¤šæ•°æ®æºå±žæ€§
- *
- * @author Mark sunlightcs@gmail.com
- * @since 1.0.0
+ * Data source properties
  */
 public class DataSourceProperties {
     private String driverClassName;
@@ -21,7 +10,7 @@ public class DataSourceProperties {
     private String password;
 
     /**
-     * Druidé»˜è®¤å‚æ•°
+     * Connection pool configuration
      */
     private int initialSize = 2;
     private int maxActive = 10;

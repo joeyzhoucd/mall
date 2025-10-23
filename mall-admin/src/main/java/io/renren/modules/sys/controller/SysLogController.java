@@ -1,10 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
+
 
 package io.renren.modules.sys.controller;
 
@@ -22,20 +16,14 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import java.util.Map;
 
 
-/**
- * ç³»ç»Ÿæ—¥å¿—
- *
- * @author Mark sunlightcs@gmail.com
- */
+
 @Controller
 @RequestMapping("/sys/log")
 public class SysLogController {
 	@Autowired
 	private SysLogService sysLogService;
 	
-	/**
-	 * åˆ—è¡¨
-	 */
+	
 	@ResponseBody
 	@GetMapping("/list")
 	@RequiresPermissions("sys:log:list")

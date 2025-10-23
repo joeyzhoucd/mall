@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.oss.cloud;
 
 import com.aliyun.oss.OSSClient;
@@ -15,9 +7,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 
 /**
- * é˜¿é‡Œäº‘å­˜å‚¨
- *
- * @author Mark sunlightcs@gmail.com
+ * Aliyun cloud storage service
  */
 public class AliyunCloudStorageService extends CloudStorageService {
     private OSSClient client;
@@ -25,7 +15,7 @@ public class AliyunCloudStorageService extends CloudStorageService {
     public AliyunCloudStorageService(CloudStorageConfig config){
         this.config = config;
 
-        //åˆå§‹åŒ–
+        // Initialize
         init();
     }
 
@@ -44,7 +34,7 @@ public class AliyunCloudStorageService extends CloudStorageService {
         try {
             client.putObject(config.getAliyunBucketName(), path, inputStream);
         } catch (Exception e){
-            throw new RRException("ä¸Šä¼ æ–‡ä»¶å¤±è´¥ï¼Œè¯·æ£€æŸ¥é…ç½®ä¿¡æ¯", e);
+            throw new RRException("Upload file error, please check cloud storage configuration", e);
         }
 
         return config.getAliyunDomain() + "/" + path;

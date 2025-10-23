@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.service.impl;
-
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -23,7 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
-
+/**
+ * System menu service implementation
+ */
 @Service("sysMenuService")
 public class SysMenuServiceImpl extends ServiceImpl<SysMenuDao, SysMenuEntity> implements SysMenuService {
 	@Autowired
@@ -59,41 +52,39 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuDao, SysMenuEntity> i
 
 	@Override
 	public List<SysMenuEntity> getUserMenuList(Long userId) {
-		//ç³»ç»Ÿç®¡ç†å‘˜ï¼Œæ‹¥æœ‰æœ€é«˜æƒé™
+		// Super admin has all menu permissions
 		if(userId == Constant.SUPER_ADMIN){
 			return getMenuList(null);
 		}
 		
-		//ç”¨æˆ·èœå•åˆ—è¡¨
+		// User menu list
 		List<Long> menuIdList = sysUserService.queryAllMenuId(userId);
 		return getMenuList(menuIdList);
 	}
 
 	/**
-	 * èŽ·å–æ‹¥æœ‰çš„èœå•åˆ—è¡¨
-	 * @param menuIdList
-	 * @return
+	 * Get menu list
 	 */
 	private List<SysMenuEntity> getMenuList(List<Long> menuIdList) {
-		// æŸ¥è¯¢æ‹¥æœ‰çš„æ‰€æœ‰èœå•
+		// Query all menus
 		List<SysMenuEntity> menus = this.baseMapper.selectList(new QueryWrapper<SysMenuEntity>()
 				.in(Objects.nonNull(menuIdList), "menu_id", menuIdList).in("type", 0, 1));
-		//æŸ¥è¯¢å®Œæˆ å¯¹æ­¤listç›´æŽ¥æŽ’åº
+		// Sort by order
 		Collections.sort(menus);
 
-		// å°†idå’Œèœå•ç»‘å®š
+		// Build menu map
 		HashMap<Long, SysMenuEntity> menuMap = new HashMap<>(12);
 		for (SysMenuEntity s : menus) {
 			menuMap.put(s.getMenuId(), s);
 		}
-		// ä½¿ç”¨è¿­ä»£å™¨,ç»„è£…èœå•çš„å±‚çº§å…³ç³»
+		// Build tree structure
 		Iterator<SysMenuEntity> iterator = menus.iterator();
 		while (iterator.hasNext()) {
 			SysMenuEntity menu = iterator.next();
 			SysMenuEntity parent = menuMap.get(menu.getParentId());
 			if (Objects.nonNull(parent)) {
 				parent.getList().add(menu);
-				// å°†è¿™ä¸ªèœå•ä»Žå½“å‰èŠ‚ç‚¹ç§»é™¤
+				// Remove child menu from root list
 				iterator.remove();
 			}
 		}
@@ -103,32 +94,32 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuDao, SysMenuEntity> i
 
 	@Override
 	public void delete(Long menuId){
-		//åˆ é™¤èœå•
+		// Delete menu
 		this.removeById(menuId);
-		//åˆ é™¤èœå•ä¸Žè§’è‰²å…³è”
+		// Delete menu role relations
 		sysRoleMenuService.removeByMap(new MapUtils().put("menu_id", menuId));
 	}
 
 	/**
-	 * èŽ·å–æ‰€æœ‰èœå•åˆ—è¡¨
+	 * Get all menu list
 	 */
 	private List<SysMenuEntity> getAllMenuList(List<Long> menuIdList){
-		//æŸ¥è¯¢æ ¹èœå•åˆ—è¡¨
+		// Query menu list
 		List<SysMenuEntity> menuList = queryListParentId(0L, menuIdList);
-		//é€’å½’èŽ·å–å­èœå•
+		// Recursively get sub menus
 		getMenuTreeList(menuList, menuIdList);
 		
 		return menuList;
 	}
 
 	/**
-	 * é€’å½’
+	 * Get menu tree list
 	 */
 	private List<SysMenuEntity> getMenuTreeList(List<SysMenuEntity> menuList, List<Long> menuIdList){
 		List<SysMenuEntity> subMenuList = new ArrayList<SysMenuEntity>();
 		
 		for(SysMenuEntity entity : menuList){
-			//ç›®å½•
+			// Catalog
 			if(entity.getType() == Constant.MenuType.CATALOG.getValue()){
 				entity.setList(getMenuTreeList(queryListParentId(entity.getMenuId(), menuIdList), menuIdList));
 			}

@@ -38,7 +38,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
     public PageUtils queryPage(Map<String, Object> params) {
         QueryWrapper<SkuInfoEntity> wrapper = new QueryWrapper<>();
 
-        // å…³é”®å­—ï¼šskuId æˆ– skuName
+        // Search by skuId or skuName
         Object keyObj = params.get("key");
         if (keyObj != null) {
             String key = String.valueOf(keyObj).trim();
@@ -47,7 +47,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
             }
         }
 
-        // åˆ†ç±»ä¸Žå“ç‰Œï¼ˆå¦‚æžœSKUè¡¨å¸¦æœ‰è¿™äº›å­—æ®µï¼‰
+        // Filter by category and brand
         Object categoryIdObj = params.get("categoryId");
         if (categoryIdObj != null) {
             try {
@@ -71,7 +71,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
 
     @Override
     public PageUtils queryPageWithDetails(Map<String, Object> params) {
-        // å…ˆæŸ¥è¯¢åŸºç¡€SKUä¿¡æ¯
+        // Query SKU list
         PageUtils pageUtils = queryPage(params);
         List<SkuInfoEntity> skuList = (List<SkuInfoEntity>) pageUtils.getList();
         
@@ -79,13 +79,13 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
             return pageUtils;
         }
         
-        // è½¬æ¢ä¸ºVOå¹¶å¡«å……å…³è”æ•°æ®
+        // Convert to VO and fill details
         List<SkuInfoVo> voList = new ArrayList<>();
         for (SkuInfoEntity sku : skuList) {
             SkuInfoVo vo = new SkuInfoVo();
             BeanUtils.copyProperties(sku, vo);
             
-            // å¡«å……åˆ†ç±»åç§°
+            // Fill category name
             if (sku.getCategoryId() != null) {
                 CategoryEntity category = categoryDao.selectById(sku.getCategoryId());
                 if (category != null) {
@@ -93,7 +93,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
                 }
             }
             
-            // å¡«å……å“ç‰Œåç§°
+            // Fill brand name
             if (sku.getBrandId() != null) {
                 BrandEntity brand = brandDao.selectById(sku.getBrandId());
                 if (brand != null) {
@@ -101,7 +101,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
                 }
             }
             
-            // å¡«å……SKUå›¾ç‰‡
+            // Fill SKU images
             QueryWrapper<SkuImagesEntity> imageWrapper = new QueryWrapper<>();
             imageWrapper.eq("sku_id", sku.getSkuId()).orderByAsc("img_sort");
             List<SkuImagesEntity> images = skuImagesDao.selectList(imageWrapper);
@@ -115,7 +115,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
                 vo.setImages(imageVos);
             }
             
-            // å¡«å……é”€å”®å±žæ€§
+            // Fill sale attributes
             QueryWrapper<SkuSaleAttrValueEntity> saleAttrWrapper = new QueryWrapper<>();
             saleAttrWrapper.eq("sku_id", sku.getSkuId()).orderByAsc("attr_sort");
             List<SkuSaleAttrValueEntity> saleAttrs = skuSaleAttrValueDao.selectList(saleAttrWrapper);
@@ -132,7 +132,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
             voList.add(vo);
         }
         
-        // æž„å»ºæ–°çš„åˆ†é¡µç»“æžœ
+        // Return new page with details
         PageUtils result = new PageUtils(voList, (int) pageUtils.getTotalCount(), (int) pageUtils.getPageSize(), (int) pageUtils.getCurrPage());
         return result;
     }

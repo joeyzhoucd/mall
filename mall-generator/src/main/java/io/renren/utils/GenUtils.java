@@ -23,32 +23,28 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
- * ä»£ç ç”Ÿæˆå™¨   å·¥å…·ç±»
- *
- * @author chenshun
- * @email sunlightcs@gmail.com
- * @date 2016å¹´12æœˆ19æ—¥ ä¸‹åˆ11:40:24
+ * Code generation utilities
  */
 public class GenUtils {
 
     private static String currentTableName;
 
+    /**
+     * Get template list
+     */
     public static List<String> getTemplates() {
         List<String> templates = new ArrayList<String>();
         templates.add("template/Entity.java.vm");
         templates.add("template/Dao.xml.vm");
-
         templates.add("template/menu.sql.vm");
-
         templates.add("template/Service.java.vm");
         templates.add("template/ServiceImpl.java.vm");
         templates.add("template/Controller.java.vm");
         templates.add("template/Dao.java.vm");
-
         templates.add("template/index.vue.vm");
         templates.add("template/add-or-update.vue.vm");
         if (MongoManager.isMongo()) {
-            // mongoä¸éœ€è¦mapperã€sql   å®žä½“ç±»éœ€è¦æ›¿æ¢
+            // For MongoDB, remove mapper and sql templates
             templates.remove(0);
             templates.remove(1);
             templates.remove(2);
@@ -57,6 +53,9 @@ public class GenUtils {
         return templates;
     }
 
+    /**
+     * Get MongoDB child templates
+     */
     public static List<String> getMongoChildTemplates() {
         List<String> templates = new ArrayList<String>();
         templates.add("template/MongoChildrenEntity.java.vm");
@@ -64,24 +63,24 @@ public class GenUtils {
     }
 
     /**
-     * ç”Ÿæˆä»£ç 
+     * Generate code from table and columns
      */
     public static void generatorCode(Map<String, String> table,
                                      List<Map<String, String>> columns, ZipOutputStream zip) {
-        //é…ç½®ä¿¡æ¯
+        // Get configuration
         Configuration config = getConfig();
         boolean hasBigDecimal = false;
         boolean hasList = false;
-        //è¡¨ä¿¡æ¯
+        // Table entity
         TableEntity tableEntity = new TableEntity();
         tableEntity.setTableName(table.get("tableName"));
         tableEntity.setComments(table.get("tableComment"));
-        //è¡¨åè½¬æ¢æˆJavaç±»å
+        // Convert table name to Java class name
         String className = tableToJava(tableEntity.getTableName(), config.getStringArray("tablePrefix"));
         tableEntity.setClassName(className);
         tableEntity.setClassname(StringUtils.uncapitalize(className));
 
-        //åˆ—ä¿¡æ¯
+        // Column entities
         List<ColumnEntity> columsList = new ArrayList<>();
         for (Map<String, String> column : columns) {
             ColumnEntity columnEntity = new ColumnEntity();
@@ -90,15 +89,14 @@ public class GenUtils {
             columnEntity.setComments(column.get("columnComment"));
             columnEntity.setExtra(column.get("extra"));
 
-            //åˆ—åè½¬æ¢æˆJavaå±žæ€§å
+            // Convert column name to Java attribute name
             String attrName = columnToJava(columnEntity.getColumnName());
             columnEntity.setAttrName(attrName);
             columnEntity.setAttrname(StringUtils.uncapitalize(attrName));
 
-            //åˆ—çš„æ•°æ®ç±»åž‹ï¼Œè½¬æ¢æˆJavaç±»åž‹
+            // Convert data type to Java type
             String attrType = config.getString(columnEntity.getDataType(), columnToJava(columnEntity.getDataType()));
             columnEntity.setAttrType(attrType);
-
 
             if (!hasBigDecimal && attrType.equals("BigDecimal")) {
                 hasBigDecimal = true;
@@ -106,7 +104,7 @@ public class GenUtils {
             if (!hasList && "array".equals(columnEntity.getExtra())) {
                 hasList = true;
             }
-            //æ˜¯å¦ä¸»é”®
+            // Primary key
             if ("PRI".equalsIgnoreCase(column.get("columnKey")) && tableEntity.getPk() == null) {
                 tableEntity.setPk(columnEntity);
             }
@@ -115,18 +113,18 @@ public class GenUtils {
         }
         tableEntity.setColumns(columsList);
 
-        //æ²¡ä¸»é”®ï¼Œåˆ™ç¬¬ä¸€ä¸ªå­—æ®µä¸ºä¸»é”®
+        // If no primary key, use first column as primary key
         if (tableEntity.getPk() == null) {
             tableEntity.setPk(tableEntity.getColumns().get(0));
         }
 
-        //è®¾ç½®velocityèµ„æºåŠ è½½å™¨
+        // Initialize velocity engine
         Properties prop = new Properties();
         prop.put("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
         Velocity.init(prop);
         String mainPath = config.getString("mainPath");
         mainPath = StringUtils.isBlank(mainPath) ? "io.renren" : mainPath;
-        //å°è£…æ¨¡æ¿æ•°æ®
+        // Template variables
         Map<String, Object> map = new HashMap<>();
         map.put("tableName", tableEntity.getTableName());
         map.put("comments", tableEntity.getComments());
@@ -145,28 +143,28 @@ public class GenUtils {
         map.put("datetime", DateUtils.format(new Date(), DateUtils.DATE_TIME_PATTERN));
         VelocityContext context = new VelocityContext(map);
 
-        //èŽ·å–æ¨¡æ¿åˆ—è¡¨
+        // Template list
         List<String> templates = getTemplates();
         for (String template : templates) {
-            //æ¸²æŸ“æ¨¡æ¿
+            // Generate template
             StringWriter sw = new StringWriter();
             Template tpl = Velocity.getTemplate(template, "UTF-8");
             tpl.merge(context, sw);
 
             try {
-                //æ·»åŠ åˆ°zip
+                // Add to zip
                 zip.putNextEntry(new ZipEntry(getFileName(template, tableEntity.getClassName(), config.getString("package"), config.getString("moduleName"))));
                 IOUtils.write(sw.toString(), zip, "UTF-8");
                 IOUtils.closeQuietly(sw);
                 zip.closeEntry();
             } catch (IOException e) {
-                throw new RRException("æ¸²æŸ“æ¨¡æ¿å¤±è´¥ï¼Œè¡¨åï¼š" + tableEntity.getTableName(), e);
+                throw new RRException("Template generation failed for table: " + tableEntity.getTableName(), e);
             }
         }
     }
 
     /**
-     * ç”Ÿæˆmongoå…¶ä»–å®žä½“ç±»çš„ä»£ç 
+     * Generate MongoDB code
      */
     public static void generatorMongoCode(String[] tableNames, ZipOutputStream zip) {
         for (String tableName : tableNames) {
@@ -180,17 +178,20 @@ public class GenUtils {
         }
     }
 
+    /**
+     * Generate children bean code
+     */
     private static void generatorChildrenBeanCode(MongoGeneratorEntity mongoGeneratorEntity, ZipOutputStream zip) {
-        //é…ç½®ä¿¡æ¯
+        // Get configuration
         Configuration config = getConfig();
         boolean hasList = false;
-        //è¡¨ä¿¡æ¯
+        // Table entity
         TableEntity tableEntity = mongoGeneratorEntity.toTableEntity();
-        //è¡¨åè½¬æ¢æˆJavaç±»å
+        // Convert table name to Java class name
         String className = tableToJava(tableEntity.getTableName(), config.getStringArray("tablePrefix"));
         tableEntity.setClassName(className);
         tableEntity.setClassname(StringUtils.uncapitalize(className));
-        //åˆ—ä¿¡æ¯
+        // Column entities
         List<ColumnEntity> columsList = new ArrayList<>();
         for (Map<String, String> column : mongoGeneratorEntity.getColumns()) {
             ColumnEntity columnEntity = new ColumnEntity();
@@ -202,12 +203,12 @@ public class GenUtils {
             columnEntity.setDataType(column.get("dataType"));
             columnEntity.setExtra(column.get("extra"));
 
-            //åˆ—åè½¬æ¢æˆJavaå±žæ€§å
+            // Convert column name to Java attribute name
             String attrName = columnToJava(columnEntity.getColumnName());
             columnEntity.setAttrName(attrName);
             columnEntity.setAttrname(StringUtils.uncapitalize(attrName));
 
-            //åˆ—çš„æ•°æ®ç±»åž‹ï¼Œè½¬æ¢æˆJavaç±»åž‹
+            // Convert data type to Java type
             String attrType = config.getString(columnEntity.getDataType(), columnToJava(columnEntity.getDataType()));
             columnEntity.setAttrType(attrType);
 
@@ -218,13 +219,13 @@ public class GenUtils {
         }
         tableEntity.setColumns(columsList);
 
-        //è®¾ç½®velocityèµ„æºåŠ è½½å™¨
+        // Initialize velocity engine
         Properties prop = new Properties();
         prop.put("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
         Velocity.init(prop);
         String mainPath = config.getString("mainPath");
         mainPath = StringUtils.isBlank(mainPath) ? "io.renren" : mainPath;
-        //å°è£…æ¨¡æ¿æ•°æ®
+        // Template variables
         Map<String, Object> map = new HashMap<>();
         map.put("tableName", tableEntity.getTableName());
         map.put("comments", tableEntity.getComments());
@@ -242,35 +243,34 @@ public class GenUtils {
         map.put("datetime", DateUtils.format(new Date(), DateUtils.DATE_TIME_PATTERN));
         VelocityContext context = new VelocityContext(map);
 
-        //èŽ·å–æ¨¡æ¿åˆ—è¡¨
+        // Template list
         List<String> templates = getMongoChildTemplates();
         for (String template : templates) {
-            //æ¸²æŸ“æ¨¡æ¿
+            // Generate template
             StringWriter sw = new StringWriter();
             Template tpl = Velocity.getTemplate(template, "UTF-8");
             tpl.merge(context, sw);
             try {
-                //æ·»åŠ åˆ°zip
+                // Add to zip
                 zip.putNextEntry(new ZipEntry(getFileName(template, tableEntity.getClassName(), config.getString("package"), config.getString("moduleName"))));
                 IOUtils.write(sw.toString(), zip, "UTF-8");
                 IOUtils.closeQuietly(sw);
                 zip.closeEntry();
             } catch (IOException e) {
-                throw new RRException("æ¸²æŸ“æ¨¡æ¿å¤±è´¥ï¼Œè¡¨åï¼š" + tableEntity.getTableName(), e);
+                throw new RRException("Template generation failed for table: " + tableEntity.getTableName(), e);
             }
         }
-
     }
 
     /**
-     * åˆ—åè½¬æ¢æˆJavaå±žæ€§å
+     * Convert column name to Java attribute name
      */
     public static String columnToJava(String columnName) {
         return WordUtils.capitalizeFully(columnName, new char[]{'_'}).replace("_", "");
     }
 
     /**
-     * è¡¨åè½¬æ¢æˆJavaç±»å
+     * Convert table name to Java class name
      */
     public static String tableToJava(String tableName, String[] tablePrefixArray) {
         if (null != tablePrefixArray && tablePrefixArray.length > 0) {
@@ -284,18 +284,18 @@ public class GenUtils {
     }
 
     /**
-     * èŽ·å–é…ç½®ä¿¡æ¯
+     * Get configuration
      */
     public static Configuration getConfig() {
         try {
             return new PropertiesConfiguration("generator.properties");
         } catch (ConfigurationException e) {
-            throw new RRException("èŽ·å–é…ç½®æ–‡ä»¶å¤±è´¥ï¼Œ", e);
+            throw new RRException("Configuration file not found", e);
         }
     }
 
     /**
-     * èŽ·å–æ–‡ä»¶å
+     * Get file name for template
      */
     public static String getFileName(String template, String className, String packageName, String moduleName) {
         String packagePath = "main" + File.separator + "java" + File.separator;
@@ -346,6 +346,9 @@ public class GenUtils {
         return null;
     }
 
+    /**
+     * Split inner name
+     */
     private static String splitInnerName(String name){
           name = name.replaceAll("\\.","_");
           return name;

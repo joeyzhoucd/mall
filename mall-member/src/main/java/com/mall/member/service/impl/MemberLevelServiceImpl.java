@@ -20,7 +20,7 @@ public class MemberLevelServiceImpl extends ServiceImpl<MemberLevelDao, MemberLe
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<MemberLevelEntity> page = this.page(
                 new Query<MemberLevelEntity>().getPage(params),
-                new QueryWrapper<MemberLevelEntity>()
+                new QueryWrapper<>()
         );
 
         return new PageUtils(page);

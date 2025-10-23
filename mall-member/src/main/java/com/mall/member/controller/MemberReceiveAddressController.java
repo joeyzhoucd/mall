@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * ä¼šå‘˜æ”¶è´§åœ°å€
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:25:02
- */
+
 @RestController
 @RequestMapping("member/memberreceiveaddress")
 public class MemberReceiveAddressController {
     @Autowired
     private MemberReceiveAddressService memberReceiveAddressService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = memberReceiveAddressService.queryPage(params);
@@ -36,9 +28,7 @@ public class MemberReceiveAddressController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		MemberReceiveAddressEntity memberReceiveAddress = memberReceiveAddressService.getById(id);
@@ -46,9 +36,7 @@ public class MemberReceiveAddressController {
         return R.ok().put("memberReceiveAddress", memberReceiveAddress);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody MemberReceiveAddressEntity memberReceiveAddress){
 		memberReceiveAddressService.save(memberReceiveAddress);
@@ -56,9 +44,7 @@ public class MemberReceiveAddressController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody MemberReceiveAddressEntity memberReceiveAddress){
 		memberReceiveAddressService.updateById(memberReceiveAddress);
@@ -66,9 +52,7 @@ public class MemberReceiveAddressController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		memberReceiveAddressService.removeByIds(Arrays.asList(ids));

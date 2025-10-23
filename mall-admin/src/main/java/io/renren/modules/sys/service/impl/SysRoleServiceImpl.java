@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -32,9 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * è§’è‰²
- *
- * @author Mark sunlightcs@gmail.com
+ * System role service implementation
  */
 @Service("sysRoleService")
 public class SysRoleServiceImpl extends ServiceImpl<SysRoleDao, SysRoleEntity> implements SysRoleService {
@@ -66,10 +56,10 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleDao, SysRoleEntity> i
         role.setCreateTime(new Date());
         this.save(role);
 
-        //æ£€æŸ¥æƒé™æ˜¯å¦è¶Šæƒ
+        // Check role permissions
         checkPrems(role);
 
-        //ä¿å­˜è§’è‰²ä¸Žèœå•å…³ç³»
+        // Save role menu relations
         sysRoleMenuService.saveOrUpdate(role.getRoleId(), role.getMenuIdList());
     }
 
@@ -78,26 +68,25 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleDao, SysRoleEntity> i
     public void update(SysRoleEntity role) {
         this.updateById(role);
 
-        //æ£€æŸ¥æƒé™æ˜¯å¦è¶Šæƒ
+        // Check role permissions
         checkPrems(role);
 
-        //æ›´æ–°è§’è‰²ä¸Žèœå•å…³ç³»
+        // Update role menu relations
         sysRoleMenuService.saveOrUpdate(role.getRoleId(), role.getMenuIdList());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteBatch(Long[] roleIds) {
-        //åˆ é™¤è§’è‰²
+        // Delete roles
         this.removeByIds(Arrays.asList(roleIds));
 
-        //åˆ é™¤è§’è‰²ä¸Žèœå•å…³è”
+        // Delete role menu relations
         sysRoleMenuService.deleteBatch(roleIds);
 
-        //åˆ é™¤è§’è‰²ä¸Žç”¨æˆ·å…³è”
+        // Delete role user relations
         sysUserRoleService.deleteBatch(roleIds);
     }
-
 
     @Override
 	public List<Long> queryRoleIdList(Long createUserId) {
@@ -105,20 +94,20 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleDao, SysRoleEntity> i
 	}
 
 	/**
-	 * æ£€æŸ¥æƒé™æ˜¯å¦è¶Šæƒ
+	 * Check role permissions
 	 */
 	private void checkPrems(SysRoleEntity role){
-		//å¦‚æžœä¸æ˜¯è¶…çº§ç®¡ç†å‘˜ï¼Œåˆ™éœ€è¦åˆ¤æ–­è§’è‰²çš„æƒé™æ˜¯å¦è¶…è¿‡è‡ªå·±çš„æƒé™
+		// Super admin has all permissions
 		if(role.getCreateUserId() == Constant.SUPER_ADMIN){
 			return ;
 		}
 		
-		//æŸ¥è¯¢ç”¨æˆ·æ‰€æ‹¥æœ‰çš„èœå•åˆ—è¡¨
+		// Query user menu list
 		List<Long> menuIdList = sysUserDao.queryAllMenuId(role.getCreateUserId());
 		
-		//åˆ¤æ–­æ˜¯å¦è¶Šæƒ
+		// Check permissions
 		if(!menuIdList.containsAll(role.getMenuIdList())){
-			throw new RRException("æ–°å¢žè§’è‰²çš„æƒé™ï¼Œå·²è¶…å‡ºä½ çš„æƒé™èŒƒå›´");
+			throw new RRException("New role permissions cannot exceed your own permissions");
 		}
 	}
 }

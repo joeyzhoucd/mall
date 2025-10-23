@@ -11,13 +11,7 @@ import org.springframework.web.servlet.ModelAndView;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/**
- * å¼‚å¸¸å¤„ç†å™¨
- * 
- * @author chenshun
- * @email sunlightcs@gmail.com
- * @date 2016å¹´10æœˆ27æ—¥ ä¸‹åˆ10:16:19
- */
+
 @Component
 public class RRExceptionHandler implements HandlerExceptionResolver {
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -34,18 +28,18 @@ public class RRExceptionHandler implements HandlerExceptionResolver {
 				r.put("code", ((RRException) ex).getCode());
 				r.put("msg", ((RRException) ex).getMessage());
 			}else if(ex instanceof DuplicateKeyException){
-				r = R.error("æ•°æ®åº“ä¸­å·²å­˜åœ¨è¯¥è®°å½•");
+				r = R.error("数据库中已存在该记录");
 			}else{
 				r = R.error();
 			}
 			
-			//è®°å½•å¼‚å¸¸æ—¥å¿—
+			//记录异常日志
 			logger.error(ex.getMessage(), ex);
 			
 			String json = JSON.toJSONString(r);
 			response.getWriter().print(json);
 		} catch (Exception e) {
-			logger.error("RRExceptionHandler å¼‚å¸¸å¤„ç†å¤±è´¥", e);
+			logger.error("RRExceptionHandler 处理异常失败", e);
 		}
 		return new ModelAndView();
 	}

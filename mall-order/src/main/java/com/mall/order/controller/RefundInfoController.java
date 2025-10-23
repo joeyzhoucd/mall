@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * é€€æ¬¾ä¿¡æ¯
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 22:49:21
- */
+
 @RestController
 @RequestMapping("order/refundinfo")
 public class RefundInfoController {
     @Autowired
     private RefundInfoService refundInfoService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = refundInfoService.queryPage(params);
@@ -36,9 +28,7 @@ public class RefundInfoController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		RefundInfoEntity refundInfo = refundInfoService.getById(id);
@@ -46,9 +36,7 @@ public class RefundInfoController {
         return R.ok().put("refundInfo", refundInfo);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody RefundInfoEntity refundInfo){
 		refundInfoService.save(refundInfo);
@@ -56,9 +44,7 @@ public class RefundInfoController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody RefundInfoEntity refundInfo){
 		refundInfoService.updateById(refundInfo);
@@ -66,9 +52,7 @@ public class RefundInfoController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		refundInfoService.removeByIds(Arrays.asList(ids));

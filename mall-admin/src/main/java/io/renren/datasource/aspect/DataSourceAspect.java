@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.datasource.aspect;
-
 
 import io.renren.datasource.annotation.DataSource;
 import io.renren.datasource.config.DynamicContextHolder;
@@ -25,9 +16,7 @@ import org.springframework.stereotype.Component;
 import java.lang.reflect.Method;
 
 /**
- * å¤šæ•°æ®æºï¼Œåˆ‡é¢å¤„ç†ç±»
- *
- * @author Mark sunlightcs@gmail.com
+ * Data source aspect
  */
 @Aspect
 @Component

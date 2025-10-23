@@ -20,7 +20,7 @@ public class GrowthChangeHistoryServiceImpl extends ServiceImpl<GrowthChangeHist
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<GrowthChangeHistoryEntity> page = this.page(
                 new Query<GrowthChangeHistoryEntity>().getPage(params),
-                new QueryWrapper<GrowthChangeHistoryEntity>()
+                new QueryWrapper<>()
         );
 
         return new PageUtils(page);

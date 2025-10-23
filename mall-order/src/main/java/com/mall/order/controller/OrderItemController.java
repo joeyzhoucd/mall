@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * è®¢å•é¡¹ä¿¡æ¯
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 22:49:21
- */
+
 @RestController
 @RequestMapping("order/orderitem")
 public class OrderItemController {
     @Autowired
     private OrderItemService orderItemService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = orderItemService.queryPage(params);
@@ -36,9 +28,7 @@ public class OrderItemController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		OrderItemEntity orderItem = orderItemService.getById(id);
@@ -46,9 +36,7 @@ public class OrderItemController {
         return R.ok().put("orderItem", orderItem);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody OrderItemEntity orderItem){
 		orderItemService.save(orderItem);
@@ -56,9 +44,7 @@ public class OrderItemController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody OrderItemEntity orderItem){
 		orderItemService.updateById(orderItem);
@@ -66,9 +52,7 @@ public class OrderItemController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		orderItemService.removeByIds(Arrays.asList(ids));

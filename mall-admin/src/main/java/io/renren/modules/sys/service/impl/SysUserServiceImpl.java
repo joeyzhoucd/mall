@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -32,11 +24,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-
 /**
- * ç³»ç»Ÿç”¨æˆ·
- *
- * @author Mark sunlightcs@gmail.com
+ * System user service implementation
  */
 @Service("sysUserService")
 public class SysUserServiceImpl extends ServiceImpl<SysUserDao, SysUserEntity> implements SysUserService {
@@ -79,16 +68,16 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserDao, SysUserEntity> i
 	@Transactional
 	public void saveUser(SysUserEntity user) {
 		user.setCreateTime(new Date());
-		//sha256åŠ å¯†
+		// sha256 encryption
 		String salt = RandomStringUtils.randomAlphanumeric(20);
 		user.setPassword(new Sha256Hash(user.getPassword(), salt).toHex());
 		user.setSalt(salt);
 		this.save(user);
 		
-		//æ£€æŸ¥è§’è‰²æ˜¯å¦è¶Šæƒ
+		// Check role permissions
 		checkRole(user);
 		
-		//ä¿å­˜ç”¨æˆ·ä¸Žè§’è‰²å…³ç³»
+		// Save user role relations
 		sysUserRoleService.saveOrUpdate(user.getUserId(), user.getRoleIdList());
 	}
 
@@ -102,10 +91,10 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserDao, SysUserEntity> i
 		}
 		this.updateById(user);
 		
-		//æ£€æŸ¥è§’è‰²æ˜¯å¦è¶Šæƒ
+		// Check role permissions
 		checkRole(user);
 		
-		//ä¿å­˜ç”¨æˆ·ä¸Žè§’è‰²å…³ç³»
+		// Save user role relations
 		sysUserRoleService.saveOrUpdate(user.getUserId(), user.getRoleIdList());
 	}
 
@@ -123,23 +112,23 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserDao, SysUserEntity> i
 	}
 	
 	/**
-	 * æ£€æŸ¥è§’è‰²æ˜¯å¦è¶Šæƒ
+	 * Check role permissions
 	 */
 	private void checkRole(SysUserEntity user){
 		if(user.getRoleIdList() == null || user.getRoleIdList().size() == 0){
 			return;
 		}
-		//å¦‚æžœä¸æ˜¯è¶…çº§ç®¡ç†å‘˜ï¼Œåˆ™éœ€è¦åˆ¤æ–­ç”¨æˆ·çš„è§’è‰²æ˜¯å¦è‡ªå·±åˆ›å»º
+		// Super admin has all permissions
 		if(user.getCreateUserId() == Constant.SUPER_ADMIN){
 			return ;
 		}
 		
-		//æŸ¥è¯¢ç”¨æˆ·åˆ›å»ºçš„è§’è‰²åˆ—è¡¨
+		// Query user role list
 		List<Long> roleIdList = sysRoleService.queryRoleIdList(user.getCreateUserId());
 
-		//åˆ¤æ–­æ˜¯å¦è¶Šæƒ
+		// Check permissions
 		if(!roleIdList.containsAll(user.getRoleIdList())){
-			throw new RRException("æ–°å¢žç”¨æˆ·æ‰€é€‰è§’è‰²ï¼Œä¸æ˜¯æœ¬äººåˆ›å»º");
+			throw new RRException("New user role cannot exceed your own role permissions");
 		}
 	}
 }

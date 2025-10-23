@@ -19,8 +19,8 @@ import java.util.concurrent.RecursiveTask;
 import java.util.stream.Collectors;
 
 /**
- * @author: gxz  514190950@qq.com
- **/
+ * MongoDB scanner for code generation
+ */
 public class MongoScanner {
     private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -32,7 +32,7 @@ public class MongoScanner {
 
     private MongoDefinition mongoDefinition;
 
-
+    // MongoDB data types
     private final static int[] TYPE = {3, 16, 18, 8, 9, 2, 1};
 
     private final static int ARRAY_TYPE = 4;
@@ -41,33 +41,37 @@ public class MongoScanner {
 
     private final static int DEFAULT_COUNT = 100000;
 
-
+    /**
+     * Constructor
+     */
     public MongoScanner(MongoCollection<Document> collection) {
         this.collection = collection;
         this.scanCount = DEFAULT_COUNT;
         scan();
     }
 
+    /**
+     * Scan MongoDB collection
+     */
     private void scan() {
-        // åˆå§‹åŒ–
+        // Initialize column names
         initColNames();
-        // è§£æžå±žæ€§å€¼
+        // Scan types
         mongoDefinition = scanType();
         MongoManager.putInfo(collection.getNamespace().getCollectionName(), mongoDefinition);
-        // è§£æžå®Œæˆä¹‹åŽé‡Šæ”¾é“¾æŽ¥èµ„æº
+        // Clear collection reference
         this.collection = null;
-
     }
 
+    /**
+     * Get scan result
+     */
     public MongoDefinition getProduct() {
         return mongoDefinition;
     }
 
-
     /**
-     * åŠŸèƒ½æè¿°:åˆ†ç»„å‘é€èšåˆå‡½æ•°(èŽ·å¾—ä¸€çº§å±žæ€§å)
-     *
-     * @author : gxz
+     * Group aggregation to get all field names
      */
     public List<String> groupAggregation(Integer skip, Integer limit) throws MongoCommandException {
         skip = skip == null ? 0 : skip;
@@ -81,7 +85,7 @@ public class MongoScanner {
         filed.append("allkeys", new BasicDBObject("$addToSet", "$arrayofkeyvalue.k"));
         BasicDBObject $group = new BasicDBObject("$group", filed);
         List<BasicDBObject> dbStages = Arrays.asList($project, $skip, $limit, $unwind, $group);
-        // System.out.println(dbStages);  å‘é€çš„èšåˆå‡½æ•°   èŽ·å¾—æ‰€æœ‰å‚æ•°åç§°
+        // System.out.println(dbStages);  // Debug output
         AggregateIterable<Document> aggregate = collection.aggregate(dbStages);
         Document document = aggregate.first();
         if (document == null) {
@@ -97,17 +101,10 @@ public class MongoScanner {
         } else {
             return (List<String>) document.get("allkeys");
         }
-
     }
 
-
     /**
-     * å¦‚æžœä¸€ä¸ªæ–‡æ¡£æ˜¯å¯¹è±¡ç±»åž‹  èŽ·å¾—è¿™ä¸ªå±žæ€§çš„ä¸‹ä¸€çº§çš„å±žæ€§åçš„é›†åˆ
-     * ä¾‹å­: user:{name:"å¼ ä¸‰",age:12}  ä¼ å…¥user  è¿”å›ž[name,age]
-     *
-     * @param parameterName ä¸Šå±‚å‚æ•°å  è¿™ä¸ªå‚æ•°åå¯ä»¥åŒ…å«ä¸€ä¸ªæˆ–å¤šä¸ª.
-     *                      æ³¨: å‚æ•°ä¼ é€’ä¹‹å‰éœ€ç¡®è®¤:  1.ä¸Šå±‚å±žæ€§ä¸€å®šæ˜¯å¯¹è±¡ç±»åž‹
-     * @return è¿”å›žè¿™ä¸ªå±žæ€§å†…çš„æ‰€æœ‰å±žæ€§å
+     * Get next parameter names for nested objects
      */
     public Set<String> getNextParameterNames(String parameterName) {
         Document condition = new Document(parameterName, new Document("$exists", true));
@@ -129,20 +126,13 @@ public class MongoScanner {
                 names.addAll(documentNames);
             }
         }
-        logger.info("è§£æž" + parameterName + "æœ‰" + names.size() + "ä¸ªå­å±žæ€§");
+        logger.info("Scan " + parameterName + " found " + names.size() + " attributes");
         return names;
     }
 
-
     /**
-     * åŠŸèƒ½æè¿°:æä¾›å±žæ€§å è§£æžå±žæ€§ç±»åž‹
-     * èŽ·å–ç›¸åº”çš„å±žæ€§ä¿¡æ¯  å°è£…æˆgeneratorå¯¹è±¡
-     *
-     * @return : è§£æžä¹‹åŽçš„Model {@see #MongoDefinition}
-     * @param: propertyName å±žæ€§å å¯ä»¥æ˜¯å±‚çº§å  æ¯”å¦‚ name ä¹Ÿå¯ä»¥æ˜¯info.name
-     * @see MongoDefinition
+     * Process name and type
      */
-
     public MongoDefinition processNameType(String propertyName) {
         MongoCollection<Document> collection = this.collection;
         MongoDefinition result = new MongoDefinition();
@@ -161,9 +151,9 @@ public class MongoScanner {
                     if (i == 3) {
                         result.setChild(this.produceChildList(propertyName));
                     }
-                    //1æ˜¯double 2æ˜¯string 3æ˜¯å¯¹è±¡ 4æ˜¯æ•°ç»„ 16æ˜¯int 18 æ˜¯long
+                    // 1=double 2=string 3=object 4=array 16=int 18=long
                     result.setType(i);
-                    logger.info("è§£æž[" + propertyName + "]æ˜¯[List][" + Type.typeInfo(result.getType()) + "]");
+                    logger.info("Scan [" + propertyName + "] is [List][" + Type.typeInfo(result.getType()) + "]");
                     return result;
                 }
             }
@@ -174,20 +164,22 @@ public class MongoScanner {
                     if (i == 3) {
                         result.setChild(this.produceChildList(propertyName));
                     }
-                    //1æ˜¯double 2æ˜¯string 3æ˜¯å¯¹è±¡ 4æ˜¯æ•°ç»„ 16æ˜¯int 18 æ˜¯long
-                    //åˆ°è¿™é‡Œå°±æ˜¯æ•°ç»„äº†
+                    // 1=double 2=string 3=object 4=array 16=int 18=long
+                    // Default to array if not found
                     result.setType(i);
-                    logger.info("è§£æž[" + propertyName + "]æ˜¯[" + Type.typeInfo(result.getType()) + "]");
+                    logger.info("Scan [" + propertyName + "] is [" + Type.typeInfo(result.getType()) + "]");
                     return result;
                 }
             }
             result.setType(2);
         }
-        logger.info("è§£æž[" + propertyName + "]æ˜¯[" + Type.typeInfo(result.getType()) + "]");
+        logger.info("Scan [" + propertyName + "] is [" + Type.typeInfo(result.getType()) + "]");
         return result;
     }
 
-
+    /**
+     * Produce child list for nested objects
+     */
     private List<MongoDefinition> produceChildList(String parentName) {
         Set<String> nextParameterNames = this.getNextParameterNames(parentName);
         List<String> strings = new ArrayList<>(nextParameterNames);
@@ -197,15 +189,17 @@ public class MongoScanner {
         return pool.invoke(task);
     }
 
+    /**
+     * Distinct and join two lists
+     */
     private List<String> distinctAndJoin(List<String> a, List<String> b) {
         a.removeAll(b);
         a.addAll(b);
         return a;
     }
 
-
     /**
-     * åŠŸèƒ½æè¿°:è§£æžè¿™ä¸ªé›†åˆçš„åˆ—å  ç”¨ForkJoinæ¡†æž¶å®žçŽ°
+     * Initialize column names
      */
     private void initColNames() {
         long start = System.currentTimeMillis();
@@ -220,9 +214,12 @@ public class MongoScanner {
         }
         this.colNames = pool.invoke(task);
         logger.info("collection[" + this.collection.getNamespace().getCollectionName() +
-                "]åˆå§‹åŒ–åˆ—åæˆåŠŸ.....     ç”¨æ—¶: " + (System.currentTimeMillis() - start) + "æ¯«ç§’");
+                "] initialization completed.....     Time: " + (System.currentTimeMillis() - start) + "ms");
     }
 
+    /**
+     * Scan types for all fields
+     */
     private MongoDefinition scanType() {
         MongoDefinition result = new MongoDefinition();
         List<String> colNames = this.colNames;
@@ -233,7 +230,7 @@ public class MongoScanner {
     }
 
     /**
-     * åŠŸèƒ½æè¿°:forkJoinå¤šçº¿ç¨‹æ¡†æž¶çš„å®žçŽ°  é€šè¿‡ä¸šåŠ¡æ‹†åˆ†è§£æžç±»åž‹
+     * ForkJoin task for processing types
      */
     class ForkJoinProcessType extends RecursiveTask<List<MongoDefinition>> {
         List<String> names;
@@ -267,10 +264,10 @@ public class MongoScanner {
     }
 
     /**
-     * åŠŸèƒ½æè¿°:forkJoinå¤šçº¿ç¨‹æ¡†æž¶çš„å®žçŽ°  é€šè¿‡ä¸šåŠ¡æ‹†åˆ†èŽ·å¾—å±žæ€§å
+     * ForkJoin task for getting process names
      */
     class ForkJoinGetProcessName extends RecursiveTask<List<String>> {
-        private int begin; //æŸ¥è¯¢å¼€å§‹ä½ç½®
+        private int begin; // Start index
         private int end;
         private final int THRESHOLD = 5000;
 
@@ -290,10 +287,14 @@ public class MongoScanner {
                 pre.fork();
                 ForkJoinGetProcessName next = new ForkJoinGetProcessName(middle + 1, end);
                 next.fork();
-                return distinctAndJoin(pre.join(), next.join()); //åŽ»é‡åˆå¹¶
+                return distinctAndJoin(pre.join(), next.join()); // Merge results
             }
         }
     }
+
+    /**
+     * Merge two lists
+     */
     public  <T> List<T> mergeList(List<T> list1, List<T> list2){
         list1.addAll(list2);
         return list1;

@@ -15,22 +15,14 @@ import java.util.List;
 import java.util.Map;
 
 
-/**
- * å“ç‰Œ
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-28 02:39:50
- */
+
 @RestController
 @RequestMapping("product/brand")
 public class BrandController {
     @Autowired
     private BrandService brandService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params) {
         PageUtils page = brandService.queryPage(params);
@@ -39,9 +31,7 @@ public class BrandController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{brandId}")
     public R info(@PathVariable("brandId") Long brandId) {
         BrandEntity brand = brandService.getById(brandId);
@@ -50,9 +40,7 @@ public class BrandController {
     }
 
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@Validated(DAddGroup.class) @RequestBody BrandEntity brand) {
         brandService.save(brand);
@@ -60,9 +48,7 @@ public class BrandController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@Validated(DUpdateGroup.class) @RequestBody BrandEntity brand) {
         brandService.updateById(brand);
@@ -77,9 +63,7 @@ public class BrandController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] brandIds) {
         brandService.removeByIds(Arrays.asList(brandIds));

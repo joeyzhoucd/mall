@@ -1,10 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
+
 
 package io.renren.common.utils;
 
@@ -15,11 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * Rediså·¥å…·ç±»
- *
- * @author Mark sunlightcs@gmail.com
- */
+
 @Component
 public class RedisUtils {
     @Autowired
@@ -34,9 +24,9 @@ public class RedisUtils {
     private SetOperations<String, Object> setOperations;
     @Autowired
     private ZSetOperations<String, Object> zSetOperations;
-    /**  é»˜è®¤è¿‡æœŸæ—¶é•¿ï¼Œå•ä½ï¼šç§’ */
+    
     public final static long DEFAULT_EXPIRE = 60 * 60 * 24;
-    /**  ä¸è®¾ç½®è¿‡æœŸæ—¶é•¿ */
+    
     public final static long NOT_EXPIRE = -1;
     private final static Gson gson = new Gson();
 
@@ -79,9 +69,7 @@ public class RedisUtils {
         redisTemplate.delete(key);
     }
 
-    /**
-     * Objectè½¬æˆJSONæ•°æ®
-     */
+    
     private String toJson(Object object){
         if(object instanceof Integer || object instanceof Long || object instanceof Float ||
                 object instanceof Double || object instanceof Boolean || object instanceof String){
@@ -90,9 +78,7 @@ public class RedisUtils {
         return gson.toJson(object);
     }
 
-    /**
-     * JSONæ•°æ®ï¼Œè½¬æˆObject
-     */
+    
     private <T> T fromJson(String json, Class<T> clazz){
         return gson.fromJson(json, clazz);
     }

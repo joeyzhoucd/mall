@@ -7,42 +7,10 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- *
- * HTML filtering utility for protecting against XSS (Cross Site Scripting).
- *
- * This code is licensed LGPLv3
- *
- * This code is a Java port of the original work in PHP by Cal Hendersen.
- * http://code.iamcal.com/php/lib_filter/
- *
- * The trickiest part of the translation was handling the differences in regex handling
- * between PHP and Java.  These resources were helpful in the process:
- *
- * http://java.sun.com/j2se/1.4.2/docs/api/java/util/regex/Pattern.html
- * http://us2.php.net/manual/en/reference.pcre.pattern.modifiers.php
- * http://www.regular-expressions.info/modifiers.html
- *
- * A note on naming conventions: instance variables are prefixed with a "v"; global
- * constants are in all caps.
- *
- * Sample use:
- * String input = ...
- * String clean = new HTMLFilter().filter( input );
- *
- * The class is not thread safe. Create a new instance if in doubt.
- *
- * If you find bugs or have suggestions on improvement (especially regarding
- * performance), please contact us.  The latest version of this
- * source, and our contact details, can be found at http://xss-html-filter.sf.net
- *
- * @author Joseph O'Connell
- * @author Cal Hendersen
- * @author Michael Semb Wever
- */
+
 public final class HTMLFilter {
 
-    /** regex flag union representing /si modifiers in php **/
+    
     private static final int REGEX_FLAGS_SI = Pattern.CASE_INSENSITIVE | Pattern.DOTALL;
     private static final Pattern P_COMMENTS = Pattern.compile("<!--(.*?)-->", Pattern.DOTALL);
     private static final Pattern P_COMMENT = Pattern.compile("^!--(.*)--$", REGEX_FLAGS_SI);
@@ -72,39 +40,33 @@ public final class HTMLFilter {
     private static final ConcurrentMap<String,Pattern> P_REMOVE_PAIR_BLANKS = new ConcurrentHashMap<String, Pattern>();
     private static final ConcurrentMap<String,Pattern> P_REMOVE_SELF_BLANKS = new ConcurrentHashMap<String, Pattern>();
 
-    /** set of allowed html elements, along with allowed attributes for each element **/
+    
     private final Map<String, List<String>> vAllowed;
-    /** counts of open tags for each (allowable) html element **/
+    
     private final Map<String, Integer> vTagCounts = new HashMap<String, Integer>();
 
-    /** html elements which must always be self-closing (e.g. "<img />") **/
+    
     private final String[] vSelfClosingTags;
-    /** html elements which must always have separate opening and closing tags (e.g. "<b></b>") **/
+    
     private final String[] vNeedClosingTags;
-    /** set of disallowed html elements **/
+    
     private final String[] vDisallowed;
-    /** attributes which should be checked for valid protocols **/
+    
     private final String[] vProtocolAtts;
-    /** allowed protocols **/
+    
     private final String[] vAllowedProtocols;
-    /** tags which should be removed if they contain no content (e.g. "<b></b>" or "<b />") **/
+    
     private final String[] vRemoveBlanks;
-    /** entities allowed within html markup **/
+    
     private final String[] vAllowedEntities;
-    /** flag determining whether comments are allowed in input String. */
+    
     private final boolean stripComment;
     private final boolean encodeQuotes;
     private boolean vDebug = false;
-    /**
-     * flag determining whether to try to make tags when presented with "unbalanced"
-     * angle brackets (e.g. "<b text </b>" becomes "<b> text </b>").  If set to false,
-     * unbalanced angle brackets will be html escaped.
-     */
+    
     private final boolean alwaysMakeTags;
 
-    /** Default constructor.
-     *
-     */
+    
     public HTMLFilter() {
         vAllowed = new HashMap<>();
 
@@ -138,20 +100,14 @@ public final class HTMLFilter {
         alwaysMakeTags = true;
     }
 
-    /** Set debug flag to true. Otherwise use default settings. See the default constructor.
-     *
-     * @param debug turn debug on with a true argument
-     */
+    
     public HTMLFilter(final boolean debug) {
         this();
         vDebug = debug;
 
     }
 
-    /** Map-parameter configurable constructor.
-     *
-     * @param conf map containing configuration. keys match field names.
-     */
+    
     public HTMLFilter(final Map<String,Object> conf) {
 
         assert conf.containsKey("vAllowed") : "configuration requires vAllowed";
@@ -202,13 +158,7 @@ public final class HTMLFilter {
     }
 
     //---------------------------------------------------------------
-    /**
-     * given a user submitted input String, filter out any invalid or restricted
-     * html.
-     *
-     * @param input text (i.e. submitted by a user) than may contain html
-     * @return "clean" version of input, with only valid, whitelisted html elements allowed
-     */
+    
     public String filter(final String input) {
         reset();
         String s = input;

@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * æˆé•¿å€¼å˜åŒ–åŽ†å²è®°å½•
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:25:02
- */
+
 @RestController
 @RequestMapping("member/growthchangehistory")
 public class GrowthChangeHistoryController {
     @Autowired
     private GrowthChangeHistoryService growthChangeHistoryService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = growthChangeHistoryService.queryPage(params);
@@ -36,9 +28,7 @@ public class GrowthChangeHistoryController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		GrowthChangeHistoryEntity growthChangeHistory = growthChangeHistoryService.getById(id);
@@ -46,9 +36,7 @@ public class GrowthChangeHistoryController {
         return R.ok().put("growthChangeHistory", growthChangeHistory);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody GrowthChangeHistoryEntity growthChangeHistory){
 		growthChangeHistoryService.save(growthChangeHistory);
@@ -56,9 +44,7 @@ public class GrowthChangeHistoryController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody GrowthChangeHistoryEntity growthChangeHistory){
 		growthChangeHistoryService.updateById(growthChangeHistory);
@@ -66,9 +52,7 @@ public class GrowthChangeHistoryController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		growthChangeHistoryService.removeByIds(Arrays.asList(ids));

@@ -43,7 +43,7 @@
         col.data_type,
         colc.comments,
         uc.constraint_type,
-        -- åŽ»é‡
+        -- Ž»‡
         row_number() over (partition by col.column_name order by uc.constraint_type desc) as row_flg
         from user_tab_columns col
         left join user_col_comments colc

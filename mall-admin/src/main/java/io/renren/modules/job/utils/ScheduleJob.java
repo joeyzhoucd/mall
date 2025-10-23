@@ -1,10 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
+
 
 package io.renren.modules.job.utils;
 
@@ -23,11 +17,7 @@ import java.lang.reflect.Method;
 import java.util.Date;
 
 
-/**
- * å®šæ—¶ä»»åŠ¡
- *
- * @author Mark sunlightcs@gmail.com
- */
+
 public class ScheduleJob extends QuartzJobBean {
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -36,42 +26,42 @@ public class ScheduleJob extends QuartzJobBean {
         ScheduleJobEntity scheduleJob = (ScheduleJobEntity) context.getMergedJobDataMap()
         		.get(ScheduleJobEntity.JOB_PARAM_KEY);
         
-        //èŽ·å–spring bean
+        //Å½Â·Ââ€“spring bean
         ScheduleJobLogService scheduleJobLogService = (ScheduleJobLogService) SpringContextUtils.getBean("scheduleJobLogService");
         
-        //æ•°æ®åº“ä¿å­˜æ‰§è¡Œè®°å½•
+        //â€¢Â°ÂÂ®Âºâ€œÂ¿ÂÂ­Ëœâ€°Â¡Å’Â®Â°Â½â€¢
         ScheduleJobLogEntity log = new ScheduleJobLogEntity();
         log.setJobId(scheduleJob.getJobId());
         log.setBeanName(scheduleJob.getBeanName());
         log.setParams(scheduleJob.getParams());
         log.setCreateTime(new Date());
         
-        //ä»»åŠ¡å¼€å§‹æ—¶é—´
+        //Â»Â»Å Â¡Â¼â‚¬â€¹â€”Â¶â€”Â´
         long startTime = System.currentTimeMillis();
         
         try {
-            //æ‰§è¡Œä»»åŠ¡
-        	logger.debug("ä»»åŠ¡å‡†å¤‡æ‰§è¡Œï¼Œä»»åŠ¡IDï¼š" + scheduleJob.getJobId());
+            //â€°Â¡Å’Â»Â»Å Â¡
+        	logger.debug("Â»Â»Å Â¡â€¡â€ Â¤â€¡â€°Â¡Å’Â¼Å’Â»Â»Å Â¡IDÂ¼Å¡" + scheduleJob.getJobId());
 
 			Object target = SpringContextUtils.getBean(scheduleJob.getBeanName());
 			Method method = target.getClass().getDeclaredMethod("run", String.class);
 			method.invoke(target, scheduleJob.getParams());
 			
-			//ä»»åŠ¡æ‰§è¡Œæ€»æ—¶é•¿
+			//Â»Â»Å Â¡â€°Â¡Å’â‚¬Â»â€”Â¶â€¢Â¿
 			long times = System.currentTimeMillis() - startTime;
 			log.setTimes((int)times);
-			//ä»»åŠ¡çŠ¶æ€    0ï¼šæˆåŠŸ    1ï¼šå¤±è´¥
+			//Â»Â»Å Â¡Å Â¶â‚¬Â    0Â¼Å¡Ë†ÂÅ Å¸    1Â¼Å¡Â¤Â±Â´
 			log.setStatus(0);
 			
-			logger.debug("ä»»åŠ¡æ‰§è¡Œå®Œæ¯•ï¼Œä»»åŠ¡IDï¼š" + scheduleJob.getJobId() + "  æ€»å…±è€—æ—¶ï¼š" + times + "æ¯«ç§’");
+			logger.debug("Â»Â»Å Â¡â€°Â¡Å’Â®Å’Â¯â€¢Â¼Å’Â»Â»Å Â¡IDÂ¼Å¡" + scheduleJob.getJobId() + "  â‚¬Â»â€¦Â±â‚¬â€”â€”Â¶Â¼Å¡" + times + "Â¯Â«â€™");
 		} catch (Exception e) {
-			logger.error("ä»»åŠ¡æ‰§è¡Œå¤±è´¥ï¼Œä»»åŠ¡IDï¼š" + scheduleJob.getJobId(), e);
+			logger.error("Â»Â»Å Â¡â€°Â¡Å’Â¤Â±Â´Â¼Å’Â»Â»Å Â¡IDÂ¼Å¡" + scheduleJob.getJobId(), e);
 			
-			//ä»»åŠ¡æ‰§è¡Œæ€»æ—¶é•¿
+			//Â»Â»Å Â¡â€°Â¡Å’â‚¬Â»â€”Â¶â€¢Â¿
 			long times = System.currentTimeMillis() - startTime;
 			log.setTimes((int)times);
 			
-			//ä»»åŠ¡çŠ¶æ€    0ï¼šæˆåŠŸ    1ï¼šå¤±è´¥
+			//Â»Â»Å Â¡Å Â¶â‚¬Â    0Â¼Å¡Ë†ÂÅ Å¸    1Â¼Å¡Â¤Â±Â´
 			log.setStatus(1);
 			log.setError(StringUtils.substring(e.toString(), 0, 2000));
 		}finally {

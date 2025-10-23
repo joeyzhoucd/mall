@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.app.controller;
-
 
 import io.renren.common.utils.R;
 import io.renren.modules.app.annotation.Login;
@@ -21,33 +12,40 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * APPæµ‹è¯•æŽ¥å£
- *
- * @author Mark sunlightcs@gmail.com
+ * APP test controller
  */
 @RestController
 @RequestMapping("/app")
-@Api("APPæµ‹è¯•æŽ¥å£")
+@Api("APP test interface")
 public class AppTestController {
 
+    /**
+     * Get user info
+     */
     @Login
     @GetMapping("userInfo")
-    @ApiOperation("èŽ·å–ç”¨æˆ·ä¿¡æ¯")
+    @ApiOperation("Get user info")
     public R userInfo(@LoginUser UserEntity user){
         return R.ok().put("user", user);
     }
 
+    /**
+     * Get user ID
+     */
     @Login
     @GetMapping("userId")
-    @ApiOperation("èŽ·å–ç”¨æˆ·ID")
+    @ApiOperation("Get user ID")
     public R userInfo(@RequestAttribute("userId") Integer userId){
         return R.ok().put("userId", userId);
     }
 
+    /**
+     * Test without token
+     */
     @GetMapping("notToken")
-    @ApiOperation("å¿½ç•¥TokenéªŒè¯æµ‹è¯•")
+    @ApiOperation("Test without token")
     public R notToken(){
-        return R.ok().put("msg", "æ— éœ€tokenä¹Ÿèƒ½è®¿é—®ã€‚ã€‚ã€‚");
+        return R.ok().put("msg", "No token required for this interface");
     }
 
 }

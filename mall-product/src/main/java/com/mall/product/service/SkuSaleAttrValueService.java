@@ -6,15 +6,8 @@ import com.mall.product.entity.SkuSaleAttrValueEntity;
 
 import java.util.Map;
 
-/**
- * skué”€å”®å±žæ€§&å€¼
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-28 02:39:50
- */
+
 public interface SkuSaleAttrValueService extends IService<SkuSaleAttrValueEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
 }
-

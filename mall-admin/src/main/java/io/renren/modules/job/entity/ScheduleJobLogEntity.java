@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.job.entity;
 
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -17,9 +9,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * å®šæ—¶ä»»åŠ¡æ—¥å¿—
- *
- * @author Mark sunlightcs@gmail.com
+ * Schedule job log entity
  */
 @Data
 @TableName("schedule_job_log")
@@ -27,43 +17,43 @@ public class ScheduleJobLogEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	/**
-	 * æ—¥å¿—id
+	 * Log ID
 	 */
 	@TableId
 	private Long logId;
 	
 	/**
-	 * ä»»åŠ¡id
+	 * Job ID
 	 */
 	private Long jobId;
 	
 	/**
-	 * spring beanåç§°
+	 * Bean name
 	 */
 	private String beanName;
 	
 	/**
-	 * å‚æ•°
+	 * Parameters
 	 */
 	private String params;
 	
 	/**
-	 * ä»»åŠ¡çŠ¶æ€    0ï¼šæˆåŠŸ    1ï¼šå¤±è´¥
+	 * Status
 	 */
 	private Integer status;
 	
 	/**
-	 * å¤±è´¥ä¿¡æ¯
+	 * Error message
 	 */
 	private String error;
 	
 	/**
-	 * è€—æ—¶(å•ä½ï¼šæ¯«ç§’)
+	 * Execution times
 	 */
 	private Integer times;
 	
 	/**
-	 * åˆ›å»ºæ—¶é—´
+	 * Create time
 	 */
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private Date createTime;

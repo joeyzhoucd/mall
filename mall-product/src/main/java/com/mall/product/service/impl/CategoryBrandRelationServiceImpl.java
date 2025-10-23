@@ -44,14 +44,14 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
     @Override
     public boolean deleteByBrandId(Long brandId) {
 
-        // 1. å‚æ•°æ ¡éªŒï¼Œé¿å…ä¼ å…¥ç©ºå€¼
+        // 1. Validate input parameters
         Assert.notNull(brandId, "brandId must not be null");
 
-        // 2. æž„é€ åˆ é™¤æ¡ä»¶
+        // 2. Build query conditions
         QueryWrapper<CategoryBrandRelationEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("brand_id", brandId);
 
-        // 3. è°ƒç”¨ MyBatis-Plus è‡ªå¸¦çš„ remove æ–¹æ³•æ‰§è¡Œåˆ é™¤
+        // 3. Use MyBatis-Plus remove method to delete
         return this.remove(wrapper);
     }
 
@@ -64,7 +64,7 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
         }
         BrandEntity brand = brandService.getById(brandId);
         Assert.notNull(brand, "brand must be existing");
-        // 1. æž„é€ æŸ¥è¯¢æ¡ä»¶
+        // 1. Build query conditions
         QueryWrapper<CategoryBrandRelationEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("brand_id", brandId);
         long count = this.count(wrapper);
@@ -92,9 +92,9 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
 
     @Override
     public List<CategoryBrandRelationEntity> getRelationsByBrandId(Long brandId) {
-        // 1. å‚æ•°æ ¡éªŒï¼Œé¿å…ä¼ å…¥ç©ºå€¼
+        // 1. Validate input parameters
         Assert.notNull(brandId, "brandId must not be null");
-        // 2. æž„é€ æŸ¥è¯¢æ¡ä»¶
+        // 2. Build query conditions
         QueryWrapper<CategoryBrandRelationEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("brand_id", brandId);
         return this.list(wrapper);
@@ -102,9 +102,9 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
 
     @Override
     public List<CategoryBrandRelationEntity> getRelationsByCategoryId(Long categoryId) {
-        // 1. å‚æ•°æ ¡éªŒï¼Œé¿å…ä¼ å…¥ç©ºå€¼
+        // 1. Validate input parameters
         Assert.notNull(categoryId, "categoryId must not be null");
-        // 2. æž„é€ æŸ¥è¯¢æ¡ä»¶
+        // 2. Build query conditions
         QueryWrapper<CategoryBrandRelationEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("category_id", categoryId);
         return this.list(wrapper);

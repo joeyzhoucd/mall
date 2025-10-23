@@ -20,7 +20,7 @@ public class SkuSaleAttrValueServiceImpl extends ServiceImpl<SkuSaleAttrValueDao
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SkuSaleAttrValueEntity> page = this.page(
                 new Query<SkuSaleAttrValueEntity>().getPage(params),
-                new QueryWrapper<SkuSaleAttrValueEntity>()
+                new QueryWrapper<>()
         );
 
         return new PageUtils(page);

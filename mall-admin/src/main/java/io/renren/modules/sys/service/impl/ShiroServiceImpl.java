@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.service.impl;
 
 import io.renren.common.utils.Constant;
@@ -22,6 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+/**
+ * Shiro service implementation
+ */
 @Service
 public class ShiroServiceImpl implements ShiroService {
     @Autowired
@@ -35,7 +30,7 @@ public class ShiroServiceImpl implements ShiroService {
     public Set<String> getUserPermissions(long userId) {
         List<String> permsList;
 
-        //ç³»ç»Ÿç®¡ç†å‘˜ï¼Œæ‹¥æœ‰æœ€é«˜æƒé™
+        // Super admin has all permissions
         if(userId == Constant.SUPER_ADMIN){
             List<SysMenuEntity> menuList = sysMenuDao.selectList(null);
             permsList = new ArrayList<>(menuList.size());
@@ -45,7 +40,7 @@ public class ShiroServiceImpl implements ShiroService {
         }else{
             permsList = sysUserDao.queryAllPerms(userId);
         }
-        //ç”¨æˆ·æƒé™åˆ—è¡¨
+        // Permission list
         Set<String> permsSet = new HashSet<>();
         for(String perms : permsList){
             if(StringUtils.isBlank(perms)){

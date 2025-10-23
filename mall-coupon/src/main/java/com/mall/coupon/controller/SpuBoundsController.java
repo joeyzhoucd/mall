@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * å•†å“spuç§¯åˆ†è®¾ç½®
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:08:26
- */
+
 @RestController
 @RequestMapping("coupon/spubounds")
 public class SpuBoundsController {
     @Autowired
     private SpuBoundsService spuBoundsService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = spuBoundsService.queryPage(params);
@@ -36,9 +28,7 @@ public class SpuBoundsController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		SpuBoundsEntity spuBounds = spuBoundsService.getById(id);
@@ -46,9 +36,7 @@ public class SpuBoundsController {
         return R.ok().put("spuBounds", spuBounds);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody SpuBoundsEntity spuBounds){
 		spuBoundsService.save(spuBounds);
@@ -56,24 +44,20 @@ public class SpuBoundsController {
         return R.ok();
     }
 
-    /**
-     * ä¿å­˜ï¼ˆé€šè¿‡Mapå‚æ•°ï¼‰
-     */
+    
     @PostMapping("/saveFromMap")
     public R saveFromMap(@RequestBody Map<String, String> params){
         SpuBoundsEntity spuBounds = new SpuBoundsEntity();
         spuBounds.setSpuId(Long.valueOf(params.get("spuId")));
         spuBounds.setBuyBounds(new java.math.BigDecimal(params.get("buy_bounds")));
         spuBounds.setGrowBounds(new java.math.BigDecimal(params.get("grow_bounds")));
-        spuBounds.setWork(1); // é»˜è®¤å€¼
+        spuBounds.setWork(1); // Â»ËœÂ®Â¤â‚¬Â¼
         spuBoundsService.save(spuBounds);
 
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody SpuBoundsEntity spuBounds){
 		spuBoundsService.updateById(spuBounds);
@@ -81,9 +65,7 @@ public class SpuBoundsController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		spuBoundsService.removeByIds(Arrays.asList(ids));

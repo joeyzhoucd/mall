@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * ä¼šå‘˜æ”¶è—çš„å•†å“
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:25:02
- */
+
 @RestController
 @RequestMapping("member/membercollectspu")
 public class MemberCollectSpuController {
     @Autowired
     private MemberCollectSpuService memberCollectSpuService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = memberCollectSpuService.queryPage(params);
@@ -36,9 +28,7 @@ public class MemberCollectSpuController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		MemberCollectSpuEntity memberCollectSpu = memberCollectSpuService.getById(id);
@@ -46,9 +36,7 @@ public class MemberCollectSpuController {
         return R.ok().put("memberCollectSpu", memberCollectSpu);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody MemberCollectSpuEntity memberCollectSpu){
 		memberCollectSpuService.save(memberCollectSpu);
@@ -56,9 +44,7 @@ public class MemberCollectSpuController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody MemberCollectSpuEntity memberCollectSpu){
 		memberCollectSpuService.updateById(memberCollectSpu);
@@ -66,9 +52,7 @@ public class MemberCollectSpuController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		memberCollectSpuService.removeByIds(Arrays.asList(ids));

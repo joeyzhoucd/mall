@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -22,9 +14,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * ç³»ç»Ÿç”¨æˆ·
- *
- * @author Mark sunlightcs@gmail.com
+ * System user entity
  */
 @Data
 @TableName("sys_user")
@@ -32,58 +22,58 @@ public class SysUserEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	/**
-	 * ç”¨æˆ·ID
+	 * User ID
 	 */
 	@TableId
 	private Long userId;
 
 	/**
-	 * ç”¨æˆ·å
+	 * Username
 	 */
-	@NotBlank(message="ç”¨æˆ·åä¸èƒ½ä¸ºç©º", groups = {AddGroup.class, UpdateGroup.class})
+	@NotBlank(message="Username cannot be empty", groups = {AddGroup.class, UpdateGroup.class})
 	private String username;
 
 	/**
-	 * å¯†ç 
+	 * Password
 	 */
-	@NotBlank(message="å¯†ç ä¸èƒ½ä¸ºç©º", groups = AddGroup.class)
+	@NotBlank(message="Password cannot be empty", groups = AddGroup.class)
 	private String password;
 
 	/**
-	 * ç›
+	 * Salt
 	 */
 	private String salt;
 
 	/**
-	 * é‚®ç®±
+	 * Email
 	 */
-	@NotBlank(message="é‚®ç®±ä¸èƒ½ä¸ºç©º", groups = {AddGroup.class, UpdateGroup.class})
-	@Email(message="é‚®ç®±æ ¼å¼ä¸æ­£ç¡®", groups = {AddGroup.class, UpdateGroup.class})
+	@NotBlank(message="Email cannot be empty", groups = {AddGroup.class, UpdateGroup.class})
+	@Email(message="Email format is incorrect", groups = {AddGroup.class, UpdateGroup.class})
 	private String email;
 
 	/**
-	 * æ‰‹æœºå·
+	 * Mobile
 	 */
 	private String mobile;
 
 	/**
-	 * çŠ¶æ€  0ï¼šç¦ç”¨   1ï¼šæ­£å¸¸
+	 * Status
 	 */
 	private Integer status;
 
 	/**
-	 * è§’è‰²IDåˆ—è¡¨
+	 * Role ID list
 	 */
 	@TableField(exist=false)
 	private List<Long> roleIdList;
 
 	/**
-	 * åˆ›å»ºè€…ID
+	 * Creator ID
 	 */
 	private Long createUserId;
 
 	/**
-	 * åˆ›å»ºæ—¶é—´
+	 * Create time
 	 */
 	private Date createTime;
 

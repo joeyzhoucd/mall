@@ -51,7 +51,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     public PageUtils queryPage(Map<String, Object> params) {
         QueryWrapper<SpuInfoEntity> wrapper = new QueryWrapper<>();
 
-        // å…³é”®å­—æ£€ç´¢ï¼ˆspuName æˆ– id ç²¾ç¡®ï¼‰
+        // 根据key查询spuName 或 id 进行模糊查询
         Object keyObj = params.get("key");
         if (keyObj != null) {
             String key = String.valueOf(keyObj).trim();
@@ -60,7 +60,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             }
         }
 
-        // åˆ†ç±»IDï¼šåªä¼ ä¸€ä¸ªå€¼
+        // 分类ID查询
         Object categoryIdObj = params.get("categoryId");
         if (categoryIdObj != null) {
             Long categoryId = parseLongSafe(String.valueOf(categoryIdObj));
@@ -69,14 +69,14 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             }
         }
 
-        // å“ç‰Œ
+        // 品牌ID
         Object brandObj = params.get("brandId");
         if (brandObj != null) {
             Long brandId = parseLongSafe(String.valueOf(brandObj));
             if (brandId != null && brandId > 0) wrapper.eq("brand_id", brandId);
         }
 
-        // çŠ¶æ€ publish_status
+        // 发布状态 publish_status
         Object statusObj = params.get("status");
         if (statusObj != null) {
             Integer status = parseIntSafe(String.valueOf(statusObj));
@@ -100,7 +100,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
     @Override
     @Transactional
     public void saveSpuInfo(SpuSaveVo vo) {
-        //1ã€ä¿å­˜spuåŸºæœ¬ä¿¡æ¯ pms_spu_info
+        //1、保存spu基本信息 pms_spu_info
         SpuInfoEntity spuInfoEntity = new SpuInfoEntity();
         spuInfoEntity.setSpuName(vo.getSpuName());
         spuInfoEntity.setSpuDescription(vo.getSpuDescription());
@@ -113,7 +113,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         this.save(spuInfoEntity);
         Long spuId = spuInfoEntity.getId();
 
-        //2ã€ä¿å­˜Spuçš„æè¿°å›¾ç‰‡ pms_spu_info_desc
+        //2、保存Spu的描述图片 pms_spu_info_desc
         List<String> decript = vo.getDecript();
         if (!CollectionUtils.isEmpty(decript)) {
             SpuInfoDescEntity spuInfoDescEntity = new SpuInfoDescEntity();
@@ -122,7 +122,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             spuInfoDescDao.insert(spuInfoDescEntity);
         }
 
-        //3ã€ä¿å­˜spuçš„å›¾ç‰‡é›† pms_spu_images
+        //3、保存spu的图片集 pms_spu_images
         List<String> images = vo.getImages();
         if (!CollectionUtils.isEmpty(images)) {
             List<SpuImagesEntity> spuImagesEntities = new ArrayList<>();
@@ -136,7 +136,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
                     spuImagesEntities.add(spuImagesEntity);
                 }
             }
-            // ä¿å­˜SPUå›¾ç‰‡
+            // 保存SPU图片
             if (!CollectionUtils.isEmpty(spuImagesEntities)) {
                 for (SpuImagesEntity entity : spuImagesEntities) {
                     spuImagesDao.insert(entity);
@@ -144,7 +144,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             }
         }
 
-        //4ã€ä¿å­˜spuçš„è§„æ ¼å‚æ•°;pms_product_attr_value
+        //4、保存spu的规格参数 pms_product_attr_value
         List<SpuSaveVo.BaseAttrs> baseAttrs = vo.getBaseAttrs();
         if (!CollectionUtils.isEmpty(baseAttrs)) {
             List<ProductAttrValueEntity> productAttrValueEntities = new ArrayList<>();
@@ -153,7 +153,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
                 ProductAttrValueEntity productAttrValueEntity = new ProductAttrValueEntity();
                 productAttrValueEntity.setSpuId(spuId);
                 productAttrValueEntity.setAttrId(baseAttr.getAttrId());
-                // æŸ¥è¯¢å±žæ€§åç§°
+                // 获取属性名
                 AttrEntity attrEntity = attrDao.selectById(baseAttr.getAttrId());
                 String attrName = attrEntity != null ? attrEntity.getAttrName() : "";
                 productAttrValueEntity.setAttrName(attrName);
@@ -162,13 +162,13 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
                 productAttrValueEntity.setQuickShow(baseAttr.getShowDesc());
                 productAttrValueEntities.add(productAttrValueEntity);
             }
-            // ä¿å­˜SPUè§„æ ¼å‚æ•°
+            // 保存SPU规格参数
             for (ProductAttrValueEntity entity : productAttrValueEntities) {
                 productAttrValueDao.insert(entity);
             }
         }
 
-        //5ã€ä¿å­˜spuçš„ç§¯åˆ†ä¿¡æ¯; gulimall_sms->sms_spu_bounds
+        //5、保存spu的积分信息 gulimall_sms->sms_spu_bounds
         SpuSaveVo.Bounds bounds = vo.getBounds();
         if (bounds != null) {
             Map<String, String> boundsParams = new HashMap<>();
@@ -177,15 +177,15 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             boundsParams.put("grow_bounds", String.valueOf(bounds.getGrowBounds()));
             R boundsResult = smsFeignService.saveSpuBounds(boundsParams);
             if (boundsResult == null || boundsResult.getCode() != 0) {
-                throw new RuntimeException("ä¿å­˜SPUç§¯åˆ†ä¿¡æ¯å¤±è´¥: " + (boundsResult != null ? boundsResult.getMsg() : "è¿œç¨‹æœåŠ¡è°ƒç”¨å¤±è´¥"));
+                throw new RuntimeException("保存SPU积分信息失败: " + (boundsResult != null ? boundsResult.getMsg() : "网络异常，保存失败"));
             }
         }
 
-        //5ã€ä¿å­˜å½“å‰spuå¯¹åº”çš„æ‰€æœ‰skuä¿¡æ¯;
+        //5、保存当前spu对应的所有sku信息
         List<SpuSaveVo.Skus> skus = vo.getSkus();
         if (skus != null && !skus.isEmpty()) {
             for (SpuSaveVo.Skus sku : skus) {
-                //5.1)ã€skuçš„åŸºæœ¬ä¿¡æ¯; pms_sku_info
+                //5.1)、sku基本信息 pms_sku_info
                 SkuInfoEntity skuInfoEntity = new SkuInfoEntity();
                 skuInfoEntity.setSpuId(spuId);
                 skuInfoEntity.setSkuName(sku.getSkuName());
@@ -199,7 +199,7 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
                 Long skuId = skuInfoEntity.getSkuId();
                 sku.setSkuId(skuId);
 
-                //5.2)ã€skuçš„å›¾ç‰‡ä¿¡æ¯; pms_sku_images
+                //5.2)、sku的图片信息 pms_sku_images
                 List<SpuSaveVo.Images> skuImages = sku.getImages();
                 if (skuImages != null && !skuImages.isEmpty()) {
                     List<SkuImagesEntity> skuImagesEntities = new ArrayList<>();
@@ -215,14 +215,14 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
                         }
                     }
                     if (!skuImagesEntities.isEmpty()) {
-                        // ä¿å­˜SKUå›¾ç‰‡
+                        // 保存SKU图片
                         for (SkuImagesEntity entity : skuImagesEntities) {
                             skuImagesDao.insert(entity);
                         }
                     }
                 }
 
-                //5.3)ã€skuçš„é”€å”®å±žæ€§ä¿¡æ¯:pms_sku_sale_attr_value
+                //5.3)、sku的销售属性信息 pms_sku_sale_attr_value
                 List<SpuSaveVo.Attr> skuAttrs = sku.getAttr();
                 if (skuAttrs != null && !skuAttrs.isEmpty()) {
                     List<SkuSaleAttrValueEntity> skuSaleAttrValueEntities = new ArrayList<>();
@@ -236,42 +236,42 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
                         skuSaleAttrValueEntity.setAttrSort(i);
                         skuSaleAttrValueEntities.add(skuSaleAttrValueEntity);
                     }
-                    // ä¿å­˜SKUé”€å”®å±žæ€§
+                    // 保存SKU销售属性
                     for (SkuSaleAttrValueEntity entity : skuSaleAttrValueEntities) {
                         skuSaleAttrValueDao.insert(entity);
                     }
                 }
 
-                //5.4)ã€skuçš„ä¼˜æƒ ã€æ»¡å‡ç­‰ä¿¡æ¯: gulimall_sms->sms_sku_ladder\sms_sku_full_reduction
-                // ä¿å­˜SKUé˜¶æ¢¯ä»·æ ¼
+                //5.4)、sku的优惠、满减等信息 gulimall_sms->sms_sku_ladder\sms_sku_full_reduction
+                // 保存SKU阶梯价格
                 if (sku.getFullCount() != null && sku.getFullCount() > 0 && sku.getDiscount() != null) {
                     Map<String, String> ladderParams = new HashMap<>();
-                    ladderParams.put("skuId", String.valueOf(sku.getSkuId())); // éœ€è¦å…ˆä¿å­˜SKUèŽ·å–ID
+                    ladderParams.put("skuId", String.valueOf(sku.getSkuId())); // 这里使用保存后的SKU的ID
                     ladderParams.put("full_count", String.valueOf(sku.getFullCount()));
                     ladderParams.put("discount", String.valueOf(sku.getDiscount()));
                     ladderParams.put("price", String.valueOf(sku.getPrice()));
                     ladderParams.put("add_other", String.valueOf(sku.getCountStatus()));
                     R ladderResult = smsFeignService.saveSkuLadder(ladderParams);
                     if (ladderResult == null || ladderResult.getCode() != 0) {
-                        throw new RuntimeException("ä¿å­˜SKUé˜¶æ¢¯ä»·æ ¼å¤±è´¥: " + (ladderResult != null ? ladderResult.getMsg() : "è¿œç¨‹æœåŠ¡è°ƒç”¨å¤±è´¥"));
+                        throw new RuntimeException("保存SKU阶梯价格失败: " + (ladderResult != null ? ladderResult.getMsg() : "网络异常，保存失败"));
                     }
                 }
 
-                // ä¿å­˜SKUæ»¡å‡ä¿¡æ¯
+                // 保存SKU满减信息
                 if (sku.getFullPrice() != null && sku.getFullPrice().compareTo(java.math.BigDecimal.ZERO) > 0
                         && sku.getReducePrice() != null && sku.getReducePrice().compareTo(java.math.BigDecimal.ZERO) > 0) {
                     Map<String, String> fullReductionParams = new HashMap<>();
-                    fullReductionParams.put("skuId", String.valueOf(sku.getSkuId())); // éœ€è¦å…ˆä¿å­˜SKUèŽ·å–ID
+                    fullReductionParams.put("skuId", String.valueOf(sku.getSkuId())); // 这里使用保存后的SKU的ID
                     fullReductionParams.put("full_price", String.valueOf(sku.getFullPrice()));
                     fullReductionParams.put("reduce_price", String.valueOf(sku.getReducePrice()));
                     fullReductionParams.put("add_other", String.valueOf(sku.getPriceStatus()));
                     R fullReductionResult = smsFeignService.saveSkuFullReduction(fullReductionParams);
                     if (fullReductionResult == null || fullReductionResult.getCode() != 0) {
-                        throw new RuntimeException("ä¿å­˜SKUæ»¡å‡ä¿¡æ¯å¤±è´¥: " + (fullReductionResult != null ? fullReductionResult.getMsg() : "è¿œç¨‹æœåŠ¡è°ƒç”¨å¤±è´¥"));
+                        throw new RuntimeException("保存SKU满减信息失败: " + (fullReductionResult != null ? fullReductionResult.getMsg() : "网络异常，保存失败"));
                     }
                 }
                 
-                // ä¿å­˜SKUä¼šå‘˜ä»·æ ¼
+                // 保存SKU会员价格
                 List<SpuSaveVo.MemberPrice> memberPrices = sku.getMemberPrice();
                 if (memberPrices != null && !memberPrices.isEmpty()) {
                     for (SpuSaveVo.MemberPrice memberPrice : memberPrices) {
@@ -281,10 +281,10 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
                             memberPriceParams.put("memberLevelId", String.valueOf(memberPrice.getId()));
                             memberPriceParams.put("memberLevelName", memberPrice.getName());
                             memberPriceParams.put("memberPrice", String.valueOf(memberPrice.getPrice()));
-                            memberPriceParams.put("addOther", "1"); // é»˜è®¤å¯å åŠ 
+                            memberPriceParams.put("addOther", "1"); // 可叠加其他优惠
                             R memberPriceResult = smsFeignService.saveSkuMemberPrice(memberPriceParams);
                             if (memberPriceResult == null || memberPriceResult.getCode() != 0) {
-                                throw new RuntimeException("ä¿å­˜SKUä¼šå‘˜ä»·æ ¼å¤±è´¥: " + (memberPriceResult != null ? memberPriceResult.getMsg() : "è¿œç¨‹æœåŠ¡è°ƒç”¨å¤±è´¥"));
+                                throw new RuntimeException("保存SKU会员价格失败: " + (memberPriceResult != null ? memberPriceResult.getMsg() : "网络异常，保存失败"));
                             }
                         }
                     }

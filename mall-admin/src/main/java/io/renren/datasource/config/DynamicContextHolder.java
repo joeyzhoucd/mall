@@ -1,20 +1,10 @@
-/**
- * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.datasource.config;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * å¤šæ•°æ®æºä¸Šä¸‹æ–‡
- *
- * @author Mark sunlightcs@gmail.com
+ * Dynamic context holder
  */
 public class DynamicContextHolder {
     @SuppressWarnings("unchecked")
@@ -26,25 +16,21 @@ public class DynamicContextHolder {
     };
 
     /**
-     * èŽ·å¾—å½“å‰çº¿ç¨‹æ•°æ®æº
-     *
-     * @return æ•°æ®æºåç§°
+     * Peek current data source
      */
     public static String peek() {
         return CONTEXT_HOLDER.get().peek();
     }
 
     /**
-     * è®¾ç½®å½“å‰çº¿ç¨‹æ•°æ®æº
-     *
-     * @param dataSource æ•°æ®æºåç§°
+     * Push data source
      */
     public static void push(String dataSource) {
         CONTEXT_HOLDER.get().push(dataSource);
     }
 
     /**
-     * æ¸…ç©ºå½“å‰çº¿ç¨‹æ•°æ®æº
+     * Poll data source
      */
     public static void poll() {
         Deque<String> deque = CONTEXT_HOLDER.get();

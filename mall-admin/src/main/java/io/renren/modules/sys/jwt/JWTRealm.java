@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.jwt;
 
 import io.renren.modules.sys.entity.SysUserEntity;
@@ -22,9 +14,7 @@ import org.springframework.stereotype.Component;
 import java.util.Set;
 
 /**
- * è®¤è¯
- *
- * @author Mark sunlightcs@gmail.com
+ * JWT realm for authentication and authorization
  */
 @Component
 public class JWTRealm extends AuthorizingRealm {
@@ -37,14 +27,14 @@ public class JWTRealm extends AuthorizingRealm {
     }
 
     /**
-     * æŽˆæƒ(éªŒè¯æƒé™æ—¶è°ƒç”¨)
+     * Authorization
      */
     @Override
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
         SysUserEntity user = (SysUserEntity)principals.getPrimaryPrincipal();
         Long userId = user.getUserId();
 
-        //ç”¨æˆ·æƒé™åˆ—è¡¨
+        // User permissions
         Set<String> permsSet = shiroService.getUserPermissions(userId);
 
         SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();
@@ -53,24 +43,24 @@ public class JWTRealm extends AuthorizingRealm {
     }
 
     /**
-     * è®¤è¯(ç™»å½•æ—¶è°ƒç”¨)
+     * Authentication
      */
     @Override
     protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
         String accessToken = (String) token.getPrincipal();
 
-        //æ ¹æ®accessTokenï¼ŒæŸ¥è¯¢ç”¨æˆ·ä¿¡æ¯
+        // Query user by accessToken
         SysUserTokenEntity tokenEntity = shiroService.queryByToken(accessToken);
-        //tokenå¤±æ•ˆ
+        // Token expired
         if(tokenEntity == null || tokenEntity.getExpireTime().getTime() < System.currentTimeMillis()){
-            throw new IncorrectCredentialsException("tokenå¤±æ•ˆï¼Œè¯·é‡æ–°ç™»å½•");
+            throw new IncorrectCredentialsException("token expired, please login again");
         }
 
-        //æŸ¥è¯¢ç”¨æˆ·ä¿¡æ¯
+        // Query user info
         SysUserEntity user = shiroService.queryUser(tokenEntity.getUserId());
-        //è´¦å·é”å®š
+        // Account locked
         if(user.getStatus() == 0){
-            throw new LockedAccountException("è´¦å·å·²è¢«é”å®š,è¯·è”ç³»ç®¡ç†å‘˜");
+            throw new LockedAccountException("Account locked, please contact administrator");
         }
 
         SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(user, accessToken, getName());

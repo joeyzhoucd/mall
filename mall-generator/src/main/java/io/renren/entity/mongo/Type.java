@@ -4,9 +4,7 @@ import java.util.Objects;
 
 public enum Type {
 
-    /***
-     * ç±»åž‹ å’Œå¯¹åº”mongodb api çš„$typeçš„æ•°å­—
-     **/
+    
     varchar(2),
     NUMBER(16),
     bigint(18),

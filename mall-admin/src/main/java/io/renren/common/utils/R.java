@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.common.utils;
 
 import org.apache.http.HttpStatus;
@@ -14,9 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * è¿”å›žæ•°æ®
- *
- * @author Mark sunlightcs@gmail.com
+ * Response result wrapper
  */
 public class R extends HashMap<String, Object> {
 	private static final long serialVersionUID = 1L;
@@ -27,7 +17,7 @@ public class R extends HashMap<String, Object> {
 	}
 	
 	public static R error() {
-		return error(HttpStatus.SC_INTERNAL_SERVER_ERROR, "æœªçŸ¥å¼‚å¸¸ï¼Œè¯·è”ç³»ç®¡ç†å‘˜");
+		return error(HttpStatus.SC_INTERNAL_SERVER_ERROR, "Unknown error occurred");
 	}
 	
 	public static R error(String msg) {

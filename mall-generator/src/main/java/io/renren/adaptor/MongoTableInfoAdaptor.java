@@ -9,16 +9,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * mongoé€‚é…å™¨
- *
- * @author: gxz gongxuanzhang@foxmail.com
- **/
+ * MongoDB table info adapter
+ */
 public class MongoTableInfoAdaptor {
 
     /**
-     * æŸ¥è¯¢è¡¨ä¿¡æ¯çš„æ—¶å€™ mongoåªèƒ½èŽ·å¾—è¡¨å å…¶ä»–åªèƒ½æ‰‹åŠ¨å¡«å†™
-     *
-     * @param names è¡¨å
+     * Get table info for multiple names
      */
     public static List<Map<String, String>> tableInfo(List<String> names) {
         List<Map<String, String>> result = new ArrayList<>(names.size());
@@ -28,18 +24,20 @@ public class MongoTableInfoAdaptor {
         return result;
     }
 
+    /**
+     * Get table info for a single name
+     */
     public static Map<String, String> tableInfo(String name) {
         Map<String, String> tableInfo = new HashMap<>(4 * 4 / 3 + 1);
-        tableInfo.put("engine", "mongoæ— å¼•æ“Ž");
-        tableInfo.put("createTime", "mongoæ— æ³•æŸ¥è¯¢åˆ›å»ºæ—¶é—´");
-        tableInfo.put("tableComment", "mongoæ— å¤‡æ³¨");
+        tableInfo.put("engine", "mongo");
+        tableInfo.put("createTime", "mongo");
+        tableInfo.put("tableComment", "mongo");
         tableInfo.put("tableName", name);
         return tableInfo;
     }
 
     /**
-     * åœ¨æŸ¥è¯¢åˆ—åçš„æ—¶å€™ éœ€è¦å°†è§£æžå‡ºçš„mongoä¿¡æ¯é€‚é…æˆå…³ç³»åž‹æ•°æ®åº“æ‰€éœ€è¦çš„ä¿¡æ¯å½¢å¼
-     * æ­¤æ–¹æ³•åªé’ˆå¯¹ä¸»Bean
+     * Get column info from MongoDB definition
      */
     public static List<Map<String, String>> columnInfo(MongoDefinition mongoDefinition) {
         List<MongoDefinition> child = mongoDefinition.getChild();
@@ -54,13 +52,11 @@ public class MongoTableInfoAdaptor {
             map.put("columnComment", "");
             map.put("dataType", definition.hasChild() ? propertyName : type);
             map.put("columnName", propertyName);
-            // mongoé»˜è®¤ä¸»é”®æ˜¯_id
+            // MongoDB primary key is _id
             String columnKey = propertyName.equals(mongoKey) ? "PRI" : "";
             map.put("columnKey", columnKey);
             result.add(map);
         }
         return result;
     }
-
-
 }

@@ -28,11 +28,11 @@ public class PurchaseController {
 
     @RequestMapping("/save")
     public R save(@RequestBody PurchaseEntity purchase) {
-        // è®¾ç½®åˆ›å»ºå’Œæ›´æ–°æ—¶é—´
+        // Set creation and update time
         java.util.Date now = new java.util.Date();
         purchase.setCreateTime(now);
         purchase.setUpdateTime(now);
-        // é»˜è®¤çŠ¶æ€ï¼šæ–°å»º(0)
+        // Default status: new(0)
         if (purchase.getStatus() == null) {
             purchase.setStatus(0);
         }
@@ -42,7 +42,7 @@ public class PurchaseController {
 
     @RequestMapping("/update")
     public R update(@RequestBody PurchaseEntity purchase) {
-        // è®¾ç½®æ›´æ–°æ—¶é—´
+        // Set update time
         purchase.setUpdateTime(new java.util.Date());
         purchaseService.updateById(purchase);
         return R.ok();
@@ -54,10 +54,10 @@ public class PurchaseController {
         return R.ok();
     }
 
-    // ä¸šåŠ¡æµç¨‹
+    // Merge purchase orders
     @PostMapping("/merge")
     public R merge(@RequestBody Map<String, Object> body) {
-        // å…¼å®¹å­—ç¬¦ä¸²/æ•°å­—ç­‰ç±»åž‹çš„ID
+        // Get purchase detail ID list
         List<Long> detailIds;
         Object detailIdsObj = body.get("detailIds");
         if (detailIdsObj instanceof List) {

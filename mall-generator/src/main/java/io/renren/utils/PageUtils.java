@@ -4,31 +4,23 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * åˆ†é¡µå·¥å…·ç±»
- * 
- * @author chenshun
- * @email sunlightcs@gmail.com
- * @date 2016å¹´11æœˆ4æ—¥ ä¸‹åˆ12:59:00
+ * Page utilities for pagination
  */
 public class PageUtils implements Serializable {
 	private static final long serialVersionUID = 1L;
-	//æ€»è®°å½•æ•°
+	// Total count
 	private int totalCount;
-	//æ¯é¡µè®°å½•æ•°
+	// Page size
 	private int pageSize;
-	//æ€»é¡µæ•°
+	// Total pages
 	private int totalPage;
-	//å½“å‰é¡µæ•°
+	// Current page number
 	private int currPage;
-	//åˆ—è¡¨æ•°æ®
+	// List data
 	private List<?> list;
 	
 	/**
-	 * åˆ†é¡µ
-	 * @param list        åˆ—è¡¨æ•°æ®
-	 * @param totalCount  æ€»è®°å½•æ•°
-	 * @param pageSize    æ¯é¡µè®°å½•æ•°
-	 * @param currPage    å½“å‰é¡µæ•°
+	 * Constructor
 	 */
 	public PageUtils(List<?> list, int totalCount, int pageSize, int currPage) {
 		this.list = list;
@@ -77,5 +69,4 @@ public class PageUtils implements Serializable {
 	public void setList(List<?> list) {
 		this.list = list;
 	}
-	
 }

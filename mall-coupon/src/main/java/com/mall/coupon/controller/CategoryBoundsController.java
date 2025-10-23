@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * å•†å“åˆ†ç±»ç§¯åˆ†è®¾ç½®
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:08:26
- */
+
 @RestController
 @RequestMapping("coupon/categorybounds")
 public class CategoryBoundsController {
     @Autowired
     private CategoryBoundsService categoryBoundsService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = categoryBoundsService.queryPage(params);
@@ -36,9 +28,7 @@ public class CategoryBoundsController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		CategoryBoundsEntity categoryBounds = categoryBoundsService.getById(id);
@@ -46,9 +36,7 @@ public class CategoryBoundsController {
         return R.ok().put("categoryBounds", categoryBounds);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody CategoryBoundsEntity categoryBounds){
 		categoryBoundsService.save(categoryBounds);
@@ -56,9 +44,7 @@ public class CategoryBoundsController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody CategoryBoundsEntity categoryBounds){
 		categoryBoundsService.updateById(categoryBounds);
@@ -66,9 +52,7 @@ public class CategoryBoundsController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		categoryBoundsService.removeByIds(Arrays.asList(ids));

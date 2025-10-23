@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.oss.cloud;
-
 
 import io.renren.common.utils.ConfigConstant;
 import io.renren.common.utils.Constant;
@@ -15,9 +6,7 @@ import io.renren.common.utils.SpringContextUtils;
 import io.renren.modules.sys.service.SysConfigService;
 
 /**
- * æ–‡ä»¶ä¸Šä¼ Factory
- *
- * @author Mark sunlightcs@gmail.com
+ * OSS factory
  */
 public final class OSSFactory {
     private static SysConfigService sysConfigService;
@@ -27,7 +16,7 @@ public final class OSSFactory {
     }
 
     public static CloudStorageService build(){
-        //èŽ·å–äº‘å­˜å‚¨é…ç½®ä¿¡æ¯
+        // Get cloud storage configuration
         CloudStorageConfig config = sysConfigService.getConfigObject(ConfigConstant.CLOUD_STORAGE_CONFIG_KEY, CloudStorageConfig.class);
 
         if(config.getType() == Constant.CloudService.QINIU.getValue()){

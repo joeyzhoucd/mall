@@ -31,19 +31,19 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity
     public PageUtils queryPage(Map<String, Object> params) {
         QueryWrapper<PurchaseEntity> wrapper = new QueryWrapper<>();
         
-        // çŠ¶æ€ç­›é€‰
+        // Filter by status
         Object status = params.get("status");
         if (status != null && !String.valueOf(status).trim().isEmpty()) {
             wrapper.eq("status", status);
         }
         
-        // åˆ†é…äººç­›é€‰
+        // Filter by assignee ID
         Object assigneeId = params.get("assigneeId");
         if (assigneeId != null && !String.valueOf(assigneeId).trim().isEmpty()) {
             wrapper.eq("assignee_id", assigneeId);
         }
         
-        // å…³é”®è¯æœç´¢
+        // Search by key
         String key = (String) params.get("key");
         if (key != null && !key.trim().isEmpty()) {
             wrapper.and(w -> {
@@ -68,30 +68,30 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity
     @Transactional
     @Override
     public void merge(List<Long> detailIds, Long purchaseId) {
-        // è‹¥æœªæŒ‡å®šé‡‡è´­å•ï¼Œæ–°å»ºä¸€ä¸ª
+        // Create new purchase order if not provided
         if (purchaseId == null) {
             PurchaseEntity entity = new PurchaseEntity();
-            entity.setStatus(0); // æ–°å»º
+            entity.setStatus(0); // New
             entity.setCreateTime(new Date());
             entity.setUpdateTime(new Date());
             this.save(entity);
             purchaseId = entity.getId();
         }
         Long finalPid = purchaseId;
-        // ä»…å…è®¸åˆå¹¶åˆ°â€œæœªå¼€å§‹é‡‡è´­â€çš„é‡‡è´­å•ï¼ˆçŠ¶æ€ 0/1ï¼‰
+        // Check if purchase order exists and status is 0/1
         PurchaseEntity target = this.getById(purchaseId);
         if (target == null || (target.getStatus() != null && target.getStatus() > 1)) {
-            throw new IllegalStateException("åªèƒ½åˆå¹¶åˆ°æœªå¼€å§‹é‡‡è´­çš„é‡‡è´­å•");
+            throw new IllegalStateException("Purchase order does not exist or cannot be merged");
         }
-        // æ›´æ–°æ˜Žç»†çš„é‡‡è´­å•IDä¸ŽçŠ¶æ€=å·²åˆ†é…(1)
+        // Update purchase details with purchase order ID and status=assigned(1)
         for (Long detailId : detailIds) {
             PurchaseDetailEntity d = purchaseDetailDao.selectById(detailId);
             if (d == null) continue;
             d.setPurchaseId(finalPid);
-            d.setStatus(1); // å·²åˆ†é…
+            d.setStatus(1); // Assigned
             purchaseDetailDao.updateById(d);
         }
-        // æ›´æ–°é‡‡è´­å•æ›´æ–°æ—¶é—´
+        // Update purchase order update time
         PurchaseEntity update = new PurchaseEntity();
         update.setId(finalPid);
         update.setUpdateTime(new Date());
@@ -106,7 +106,7 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity
         entity.setAssigneeId(assigneeId);
         entity.setAssigneeName(assigneeName);
         entity.setPhone(phone);
-        entity.setStatus(1); // å·²åˆ†é…
+        entity.setStatus(1); // Assigned
         entity.setUpdateTime(new Date());
         this.updateById(entity);
     }
@@ -114,7 +114,7 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity
     @Transactional
     @Override
     public void receive(List<Long> purchaseIds, Long receiverId, String receiverName) {
-        // å°†é‡‡è´­å•çŠ¶æ€ç½®ä¸º å·²é¢†å–(2)ï¼Œæ˜Žç»†ç½®ä¸º é‡‡è´­ä¸­(2)
+        // Update purchase order status to receive(2) and update assignee
         for (Long pid : purchaseIds) {
             PurchaseEntity upd = new PurchaseEntity();
             upd.setId(pid);
@@ -135,18 +135,18 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity
     @Transactional
     @Override
     public void finish(Long purchaseId, List<Long> successDetailIds, List<Long> failedDetailIds) {
-        // å®ŒæˆæˆåŠŸé¡¹ï¼šæ˜Žç»†=å®Œæˆ(3)ï¼Œå¹¶å…¥åº“
+        // Update successful details to completed(3) and add stock
         if (successDetailIds != null) {
             for (Long did : successDetailIds) {
                 PurchaseDetailEntity d = purchaseDetailDao.selectById(did);
                 if (d == null) continue;
                 d.setStatus(3);
                 purchaseDetailDao.updateById(d);
-                // å…¥åº“
+                // Add stock
                 wareSkuService.addStock(d.getSkuId(), d.getWareId(), d.getSkuNum(), null);
             }
         }
-        // å¤±è´¥é¡¹ï¼šæ˜Žç»†=å¤±è´¥(4)
+        // Update failed details to failed(4)
         if (failedDetailIds != null) {
             for (Long did : failedDetailIds) {
                 PurchaseDetailEntity d = purchaseDetailDao.selectById(did);
@@ -155,7 +155,7 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity
                 purchaseDetailDao.updateById(d);
             }
         }
-        // é‡‡è´­å•çŠ¶æ€ï¼šè‹¥å­˜åœ¨å¤±è´¥åˆ™ç½®ä¸º4ï¼Œå¦åˆ™3
+        // Update purchase order status: if any failed then 4, otherwise 3
         PurchaseEntity upd = new PurchaseEntity();
         upd.setId(purchaseId);
         upd.setStatus((failedDetailIds != null && !failedDetailIds.isEmpty()) ? 4 : 3);

@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * å•†å“ä¼šå‘˜ä»·æ ¼
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:08:26
- */
+
 @RestController
 @RequestMapping("coupon/memberprice")
 public class MemberPriceController {
     @Autowired
     private MemberPriceService memberPriceService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = memberPriceService.queryPage(params);
@@ -36,9 +28,7 @@ public class MemberPriceController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		MemberPriceEntity memberPrice = memberPriceService.getById(id);
@@ -46,9 +36,7 @@ public class MemberPriceController {
         return R.ok().put("memberPrice", memberPrice);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody MemberPriceEntity memberPrice){
 		memberPriceService.save(memberPrice);
@@ -56,9 +44,7 @@ public class MemberPriceController {
         return R.ok();
     }
 
-    /**
-     * ä¿å­˜ï¼ˆé€šè¿‡Mapå‚æ•°ï¼‰
-     */
+    
     @PostMapping("/saveFromMap")
     public R saveFromMap(@RequestBody Map<String, String> params){
         MemberPriceEntity memberPrice = new MemberPriceEntity();
@@ -72,9 +58,7 @@ public class MemberPriceController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody MemberPriceEntity memberPrice){
 		memberPriceService.updateById(memberPrice);
@@ -82,9 +66,7 @@ public class MemberPriceController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		memberPriceService.removeByIds(Arrays.asList(ids));

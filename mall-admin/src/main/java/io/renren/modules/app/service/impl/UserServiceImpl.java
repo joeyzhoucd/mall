@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.app.service.impl;
-
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -20,7 +11,9 @@ import io.renren.modules.app.service.UserService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.stereotype.Service;
 
-
+/**
+ * User service implementation
+ */
 @Service("userService")
 public class UserServiceImpl extends ServiceImpl<UserDao, UserEntity> implements UserService {
 
@@ -32,11 +25,11 @@ public class UserServiceImpl extends ServiceImpl<UserDao, UserEntity> implements
 	@Override
 	public long login(LoginForm form) {
 		UserEntity user = queryByMobile(form.getMobile());
-		Assert.isNull(user, "æ‰‹æœºå·æˆ–å¯†ç é”™è¯¯");
+		Assert.isNull(user, "Mobile number or password error");
 
-		//å¯†ç é”™è¯¯
+		// Password validation
 		if(!user.getPassword().equals(DigestUtils.sha256Hex(form.getPassword()))){
-			throw new RRException("æ‰‹æœºå·æˆ–å¯†ç é”™è¯¯");
+			throw new RRException("Mobile number or password error");
 		}
 
 		return user.getUserId();

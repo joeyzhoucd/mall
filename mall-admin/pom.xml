@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
@@ -42,7 +42,7 @@
         <hutool.version>4.1.1</hutool.version>
         <lombok.version>1.18.24</lombok.version>
 
-        <!--wagon plugin é…ç½®-->
+        <!--wagon plugin -->
         <service-path>/work/renren</service-path>
         <pack-name>${project.artifactId}-${project.version}.jar</pack-name>
         <remote-addr>192.168.1.10:22</remote-addr>
@@ -107,19 +107,19 @@
             <artifactId>mysql-connector-java</artifactId>
             <version>${mysql.version}</version>
         </dependency>
-        <!--oracleé©±åŠ¨-->
+        <!-- 可根据需要自定义是否启用映射配置 -->
         <dependency>
             <groupId>com.oracle</groupId>
             <artifactId>ojdbc6</artifactId>
             <version>${oracle.version}</version>
         </dependency>
-        <!--mssqlé©±åŠ¨-->
+        <!-- 可根据需要自定义是否启用映射配置 -->
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>sqljdbc4</artifactId>
             <version>${mssql.version}</version>
         </dependency>
-        <!--postgresqlé©±åŠ¨-->
+        <!-- 可根据需要自定义是否启用映射配置 -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -260,7 +260,7 @@
                     <fork>true</fork>
                 </configuration>
             </plugin>
-            <!-- è·³è¿‡å•å…ƒæµ‹è¯• -->
+            <!-- 可根据需要自定义是否启用映射配置 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -276,16 +276,16 @@
                     <fromFile>target/${pack-name}</fromFile>
                     <url><![CDATA[scp://${remote-username}:${remote-passwd}@${remote-addr}${service-path}]]></url>
                     <commands>
-                        <!-- Kill Old Process -->
+                        <!-- 可根据需要自定义是否启用映射配置 -->
                         <command>kill -9 `ps -ef |grep ${project.artifactId}.jar|grep -v "grep" |awk '{print $2}'`
                         </command>
-                        <!-- Restart jar packageï¼Œwrite result into renren.log -->
+                        <!-- 可根据需要自定义是否启用映射配置 -->
                         <command>
                             <![CDATA[nohup java -jar ${service-path}/${pack-name} --spring.profiles.active=test > ${service-path}/renren.log 2>&1 & ]]></command>
                         <command><![CDATA[netstat -nptl]]></command>
                         <command><![CDATA[ps -ef | grep java | grep -v grep]]></command>
                     </commands>
-                    <!-- è¿è¡Œå‘½ä»¤ mvn clean package wagon:upload-single wagon:sshexec-->
+                    <!-- 可根据需要自定义是否启用映射配置 -->
                     <displayCommandOutputs>true</displayCommandOutputs>
                 </configuration>
             </plugin>
@@ -313,7 +313,7 @@
                         </resource>
                     </resources>
                 </configuration>
-                <!-- è¿è¡Œå‘½ä»¤ mvn clean package docker:build æ‰“åŒ…å¹¶ç”Ÿæˆdockeré•œåƒ -->
+                <!-- 可根据需要自定义是否启用映射配置 -->
             </plugin>
         </plugins>
     </build>

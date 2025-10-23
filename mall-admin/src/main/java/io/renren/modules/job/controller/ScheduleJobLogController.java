@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.job.controller;
 
 import io.renren.common.utils.PageUtils;
@@ -22,9 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * å®šæ—¶ä»»åŠ¡æ—¥å¿—
- *
- * @author Mark sunlightcs@gmail.com
+ * Schedule job log controller
  */
 @RestController
 @RequestMapping("/sys/scheduleLog")
@@ -33,7 +23,7 @@ public class ScheduleJobLogController {
 	private ScheduleJobLogService scheduleJobLogService;
 	
 	/**
-	 * å®šæ—¶ä»»åŠ¡æ—¥å¿—åˆ—è¡¨
+	 * List schedule job logs
 	 */
 	@RequestMapping("/list")
 	@RequiresPermissions("sys:schedule:log")
@@ -44,7 +34,7 @@ public class ScheduleJobLogController {
 	}
 	
 	/**
-	 * å®šæ—¶ä»»åŠ¡æ—¥å¿—ä¿¡æ¯
+	 * Get schedule job log info
 	 */
 	@RequestMapping("/info/{logId}")
 	public R info(@PathVariable("logId") Long logId){

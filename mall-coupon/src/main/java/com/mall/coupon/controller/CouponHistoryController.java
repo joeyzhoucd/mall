@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * ä¼˜æƒ åˆ¸é¢†å–åŽ†å²è®°å½•
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:08:26
- */
+
 @RestController
 @RequestMapping("coupon/couponhistory")
 public class CouponHistoryController {
     @Autowired
     private CouponHistoryService couponHistoryService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = couponHistoryService.queryPage(params);
@@ -36,9 +28,7 @@ public class CouponHistoryController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		CouponHistoryEntity couponHistory = couponHistoryService.getById(id);
@@ -46,9 +36,7 @@ public class CouponHistoryController {
         return R.ok().put("couponHistory", couponHistory);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody CouponHistoryEntity couponHistory){
 		couponHistoryService.save(couponHistory);
@@ -56,9 +44,7 @@ public class CouponHistoryController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody CouponHistoryEntity couponHistory){
 		couponHistoryService.updateById(couponHistory);
@@ -66,9 +52,7 @@ public class CouponHistoryController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		couponHistoryService.removeByIds(Arrays.asList(ids));

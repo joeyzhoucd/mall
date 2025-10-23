@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.app.controller;
-
 
 import io.renren.common.utils.R;
 import io.renren.common.validator.ValidatorUtils;
@@ -26,21 +17,22 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Date;
 
 /**
- * æ³¨å†Œ
- *
- * @author Mark sunlightcs@gmail.com
+ * APP register controller
  */
 @RestController
 @RequestMapping("/app")
-@Api("APPæ³¨å†ŒæŽ¥å£")
+@Api("APP register interface")
 public class AppRegisterController {
     @Autowired
     private UserService userService;
 
+    /**
+     * Register
+     */
     @PostMapping("register")
-    @ApiOperation("æ³¨å†Œ")
+    @ApiOperation("Register")
     public R register(@RequestBody RegisterForm form){
-        //è¡¨å•æ ¡éªŒ
+        // Data validation
         ValidatorUtils.validateEntity(form);
 
         UserEntity user = new UserEntity();

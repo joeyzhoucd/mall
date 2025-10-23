@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * å•†å“æ»¡å‡ä¿¡æ¯
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 23:08:26
- */
+
 @RestController
 @RequestMapping("coupon/skufullreduction")
 public class SkuFullReductionController {
     @Autowired
     private SkuFullReductionService skuFullReductionService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = skuFullReductionService.queryPage(params);
@@ -36,9 +28,7 @@ public class SkuFullReductionController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		SkuFullReductionEntity skuFullReduction = skuFullReductionService.getById(id);
@@ -46,9 +36,7 @@ public class SkuFullReductionController {
         return R.ok().put("skuFullReduction", skuFullReduction);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody SkuFullReductionEntity skuFullReduction){
 		skuFullReductionService.save(skuFullReduction);
@@ -56,9 +44,7 @@ public class SkuFullReductionController {
         return R.ok();
     }
 
-    /**
-     * ä¿å­˜ï¼ˆé€šè¿‡Mapå‚æ•°ï¼‰
-     */
+    
     @PostMapping("/saveFromMap")
     public R saveFromMap(@RequestBody Map<String, String> params){
         SkuFullReductionEntity skuFullReduction = new SkuFullReductionEntity();
@@ -71,9 +57,7 @@ public class SkuFullReductionController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody SkuFullReductionEntity skuFullReduction){
 		skuFullReductionService.updateById(skuFullReduction);
@@ -81,9 +65,7 @@ public class SkuFullReductionController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		skuFullReductionService.removeByIds(Arrays.asList(ids));

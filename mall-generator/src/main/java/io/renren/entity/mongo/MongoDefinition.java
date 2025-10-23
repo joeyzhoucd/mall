@@ -6,31 +6,28 @@ import org.apache.commons.collections.CollectionUtils;
 import java.io.Serializable;
 import java.util.*;
 
-
 /**
- * è§£æžè¡¨ä¹‹åŽå¾—åˆ°çš„ä¿¡æ¯å®žä½“
- * æ¢å¥è¯è¯´è¿™ä¸ªç±»å°±æ˜¯ä¸€å¼ mongoä¸€å¼ è¡¨çš„å†…å®¹
- *
- * @author gxz 514190950@qq.com
+ * MongoDB definition entity
  */
-
 public class MongoDefinition implements Serializable {
-    /***å±žæ€§å**/
+    
     private String propertyName;
-    /***å±žæ€§ç±»åž‹ å¯¹åº”mongodb api $type   å¦‚æžœæ²¡æœ‰ç±»åž‹ è¡¨ç¤ºè¿™æ˜¯ä¸€ä¸ªé¡¶å±‚å®žä½“  è€Œä¸æ˜¯å†…åµŒå±žæ€§**/
+    
     private Integer type;
-    /***æ­¤å±žæ€§æ˜¯å¦æ˜¯æ•°ç»„**/
+    
     private boolean array = false;
-    /***å¦‚æžœæ­¤å±žæ€§æ˜¯å¯¹è±¡  é‚£ä¹ˆä»–ä»ç„¶æœ‰æ­¤ç±»åž‹çš„å­ç±»**/
+    
     private List<MongoDefinition> child;
 
-
+    /**
+     * Get children info for code generation
+     */
     public List<MongoGeneratorEntity> getChildrenInfo(String tableName) {
         List<MongoGeneratorEntity> result = new ArrayList<>();
         MongoGeneratorEntity info = new MongoGeneratorEntity();
-        // è¡¨ä¿¡æ¯
+        // Table info
         Map<String, String> tableInfo = MongoTableInfoAdaptor.tableInfo(tableName);
-        // åˆ—åä¿¡æ¯
+        // Column info
         List<Map<String, String>> columnsInfo = new ArrayList<>();
         info.setColumns(columnsInfo);
         info.setTableInfo(tableInfo);
@@ -49,17 +46,24 @@ public class MongoDefinition implements Serializable {
         return result;
     }
 
+    /**
+     * Check if has children
+     */
     public boolean hasChild() {
         final int objectType = 3;
         return type == null || Objects.equals(type, objectType) || CollectionUtils.isNotEmpty(child);
     }
 
-
+    /**
+     * Check if is primary bean
+     */
     public boolean primaryBean() {
         return type == null;
     }
 
-
+    /**
+     * Set type
+     */
     public MongoDefinition setType(Integer type) {
         this.type = type;
         return this;

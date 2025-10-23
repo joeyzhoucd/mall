@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.controller;
-
 
 import io.renren.common.annotation.SysLog;
 import io.renren.common.utils.PageUtils;
@@ -22,9 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * ç³»ç»Ÿé…ç½®ä¿¡æ¯
- *
- * @author Mark sunlightcs@gmail.com
+ * System configuration controller
  */
 @RestController
 @RequestMapping("/sys/config")
@@ -33,7 +22,7 @@ public class SysConfigController extends AbstractController {
 	private SysConfigService sysConfigService;
 	
 	/**
-	 * æ‰€æœ‰é…ç½®åˆ—è¡¨
+	 * List configurations
 	 */
 	@GetMapping("/list")
 	@RequiresPermissions("sys:config:list")
@@ -43,9 +32,8 @@ public class SysConfigController extends AbstractController {
 		return R.ok().put("page", page);
 	}
 	
-	
 	/**
-	 * é…ç½®ä¿¡æ¯
+	 * Get configuration info
 	 */
 	@GetMapping("/info/{id}")
 	@RequiresPermissions("sys:config:info")
@@ -56,9 +44,9 @@ public class SysConfigController extends AbstractController {
 	}
 	
 	/**
-	 * ä¿å­˜é…ç½®
+	 * Save configuration
 	 */
-	@SysLog("ä¿å­˜é…ç½®")
+	@SysLog("Save configuration")
 	@PostMapping("/save")
 	@RequiresPermissions("sys:config:save")
 	public R save(@RequestBody SysConfigEntity config){
@@ -70,9 +58,9 @@ public class SysConfigController extends AbstractController {
 	}
 	
 	/**
-	 * ä¿®æ”¹é…ç½®
+	 * Update configuration
 	 */
-	@SysLog("ä¿®æ”¹é…ç½®")
+	@SysLog("Update configuration")
 	@PostMapping("/update")
 	@RequiresPermissions("sys:config:update")
 	public R update(@RequestBody SysConfigEntity config){
@@ -84,9 +72,9 @@ public class SysConfigController extends AbstractController {
 	}
 	
 	/**
-	 * åˆ é™¤é…ç½®
+	 * Delete configuration
 	 */
-	@SysLog("åˆ é™¤é…ç½®")
+	@SysLog("Delete configuration")
 	@PostMapping("/delete")
 	@RequiresPermissions("sys:config:delete")
 	public R delete(@RequestBody Long[] ids){

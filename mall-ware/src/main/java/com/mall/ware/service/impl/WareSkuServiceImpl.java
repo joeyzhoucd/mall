@@ -20,7 +20,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     public PageUtils queryPage(Map<String, Object> params) {
         QueryWrapper<WareSkuEntity> wrapper = new QueryWrapper<>();
 
-        // æ£€ç´¢æ¡ä»¶ï¼šæ”¯æŒIDã€SKU IDã€å•†å“åç§°æ¨¡ç³ŠæŸ¥è¯¢
+        // Search by warehouse ID, SKU ID, or SKU name
         String key = (String) params.get("key");
         if (StringUtils.isNotBlank(key)) {
             wrapper.and(w -> {
@@ -28,19 +28,19 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
                     Long id = Long.valueOf(key);
                     w.eq("id", id).or().eq("sku_id", id);
                 } catch (NumberFormatException e) {
-                    // å¦‚æžœä¸æ˜¯æ•°å­—ï¼Œåˆ™æŒ‰å•†å“åç§°æ¨¡ç³ŠæŸ¥è¯¢
+                    // If not a number, search by SKU name
                     w.like("sku_name", key);
                 }
             });
         }
 
-        // ä»“åº“ç­›é€‰
+        // Filter by warehouse ID
         Object wareId = params.get("wareId");
         if (wareId != null) {
             wrapper.eq("ware_id", wareId);
         }
 
-        // åº“å­˜çŠ¶æ€ç­›é€‰
+        // Filter by stock status
         Object stockStatus = params.get("stockStatus");
         if (stockStatus != null) {
             if ("inStock".equals(stockStatus)) {
@@ -48,11 +48,11 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             } else if ("outOfStock".equals(stockStatus)) {
                 wrapper.eq("stock", 0);
             } else if ("lowStock".equals(stockStatus)) {
-                wrapper.lt("stock", 10); // åº“å­˜å°‘äºŽ10ä¸ºä½Žåº“å­˜
+                wrapper.lt("stock", 10); // Low stock threshold 10
             }
         }
 
-        wrapper.orderByDesc("id"); // é»˜è®¤æŒ‰IDå€’åº
+        wrapper.orderByDesc("id"); // Sort by ID descending
 
         IPage<WareSkuEntity> page = this.page(
                 new Query<WareSkuEntity>().getPage(params),

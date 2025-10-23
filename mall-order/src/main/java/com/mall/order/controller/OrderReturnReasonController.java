@@ -12,22 +12,14 @@ import java.util.Map;
 
 
 
-/**
- * é€€è´§åŽŸå› 
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-30 22:49:21
- */
+
 @RestController
 @RequestMapping("order/orderreturnreason")
 public class OrderReturnReasonController {
     @Autowired
     private OrderReturnReasonService orderReturnReasonService;
 
-    /**
-     * åˆ—è¡¨
-     */
+    
     @RequestMapping("/list")
     public R list(@RequestParam Map<String, Object> params){
         PageUtils page = orderReturnReasonService.queryPage(params);
@@ -36,9 +28,7 @@ public class OrderReturnReasonController {
     }
 
 
-    /**
-     * ä¿¡æ¯
-     */
+    
     @RequestMapping("/info/{id}")
     public R info(@PathVariable("id") Long id){
 		OrderReturnReasonEntity orderReturnReason = orderReturnReasonService.getById(id);
@@ -46,9 +36,7 @@ public class OrderReturnReasonController {
         return R.ok().put("orderReturnReason", orderReturnReason);
     }
 
-    /**
-     * ä¿å­˜
-     */
+    
     @RequestMapping("/save")
     public R save(@RequestBody OrderReturnReasonEntity orderReturnReason){
 		orderReturnReasonService.save(orderReturnReason);
@@ -56,9 +44,7 @@ public class OrderReturnReasonController {
         return R.ok();
     }
 
-    /**
-     * ä¿®æ”¹
-     */
+    
     @RequestMapping("/update")
     public R update(@RequestBody OrderReturnReasonEntity orderReturnReason){
 		orderReturnReasonService.updateById(orderReturnReason);
@@ -66,9 +52,7 @@ public class OrderReturnReasonController {
         return R.ok();
     }
 
-    /**
-     * åˆ é™¤
-     */
+    
     @RequestMapping("/delete")
     public R delete(@RequestBody Long[] ids){
 		orderReturnReasonService.removeByIds(Arrays.asList(ids));

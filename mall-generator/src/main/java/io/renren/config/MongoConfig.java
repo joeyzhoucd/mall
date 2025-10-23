@@ -13,9 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @author: gxz gongxuanzhang@foxmail.com
- **/
+
 @Component
 @ConfigurationProperties(prefix = "mongodb")
 

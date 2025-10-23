@@ -8,13 +8,7 @@ import com.mall.product.vo.AttrAttrgroupRelationVO;
 import java.util.List;
 import java.util.Map;
 
-/**
- * å±žæ€§&å±žæ€§åˆ†ç»„å…³è”
- *
- * @author joeyzhou
- * @email eryueshier@gmail.com
- * @date 2025-03-28 02:39:50
- */
+
 public interface AttrAttrgroupRelationService extends IService<AttrAttrgroupRelationEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
@@ -26,4 +20,3 @@ public interface AttrAttrgroupRelationService extends IService<AttrAttrgroupRela
     void saveBatch(List<AttrAttrgroupRelationEntity> relations);
 
 }
-

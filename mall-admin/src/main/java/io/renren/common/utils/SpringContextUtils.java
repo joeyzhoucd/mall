@@ -1,10 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
+
 
 package io.renren.common.utils;
 
@@ -13,11 +7,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
-/**
- * Spring Context å·¥å…·ç±»
- *
- * @author Mark sunlightcs@gmail.com
- */
+
 @Component
 public class SpringContextUtils implements ApplicationContextAware {
 	public static ApplicationContext applicationContext; 

@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2018 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.datasource.config;
 
 import com.alibaba.druid.pool.DruidDataSource;
@@ -14,13 +6,13 @@ import io.renren.datasource.properties.DataSourceProperties;
 import java.sql.SQLException;
 
 /**
- * DruidDataSource
- *
- * @author Mark sunlightcs@gmail.com
- * @since 1.0.0
+ * Dynamic data source factory
  */
 public class DynamicDataSourceFactory {
 
+    /**
+     * Build Druid data source
+     */
     public static DruidDataSource buildDruidDataSource(DataSourceProperties properties) {
         DruidDataSource druidDataSource = new DruidDataSource();
         druidDataSource.setDriverClassName(properties.getDriverClassName());

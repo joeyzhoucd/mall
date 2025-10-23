@@ -32,39 +32,37 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     }
 
     public List<CategoryEntity> listAsTree() {
-        // 1. æŸ¥å‡ºæ‰€æœ‰åˆ†ç±»
+        // 1. Get all categories
         List<CategoryEntity> allCategories = baseMapper.selectList(null);
 
         if (CollectionUtils.isEmpty(allCategories)) {
             return Collections.emptyList();
         }
 
-        // 2. æŒ‰ parentCid åˆ†ç»„
+        // 2. Group by parentCid
         Map<Long, List<CategoryEntity>> parentMap = allCategories.stream()
                 .collect(Collectors.groupingBy(CategoryEntity::getParentCid));
 
-        // 3. èŽ·å–ä¸€çº§åˆ†ç±» (parentCid = 0)
+        // 3. Get root categories (parentCid = 0)
         List<CategoryEntity> rootCategories = parentMap.getOrDefault(0L, Collections.emptyList());
 
-        // 4. é€’å½’æž„å»ºæ ‘
+        // 4. Set children recursively
         rootCategories.forEach(cat -> setChildren(cat, parentMap));
 
-        // 5. ä¸€çº§åˆ†ç±»æŒ‰ sort æŽ’åº
+        // 5. Sort root categories by sort
         rootCategories.sort(Comparator.comparingInt(o -> (o.getSort() == null ? 0 : o.getSort())));
 
         return rootCategories;
     }
 
-    /**
-     * é€’å½’è®¾ç½®å­åˆ†ç±»
-     */
+    
     private void setChildren(CategoryEntity parent, Map<Long, List<CategoryEntity>> parentMap) {
         List<CategoryEntity> children = parentMap.getOrDefault(parent.getCatId(), Collections.emptyList());
 
-        // å­åˆ†ç±»é€’å½’è®¾ç½®
+        // Set children recursively
         children.forEach(child -> setChildren(child, parentMap));
 
-        // æŽ’åº
+        // Sort
         children.sort(Comparator.comparingInt(o -> (o.getSort() == null ? 0 : o.getSort())));
 
         parent.setChildren(children);

@@ -1,13 +1,4 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.modules.sys.service.impl;
-
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -25,9 +16,7 @@ import java.awt.image.BufferedImage;
 import java.util.Date;
 
 /**
- * éªŒè¯ç 
- *
- * @author Mark sunlightcs@gmail.com
+ * System captcha service implementation
  */
 @Service("sysCaptchaService")
 public class SysCaptchaServiceImpl extends ServiceImpl<SysCaptchaDao, SysCaptchaEntity> implements SysCaptchaService {
@@ -37,15 +26,15 @@ public class SysCaptchaServiceImpl extends ServiceImpl<SysCaptchaDao, SysCaptcha
     @Override
     public BufferedImage getCaptcha(String uuid) {
         if(StringUtils.isBlank(uuid)){
-            throw new RRException("uuidä¸èƒ½ä¸ºç©º");
+            throw new RRException("uuid cannot be empty");
         }
-        //ç”Ÿæˆæ–‡å­—éªŒè¯ç 
+        // Generate verification code
         String code = producer.createText();
 
         SysCaptchaEntity captchaEntity = new SysCaptchaEntity();
         captchaEntity.setUuid(uuid);
         captchaEntity.setCode(code);
-        //5åˆ†é’ŸåŽè¿‡æœŸ
+        // 5 minutes expiration
         captchaEntity.setExpireTime(DateUtils.addDateMinutes(new Date(), 5));
         this.save(captchaEntity);
 
@@ -59,7 +48,7 @@ public class SysCaptchaServiceImpl extends ServiceImpl<SysCaptchaDao, SysCaptcha
             return false;
         }
 
-        //åˆ é™¤éªŒè¯ç 
+        // Delete verification code
         this.removeById(uuid);
 
         if(captchaEntity.getCode().equalsIgnoreCase(code) && captchaEntity.getExpireTime().getTime() >= System.currentTimeMillis()){

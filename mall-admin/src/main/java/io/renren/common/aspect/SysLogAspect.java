@@ -1,10 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
 
 package io.renren.common.aspect;
 
@@ -29,11 +22,7 @@ import java.lang.reflect.Method;
 import java.util.Date;
 
 
-/**
- * ç³»ç»Ÿæ—¥å¿—ï¼Œåˆ‡é¢å¤„ç†ç±»
- *
- * @author Mark sunlightcs@gmail.com
- */
+
 @Aspect
 @Component
 public class SysLogAspect {
@@ -48,12 +37,12 @@ public class SysLogAspect {
 	@Around("logPointCut()")
 	public Object around(ProceedingJoinPoint point) throws Throwable {
 		long beginTime = System.currentTimeMillis();
-		//æ‰§è¡Œæ–¹æ³•
+		//执行方法
 		Object result = point.proceed();
-		//æ‰§è¡Œæ—¶é•¿(æ¯«ç§’)
+		//执行时长(毫秒)
 		long time = System.currentTimeMillis() - beginTime;
 
-		//ä¿å­˜æ—¥å¿—
+		//保存日志
 		saveSysLog(point, time);
 
 		return result;
@@ -66,16 +55,16 @@ public class SysLogAspect {
 		SysLogEntity sysLog = new SysLogEntity();
 		SysLog syslog = method.getAnnotation(SysLog.class);
 		if(syslog != null){
-			//æ³¨è§£ä¸Šçš„æè¿°
+			//注解上的描述
 			sysLog.setOperation(syslog.value());
 		}
 
-		//è¯·æ±‚çš„æ–¹æ³•å
+		//请求的方法名
 		String className = joinPoint.getTarget().getClass().getName();
 		String methodName = signature.getName();
 		sysLog.setMethod(className + "." + methodName + "()");
 
-		//è¯·æ±‚çš„å‚æ•°
+		//请求的参数
 		Object[] args = joinPoint.getArgs();
 		try{
 			String params = new Gson().toJson(args);
@@ -84,18 +73,18 @@ public class SysLogAspect {
 
 		}
 
-		//èŽ·å–request
+		//获取request
 		HttpServletRequest request = HttpContextUtils.getHttpServletRequest();
-		//è®¾ç½®IPåœ°å€
+		//设置IP地址
 		sysLog.setIp(IPUtils.getIpAddr(request));
 
-		//ç”¨æˆ·å
+		//用户名
 		String username = ((SysUserEntity) SecurityUtils.getSubject().getPrincipal()).getUsername();
 		sysLog.setUsername(username);
 
 		sysLog.setTime(time);
 		sysLog.setCreateDate(new Date());
-		//ä¿å­˜ç³»ç»Ÿæ—¥å¿—
+		//保存系统日志
 		sysLogService.save(sysLog);
 	}
 }

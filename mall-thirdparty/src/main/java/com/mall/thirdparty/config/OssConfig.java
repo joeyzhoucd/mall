@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(OssProperties.class) // æŠŠé…ç½®ç±»æ³¨å†Œåˆ°å®¹å™¨
+@EnableConfigurationProperties(OssProperties.class) // Enable configuration properties
 public class OssConfig {
 
     @Bean

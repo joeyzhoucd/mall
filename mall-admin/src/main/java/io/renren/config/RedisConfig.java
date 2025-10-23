@@ -1,11 +1,3 @@
-/**
- * Copyright (c) 2016-2019 äººäººå¼€æº All rights reserved.
- *
- * https://www.renren.io
- *
- * ç‰ˆæƒæ‰€æœ‰ï¼Œä¾µæƒå¿…ç©¶ï¼
- */
-
 package io.renren.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,9 +8,7 @@ import org.springframework.data.redis.core.*;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
- * Redisé…ç½®
- *
- * @author Mark sunlightcs@gmail.com
+ * Redis configuration
  */
 @Configuration
 public class RedisConfig {
