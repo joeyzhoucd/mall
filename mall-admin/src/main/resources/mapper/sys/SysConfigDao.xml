@@ -9,7 +9,7 @@
 
 	<!-- 可根据需要自定义是否启用映射配置 -->
 	<select id="queryByKey" parameterType="string" resultType="string">
-		select param_value from sys_config where param_key = #{paramKey}
+		select * from sys_config where param_key = #{paramKey}
 	</select>
 
 </mapper>

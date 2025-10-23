@@ -16,4 +16,9 @@
 			LEFT JOIN sys_role_menu rm on ur.role_id = rm.role_id 
 		where ur.user_id = #{userId}
 	</select>
+	
+	<!-- 根据用户名查询用户信息 -->
+	<select id="queryByUserName" resultType="io.renren.modules.sys.entity.SysUserEntity">
+		select * from sys_user where username = #{username}
+	</select>
 </mapper>
