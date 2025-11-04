@@ -35,6 +35,19 @@ public class SpuInfoController {
         }
     }
 
+    /**
+     * 商品上架
+     */
+    @PostMapping("/{spuId}/up")
+    public R spuUp(@PathVariable("spuId") Long spuId) {
+        try {
+            spuInfoService.upSpu(spuId);
+            return R.ok();
+        } catch (Exception e) {
+            return R.error("商品上架失败: " + e.getMessage());
+        }
+    }
+
     
     @RequestMapping("/placeholder")
     public R placeholder() {

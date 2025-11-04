@@ -1,0 +1,19 @@
+server:
+  port: 14000
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.77.101:8848
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000  # 
+        readTimeout: 5000     # 
+        loggerLevel: full     # basicheadersfull 
+  httpclient:
+    enabled: true          #  Apache HttpClient 
+    max-connections: 200  # 
+    max-connections-per-route: 50  #
