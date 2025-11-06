@@ -14,6 +14,12 @@ spring:
     allow-circular-references: false
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   global-config:

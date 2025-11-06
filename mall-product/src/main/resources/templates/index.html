@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mall 首页</title>
+    <link rel="stylesheet" th:href="@{/index/css/index-layout.css}" />
+    <!-- 参考页面：京东风格分类布局；示例来源见文档说明 -->
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="logo">Mall</div>
+            <div class="search">
+                <input id="searchText" type="text" placeholder="搜索商品/类目" />
+                <button id="searchBtn">搜索</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="sider">
+            <h3>全部分类</h3>
+            <ul class="category">
+                <!-- 一级分类 -->
+                <li th:each="lv1 : ${categories}">
+                    <a th:text="${lv1.name}" href="javascript:void(0)"></a>
+                    <!-- 二级分类列表 -->
+                    <ul class="children" th:if="${lv1.children} != null and ${#lists.size(lv1.children)} > 0">
+                        <li th:each="lv2 : ${lv1.children}">
+                            <strong><a th:text="${lv2.name}" href="javascript:void(0)"></a></strong>
+                            <!-- 三级分类列表 -->
+                            <ul class="children" th:if="${lv2.children} != null and ${#lists.size(lv2.children)} > 0">
+                                <li th:each="lv3 : ${lv2.children}">
+                                    <a th:text="${lv3.name}" href="javascript:void(0)"></a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </aside>
+        <main class="panel">
+            <section class="banner">
+                <div class="swiper">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide"><img th:src="@{/index/img/banner-1.jpg}" alt="banner-1" onerror="this.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)'"></div>
+                        <div class="swiper-slide"><img th:src="@{/index/img/banner-2.jpg}" alt="banner-2" onerror="this.style.background='linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'"></div>
+                        <div class="swiper-slide"><img th:src="@{/index/img/banner-3.jpg}" alt="banner-3" onerror="this.style.background='linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'"></div>
+                    </div>
+                    <div class="swiper-pagination"></div>
+                    <div class="swiper-button-prev"></div>
+                    <div class="swiper-button-next"></div>
+                </div>
+            </section>
+            <div class="content">
+                <h2>欢迎来到 Mall</h2>
+                <p>左侧为动态渲染的三级分类（来自数据库）。其余为静态示例区域，后续可替换为轮播/楼层等业务模块。</p>
+                <p><small class="muted">页面使用 Spring Boot + Thymeleaf 渲染；分类树通过 `CategoryService.listAsTree()` 获取。</small></p>
+            </div>
+        </main>
+    </div>
+</body>
+<script th:src="@{/index/vendor/swiper/loader.js}"></script>
+<script th:src="@{/index/js/header-interactions.js}"></script>
+<script th:src="@{/index/js/category-interactions.js}"></script>
+<script th:src="@{/index/js/banner-interactions.js}"></script>
+</html>
+
+

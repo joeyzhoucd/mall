@@ -33,10 +33,17 @@ spring:
             - RewritePath=/api/(?<segment>.*),/$\{segment}
         - id: admin_route
           uri: lb://mall-admin
-
           predicates:
             - Path=/api/**
           filters:
             - RewritePath=/api/(?<segment>.*),/admin/$\{segment}
-  main:
-    web-application-type: reactive
+
+        - id: product_site_route
+          uri: lb://mall-product
+          predicates:
+            - Host=**.mall.com
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+main:
+  web-application-type: reactive
