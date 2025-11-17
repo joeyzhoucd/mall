@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mall 首页</title>
-    <link rel="stylesheet" th:href="@{/index/css/index-layout.css}" />
+    <link rel="stylesheet" th:href="@{/static/css/index/index-layout.css}" />
     <!-- 参考页面：京东风格分类布局；示例来源见文档说明 -->
 </head>
 <body>
@@ -44,9 +44,9 @@
             <section class="banner">
                 <div class="swiper">
                     <div class="swiper-wrapper">
-                        <div class="swiper-slide"><img th:src="@{/index/img/banner-1.jpg}" alt="banner-1" onerror="this.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)'"></div>
-                        <div class="swiper-slide"><img th:src="@{/index/img/banner-2.jpg}" alt="banner-2" onerror="this.style.background='linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'"></div>
-                        <div class="swiper-slide"><img th:src="@{/index/img/banner-3.jpg}" alt="banner-3" onerror="this.style.background='linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'"></div>
+                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-1.jpg}" alt="banner-1" onerror="this.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)'"></div>
+                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-2.jpg}" alt="banner-2" onerror="this.style.background='linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'"></div>
+                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-3.jpg}" alt="banner-3" onerror="this.style.background='linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'"></div>
                     </div>
                     <div class="swiper-pagination"></div>
                     <div class="swiper-button-prev"></div>
@@ -61,10 +61,10 @@
         </main>
     </div>
 </body>
-<script th:src="@{/index/vendor/swiper/loader.js}"></script>
-<script th:src="@{/index/js/header-interactions.js}"></script>
-<script th:src="@{/index/js/category-interactions.js}"></script>
-<script th:src="@{/index/js/banner-interactions.js}"></script>
+<script th:src="@{/static/vendor/index/swiper/loader.js}"></script>
+<script th:src="@{/static/js/index/header-interactions.js}"></script>
+<script th:src="@{/static/js/index/category-interactions.js}"></script>
+<script th:src="@{/static/js/index/banner-interactions.js}"></script>
 </html>
 
 
