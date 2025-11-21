@@ -71,24 +71,24 @@ public class ProductSaveServiceImpl implements ProductSaveService {
             String mappingJson = "{\n" +
                     "  \"mappings\": {\n" +
                     "    \"properties\": {\n" +
-                    "      \"skuId\": { \"type\": \"keyword\" },\n" +
+                    "      \"skuId\": { \"type\": \"long\" },\n" +
                     "      \"spuId\": { \"type\": \"keyword\" },\n" +
                     "      \"skuTitle\": { \"type\": \"text\", \"analyzer\": \"ik_smart\" },\n" +
-                    "      \"skuPrice\": { \"type\": \"keyword\" },\n" +
+                    "      \"skuPrice\": { \"type\": \"scaled_float\", \"scaling_factor\": 100 },\n" +
                     "      \"skuImg\": { \"type\": \"keyword\", \"index\": false, \"doc_values\": false },\n" +
                     "      \"saleCount\": { \"type\": \"long\" },\n" +
                     "      \"hasStock\": { \"type\": \"boolean\" },\n" +
                     "      \"hotScore\": { \"type\": \"long\" },\n" +
-                    "      \"brandId\": { \"type\": \"keyword\" },\n" +
-                    "      \"categoryId\": { \"type\": \"keyword\" },\n" +
-                    "      \"brandName\": { \"type\": \"keyword\", \"index\": false, \"doc_values\": false },\n" +
-                    "      \"brandImg\": { \"type\": \"keyword\", \"index\": false, \"doc_values\": false },\n" +
-                    "      \"categoryName\": { \"type\": \"keyword\", \"index\": false, \"doc_values\": false },\n" +
+                    "      \"brandId\": { \"type\": \"long\" },\n" +
+                    "      \"categoryId\": { \"type\": \"long\" },\n" +
+                    "      \"brandName\": { \"type\": \"text\", \"analyzer\": \"ik_max_word\", \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n" +
+                    "      \"brandImg\": { \"type\": \"keyword\", \"index\": false, \"doc_values\": true },\n" +
+                    "      \"categoryName\": { \"type\": \"text\", \"analyzer\": \"ik_max_word\", \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n" +
                     "      \"attrs\": {\n" +
                     "        \"type\": \"nested\",\n" +
                     "        \"properties\": {\n" +
-                    "          \"attrId\": { \"type\": \"keyword\" },\n" +
-                    "          \"attrName\": { \"type\": \"keyword\", \"index\": false, \"doc_values\": false },\n" +
+                    "          \"attrId\": { \"type\": \"long\" },\n" +
+                    "          \"attrName\": { \"type\": \"keyword\", \"index\": true, \"doc_values\": true },\n" +
                     "          \"attrValue\": { \"type\": \"keyword\" }\n" +
                     "        }\n" +
                     "      }\n" +

@@ -24,15 +24,15 @@
             <ul class="category">
                 <!-- 一级分类 -->
                 <li th:each="lv1 : ${categories}">
-                    <a th:text="${lv1.name}" href="javascript:void(0)"></a>
+                    <a th:text="${lv1.name}" th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv1.catId}}"></a>
                     <!-- 二级分类列表 -->
                     <ul class="children" th:if="${lv1.children} != null and ${#lists.size(lv1.children)} > 0">
                         <li th:each="lv2 : ${lv1.children}">
-                            <strong><a th:text="${lv2.name}" href="javascript:void(0)"></a></strong>
+                            <strong><a th:text="${lv2.name}" th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv2.catId}}"></a></strong>
                             <!-- 三级分类列表 -->
                             <ul class="children" th:if="${lv2.children} != null and ${#lists.size(lv2.children)} > 0">
                                 <li th:each="lv3 : ${lv2.children}">
-                                    <a th:text="${lv3.name}" href="javascript:void(0)"></a>
+                                    <a th:text="${lv3.name}" th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv3.catId}}"></a>
                                 </li>
                             </ul>
                         </li>

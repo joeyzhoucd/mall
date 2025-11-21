@@ -38,6 +38,11 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>.*),/admin/$\{segment}
 
+        - id: mall_search_route
+          uri: lb://mall-search
+          predicates:
+            - Host=search.mall.com
+
         - id: product_site_route
           uri: lb://mall-product
           predicates:

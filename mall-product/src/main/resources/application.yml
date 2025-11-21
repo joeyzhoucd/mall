@@ -20,6 +20,10 @@ spring:
     mode: HTML
     encoding: UTF-8
     cache: false
+  redis:
+    host: 192.168.77.100
+    port: 6379
+    database: 0
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   global-config:

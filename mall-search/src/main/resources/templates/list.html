@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="stylesheet" href="/static/css/search/search.css">
+  <link rel="stylesheet" type="text/css" href="/static/font/iconfont.css">
+  <script src="/static/js/search/jquery-1.12.4.js"></script>
+  <title>Guitar Center</title>
+</head>
+<body>
+<!-- 新头部 - Guitar Center 风格 -->
+<header class="gc-header">
+    <div class="gc-container">
+        <!-- Logo -->
+        <div class="gc-logo">
+            <a href="http://mall.com">
+                <img src="/static/img/search/logo.svg" alt="Mall Logo" style="height: 40px;"/>
+            </a>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="gc-search">
+            <div class="search-wrapper">
+                <input type="text" id="keyword_input" placeholder="Search for goods..." th:value="${searchParam.keyword}"/>
+                <button onclick="searchByKeyword()" class="search-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 用户操作区 -->
+        <div class="gc-actions">
+            <div class="action-item location">
+                <div class="icon-text">
+                    <span class="bold">Beijing</span>
+                </div>
+            </div>
+            
+            <div class="action-item account">
+                <a th:if="${session.loginUser == null}" href="http://auth.mall.com/login.html" class="flex-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <div class="text-col">
+                        <span class="small">Hi, Guest</span>
+                        <span class="bold">Sign In</span>
+                    </div>
+                </a>
+                <a th:if="${session.loginUser != null}" href="#" class="flex-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <div class="text-col">
+                        <span class="small">Welcome</span>
+                        <span class="bold">[[${session.loginUser.nickname}]]</span>
+                    </div>
+                </a>
+            </div>
+
+            <div class="action-item cart">
+                <a href="#" class="flex-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                </a>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!--主体内容-->
+<div class="main">
+    <div class="main_content">
+        <!-- 面包屑 -->
+        <div class="breadcrumb" th:if="${not #lists.isEmpty(result.navs)}">
+            <span>筛选:</span>
+            <span class="breadcrumb-item" th:each="nav : ${result.navs}">
+                <strong th:text="${nav.name}">关键字</strong>：
+                <span th:text="${nav.value}">手机</span>
+                <a th:href="${nav.link}">×</a>
+            </span>
+        </div>
+
+        <!-- 筛选区 -->
+        <div class="filter_box">
+            <div class="filter_item" th:if="${not #lists.isEmpty(result.brands)}">
+                <div class="filter_key">品牌：</div>
+                <div class="filter_value">
+                    <ul>
+                        <li th:each="brand : ${result.brands}">
+                            <a th:href="@{/list.html(categoryId=${searchParam.categoryId},keyword=${searchParam.keyword},brandId=${brand.brandId})}"
+                               th:text="${brand.brandName}">品牌</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="filter_item" th:each="attr : ${result.attrs}">
+                <div class="filter_key" th:text="${attr.attrName}">属性</div>
+                <div class="filter_value">
+                    <ul>
+                        <li th:each="value : ${attr.attrValue}">
+                            <a th:href="|/list.html?${searchParam.buildAttrLink(attr.attrId, value.val)}|"
+                               th:text="${value.val}">值</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 排序栏 -->
+        <div class="sort_bar">
+            <a th:href="@{/list.html(keyword=${searchParam.keyword},categoryId=${searchParam.categoryId},sort='hotScore_desc')}"
+               th:classappend="${searchParam.sort} == null or ${searchParam.sort}=='hotScore_desc' ? ' desc' : ''"
+               class="sort_a">综合</a>
+            <a th:href="@{/list.html(keyword=${searchParam.keyword},categoryId=${searchParam.categoryId},sort='saleCount_desc')}"
+               class="sort_a">销量</a>
+            <a th:href="@{/list.html(keyword=${searchParam.keyword},categoryId=${searchParam.categoryId},sort='skuPrice_asc')}"
+               class="sort_a">价格</a>
+        </div>
+
+        <!-- 商品列表 -->
+        <div class="goods_list">
+            <ul class="goods_ul">
+                <li class="goods_li" th:each="sku : ${result.products}">
+                    <div class="goods_img">
+                        <a href="#"><img th:src="${sku.skuImg}" th:alt="${sku.skuTitle}"/></a>
+                    </div>
+                    <div class="goods_price" th:text="|￥ ${sku.skuPrice}|">￥ 0.00</div>
+                    <div class="goods_name">
+                        <a th:utext="${sku.skuTitle}">商品标题</a>
+                    </div>
+                    <div class="goods_commit" th:text="|已有 ${sku.saleCount} 人评价|">已有 0 人评价</div>
+                    <div class="goods_shop" th:text="${sku.brandName}">品牌</div>
+                </li>
+            </ul>
+            <div class="empty" th:if="${#lists.isEmpty(result.products)}">
+                当前条件下没有找到商品，换个条件试试~
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        <div class="pagination" th:if="${result.totalPages > 1}">
+            <a th:each="page : ${result.pageNavs}"
+               th:href="@{/list.html(keyword=${searchParam.keyword},categoryId=${searchParam.categoryId},pageNum=${page})}"
+               th:classappend="${page} == ${result.pageNum} ? 'active' : ''"
+               th:text="${page}">1</a>
+        </div>
+    </div>
+</div>
+
+<script>
+  function searchByKeyword() {
+    var keyword = $("#keyword_input").val();
+    location.href = "http://search.mall.com/list.html?keyword=" + encodeURIComponent(keyword);
+  }
+</script>
+</body>
+</html>
+

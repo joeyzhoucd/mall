@@ -12,7 +12,7 @@ window.addEventListener('DOMContentLoaded', function(){
     btn.addEventListener('click', function(){
       var keyword = input && input.value ? input.value.trim() : '';
       if(!keyword) return;
-      window.location.href = '/search?keyword=' + encodeURIComponent(keyword);
+      window.location.href = 'http://search.mall.com/list.html?keyword=' + encodeURIComponent(keyword);
     });
   }
 });
