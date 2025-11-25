@@ -268,53 +268,7 @@
                     <skipTests>true</skipTests>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>wagon-maven-plugin</artifactId>
-                <version>1.0</version>
-                <configuration>
-                    <fromFile>target/${pack-name}</fromFile>
-                    <url><![CDATA[scp://${remote-username}:${remote-passwd}@${remote-addr}${service-path}]]></url>
-                    <commands>
-                        <!-- 可根据需要自定义是否启用映射配置 -->
-                        <command>kill -9 `ps -ef |grep ${project.artifactId}.jar|grep -v "grep" |awk '{print $2}'`
-                        </command>
-                        <!-- 可根据需要自定义是否启用映射配置 -->
-                        <command>
-                            <![CDATA[nohup java -jar ${service-path}/${pack-name} --spring.profiles.active=test > ${service-path}/renren.log 2>&1 & ]]></command>
-                        <command><![CDATA[netstat -nptl]]></command>
-                        <command><![CDATA[ps -ef | grep java | grep -v grep]]></command>
-                    </commands>
-                    <!-- 可根据需要自定义是否启用映射配置 -->
-                    <displayCommandOutputs>true</displayCommandOutputs>
-                </configuration>
-            </plugin>
 
-            <plugin>
-                <groupId>com.spotify</groupId>
-                <artifactId>docker-maven-plugin</artifactId>
-                <version>0.4.14</version>
-                <!--<executions>-->
-                <!--<execution>-->
-                <!--<phase>package</phase>-->
-                <!--<goals>-->
-                <!--<goal>build</goal>-->
-                <!--</goals>-->
-                <!--</execution>-->
-                <!--</executions>-->
-                <configuration>
-                    <imageName>renren/fast</imageName>
-                    <dockerDirectory>${project.basedir}</dockerDirectory>
-                    <resources>
-                        <resource>
-                            <targetPath>/</targetPath>
-                            <directory>${project.build.directory}</directory>
-                            <include>${project.build.finalName}.jar</include>
-                        </resource>
-                    </resources>
-                </configuration>
-                <!-- 可根据需要自定义是否启用映射配置 -->
-            </plugin>
         </plugins>
     </build>
 
@@ -330,16 +284,15 @@
     </repositories>
     <pluginRepositories>
         <pluginRepository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </pluginRepository>
+
+        <pluginRepository>
             <id>public</id>
-            <name>aliyun nexus</name>
             <url>https://maven.aliyun.com/repository/public/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
         </pluginRepository>
     </pluginRepositories>
+
 
 </project>

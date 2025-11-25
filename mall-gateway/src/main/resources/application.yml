@@ -43,6 +43,11 @@ spring:
           predicates:
             - Host=search.mall.com
 
+        - id: product_item_route
+          uri: lb://mall-product
+          predicates:
+            - Host=item.mall.com
+
         - id: product_site_route
           uri: lb://mall-product
           predicates:

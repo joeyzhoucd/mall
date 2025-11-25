@@ -1,0 +1,84 @@
+/* 顶部导航 */
+.mall-header {
+    background: #202020;
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.header-top {
+    width: 1180px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    padding: 14px 0;
+}
+
+.logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 2px;
+}
+
+.beta-tag {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .12);
+}
+
+.search-box {
+    display: flex;
+    flex: 1;
+    max-width: 540px;
+    background: #fff;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.search-box input {
+    flex: 1;
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    outline: none;
+}
+
+.search-box button {
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    padding: 0 28px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.header-links {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+}
+
+.header-links a {
+    color: #fff;
+    opacity: .85;
+}
+
+.header-links a:hover {
+    opacity: 1;
+}
+
+@media (max-width: 1280px) {
+    .header-top {
+        width: auto;
+        padding: 14px 24px;
+    }
+}

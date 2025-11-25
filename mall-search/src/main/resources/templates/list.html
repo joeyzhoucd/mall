@@ -120,11 +120,13 @@
             <ul class="goods_ul">
                 <li class="goods_li" th:each="sku : ${result.products}">
                     <div class="goods_img">
-                        <a href="#"><img th:src="${sku.skuImg}" th:alt="${sku.skuTitle}"/></a>
+                        <a th:href="|http://item.mall.com/${sku.skuId}.html|">
+                            <img th:src="${sku.skuImg}" th:alt="${sku.skuTitle}"/>
+                        </a>
                     </div>
                     <div class="goods_price" th:text="|￥ ${sku.skuPrice}|">￥ 0.00</div>
                     <div class="goods_name">
-                        <a th:utext="${sku.skuTitle}">商品标题</a>
+                        <a th:href="|http://item.mall.com/${sku.skuId}.html|" th:utext="${sku.skuTitle}">商品标题</a>
                     </div>
                     <div class="goods_commit" th:text="|已有 ${sku.saleCount} 人评价|">已有 0 人评价</div>
                     <div class="goods_shop" th:text="${sku.brandName}">品牌</div>

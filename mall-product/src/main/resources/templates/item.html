@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${item.info.skuTitle}">Mall - 商品详情</title>
+    <link rel="stylesheet" href="/static/css/item/jd.css"/>
+    <link rel="stylesheet" href="/static/css/item/header.css"/>
+    <link rel="stylesheet" href="/static/css/item/bootstrap.css"/>
+    <link rel="stylesheet" href="/static/css/item/shop.css"/>
+</head>
+<body>
+<header class="mall-header">
+    <div class="header-top">
+        <div class="logo-wrap">
+            <a class="logo" href="http://mall.com">MALL</a>
+            <span class="beta-tag">官方自营</span>
+        </div>
+        <div class="search-box">
+            <input type="text" id="keyword_input" placeholder="搜索商品 / 品牌 / 分类"/>
+            <button type="button" onclick="goSearch()">搜索</button>
+        </div>
+        <div class="header-links">
+            <a href="http://mall.com">首页</a>
+            <a href="http://search.mall.com/list.html">全部商品</a>
+            <a href="http://cart.mall.com/cart.html">购物车</a>
+        </div>
+    </div>
+</header>
+
+<main class="page">
+    <nav class="breadcrumb">
+        <a href="http://mall.com">首页</a>
+        <span>/</span>
+        <a href="http://search.mall.com/list.html">全部商品</a>
+        <span>/</span>
+        <span th:text="${item.info.skuTitle}">商品详情</span>
+    </nav>
+
+    <section class="product-section">
+        <div class="preview-column">
+            <div class="main-preview">
+                <img id="main-img" th:src="${item.info.skuDefaultImg}" th:alt="${item.info.skuTitle}">
+            </div>
+            <div class="thumb-strip" th:if="${not #lists.isEmpty(item.images)}">
+                <ul>
+                    <li th:each="img, iterStat : ${item.images}">
+                        <img th:src="${img.imgUrl}" th:alt="${item.info.skuTitle}"
+                             th:classappend="${iterStat.index == 0}? 'active' : ''"
+                             th:attr="data-large=${img.imgUrl}">
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="summary-column">
+            <h1 class="sku-title" th:text="${item.info.skuTitle}">商品名称</h1>
+            <p class="sku-subtitle" th:text="${item.info.skuSubtitle}">精彩卖点描述</p>
+
+            <div class="price-panel">
+                <div class="price-row">
+                    <span class="label">价格</span>
+                    <span class="price" th:text="|￥${item.info.price}|">￥0.00</span>
+                </div>
+                <div class="tags">
+                    <span>花呗分期</span>
+                    <span>七天无理由</span>
+                    <span th:text="${item.hasStock ? '现货速发' : '到货通知'}">现货速发</span>
+                </div>
+            </div>
+
+            <div class="service-row">
+                <span class="label">配送</span>
+                <div class="service-content">
+                    <strong>北京</strong>
+                    <span>现在下单，预计48小时内发货</span>
+                </div>
+            </div>
+
+            <div class="service-row">
+                <span class="label">库存</span>
+                <div class="service-content stock" th:text="${item.hasStock ? '有货（可购买）' : '无货（可预约）'}">有货</div>
+            </div>
+
+            <div class="attr-panel" th:each="attr : ${item.saleAttr}">
+                <div class="attr-title" th:text="${attr.attrName}">属性</div>
+                <div class="attr-values">
+                    <a th:each="val : ${attr.attrValues}"
+                       class="sku_attr_value"
+                       th:classappend="${#lists.contains(#strings.listSplit(val.skuIds, ','), #strings.toString(item.info.skuId)) ? 'checked' : ''}"
+                       th:attr="data-skuids=${val.skuIds}"
+                       href="javascript:;" th:text="${val.attrValue}">选项</a>
+                </div>
+            </div>
+
+            <div class="action-row">
+                <div class="quantity">
+                    <button type="button" class="qty-btn" onclick="changeQty(-1)">-</button>
+                    <input type="text" id="productNum" value="1">
+                    <button type="button" class="qty-btn" onclick="changeQty(1)">+</button>
+                </div>
+                <button class="btn btn-danger addToCart" th:attr="data-sku=${item.info.skuId}">加入购物车</button>
+            </div>
+        </div>
+
+        <aside class="service-column">
+            <div class="service-card">
+                <h3>服务保障</h3>
+                <ul>
+                    <li>正品保障</li>
+                    <li>满99包邮</li>
+                    <li>专属售后</li>
+                    <li>极速退款</li>
+                </ul>
+            </div>
+            <div class="service-card">
+                <h3>温馨提示</h3>
+                <p>支持发票开具，更多优惠请关注首页活动。</p>
+            </div>
+        </aside>
+    </section>
+
+    <section class="detail-section">
+        <div class="detail-tabs">
+            <button class="active" data-tab="desc">商品介绍</button>
+            <button data-tab="spec">规格参数</button>
+        </div>
+        <div class="tab-content">
+            <div id="tab-desc" class="tab-pane active">
+                <div class="desc-images" th:if="${item.desc != null}">
+                    <img th:each="img : ${#strings.listSplit(item.desc.decript, ',')}"
+                         th:src="${img}" th:alt="${item.info.skuTitle}">
+                </div>
+                <p th:if="${item.desc == null}" class="placeholder">暂无商品介绍内容</p>
+            </div>
+            <div id="tab-spec" class="tab-pane">
+                <div class="spec-table" th:if="${not #lists.isEmpty(item.groupAttrs)}">
+                    <div class="spec-group" th:each="group : ${item.groupAttrs}">
+                        <div class="group-title" th:text="${group.groupName}">分组名称</div>
+                        <table>
+                            <tbody>
+                            <tr th:each="attr : ${group.attrs}">
+                                <th th:text="${attr.attrName}">属性名</th>
+                                <td th:text="${attr.attrValue}">属性值</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <p th:if="${#lists.isEmpty(item.groupAttrs)}" class="placeholder">暂无规格参数</p>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script src="/static/js/item/jquery1.9.js"></script>
+<script>
+    function goSearch() {
+        var keyword = $("#keyword_input").val();
+        if (!keyword) {
+            return;
+        }
+        location.href = "http://search.mall.com/list.html?keyword=" + encodeURIComponent(keyword);
+    }
+
+    function changeQty(delta) {
+        const input = $("#productNum");
+        let value = parseInt(input.val()) || 1;
+        value = Math.max(1, value + delta);
+        input.val(value);
+    }
+
+    $(".thumb-strip img").on("mouseover", function () {
+        $(".thumb-strip img").removeClass("active");
+        $(this).addClass("active");
+        $("#main-img").attr("src", $(this).data("large"));
+    });
+
+    $(".detail-tabs button").on("click", function () {
+        const tab = $(this).data("tab");
+        $(".detail-tabs button").removeClass("active");
+        $(this).addClass("active");
+        $(".tab-pane").removeClass("active");
+        $("#tab-" + tab).addClass("active");
+    });
+
+    $(".sku_attr_value").click(function () {
+        $(this).closest(".attr-values").find(".sku_attr_value").removeClass("checked");
+        $(this).addClass("checked");
+
+        let skuMatrix = [];
+        $(".sku_attr_value.checked").each(function () {
+            skuMatrix.push($(this).data("skuids").split(","));
+        });
+
+        if (skuMatrix.length === 0) {
+            return;
+        }
+
+        let candidate = skuMatrix[0];
+        for (let i = 1; i < skuMatrix.length; i++) {
+            candidate = $(candidate).filter(skuMatrix[i]);
+        }
+
+        if (candidate.length > 0) {
+            location.href = "http://item.mall.com/" + candidate[0] + ".html";
+        } else {
+            alert("当前组合暂无库存，请重新选择");
+        }
+    });
+
+    $(".addToCart").click(function () {
+        let skuId = $(this).data("sku");
+        let num = $("#productNum").val();
+        location.href = "http://cart.mall.com/addCartItem?skuId=" + skuId + "&num=" + num;
+        return false;
+    });
+</script>
+</body>
+</html>
+

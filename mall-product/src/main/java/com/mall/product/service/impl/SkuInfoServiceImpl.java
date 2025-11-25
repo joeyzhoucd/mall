@@ -8,7 +8,11 @@ import com.mall.common.utils.Query;
 import com.mall.product.dao.*;
 import com.mall.product.entity.*;
 import com.mall.product.service.SkuInfoService;
+import com.mall.product.service.SpuInfoDescService;
 import com.mall.product.vo.SkuInfoVo;
+import com.mall.product.vo.SkuItemSaleAttrVo;
+import com.mall.product.vo.SkuItemVo;
+import com.mall.product.vo.SpuItemAttrGroupVo;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +21,9 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 
 
 @Service("skuInfoService")
@@ -33,6 +40,12 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
     
     @Autowired
     private SkuSaleAttrValueDao skuSaleAttrValueDao;
+
+    @Autowired
+    private SpuInfoDescService spuInfoDescService;
+
+    @Autowired
+    private AttrGroupDao attrGroupDao;
 
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
@@ -135,6 +148,51 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
         // Return new page with details
         PageUtils result = new PageUtils(voList, (int) pageUtils.getTotalCount(), (int) pageUtils.getPageSize(), (int) pageUtils.getCurrPage());
         return result;
+    }
+
+    @Override
+    public SkuItemVo item(Long skuId) {
+        SkuItemVo skuItemVo = new SkuItemVo();
+
+        CompletableFuture<SkuInfoEntity> infoFuture = CompletableFuture.supplyAsync(() -> {
+            // 1. SKU Info
+            SkuInfoEntity info = getById(skuId);
+            skuItemVo.setInfo(info);
+            return info;
+        });
+
+        CompletableFuture<Void> saleAttrFuture = infoFuture.thenAcceptAsync((info) -> {
+            // 3. SPU Sale Attr Combination
+            List<SkuItemSaleAttrVo> saleAttr = skuSaleAttrValueDao.getSaleAttrsBySpuId(info.getSpuId());
+            skuItemVo.setSaleAttr(saleAttr);
+        });
+
+        CompletableFuture<Void> descFuture = infoFuture.thenAcceptAsync((info) -> {
+            // 4. SPU Description
+            SpuInfoDescEntity desc = spuInfoDescService.getById(info.getSpuId());
+            skuItemVo.setDesc(desc);
+        });
+
+        CompletableFuture<Void> baseAttrFuture = infoFuture.thenAcceptAsync((info) -> {
+            // 5. SPU Group Attrs
+            List<SpuItemAttrGroupVo> groupAttrs = attrGroupDao.getAttrGroupWithAttrsBySpuId(info.getSpuId(), info.getCategoryId());
+            skuItemVo.setGroupAttrs(groupAttrs);
+        });
+
+        CompletableFuture<Void> imageFuture = CompletableFuture.runAsync(() -> {
+            // 2. SKU Images
+            List<SkuImagesEntity> images = skuImagesDao.selectList(new QueryWrapper<SkuImagesEntity>().eq("sku_id", skuId));
+            skuItemVo.setImages(images);
+        });
+
+        // Wait for all
+        try {
+            CompletableFuture.allOf(saleAttrFuture, descFuture, baseAttrFuture, imageFuture).get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+
+        return skuItemVo;
     }
 
 }

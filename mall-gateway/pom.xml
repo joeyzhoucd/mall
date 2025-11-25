@@ -30,19 +30,4 @@
         </dependency>
     </dependencies>
 
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <jvmArguments>
-                        -Xmx512m -Xms256m
-                    </jvmArguments>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
 </project>

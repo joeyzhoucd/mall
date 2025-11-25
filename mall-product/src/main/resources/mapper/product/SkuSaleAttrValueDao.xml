@@ -13,5 +13,24 @@
         <result property="attrSort" column="attr_sort"/>
     </resultMap>
 
+    <resultMap id="SkuItemSaleAttrVo" type="com.mall.product.vo.SkuItemSaleAttrVo">
+        <result column="attr_id" property="attrId"/>
+        <result column="attr_name" property="attrName"/>
+        <collection property="attrValues" ofType="com.mall.product.vo.AttrValueWithSkuIdVo">
+            <result column="attr_value" property="attrValue"/>
+            <result column="sku_ids" property="skuIds"/>
+        </collection>
+    </resultMap>
 
+    <select id="getSaleAttrsBySpuId" resultMap="SkuItemSaleAttrVo">
+        SELECT
+            ssav.attr_id,
+            ssav.attr_name,
+            ssav.attr_value,
+            GROUP_CONCAT(DISTINCT ssav.sku_id ORDER BY ssav.sku_id ASC SEPARATOR ',') as sku_ids
+        FROM pms_sku_info si
+        LEFT JOIN pms_sku_sale_attr_value ssav ON si.sku_id = ssav.sku_id
+        WHERE si.spu_id = #{spuId}
+        GROUP BY ssav.attr_id, ssav.attr_name, ssav.attr_value
+    </select>
 </mapper>

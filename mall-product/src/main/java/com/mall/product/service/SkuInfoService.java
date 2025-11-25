@@ -14,4 +14,6 @@ public interface SkuInfoService extends IService<SkuInfoEntity> {
     
     
     PageUtils queryPageWithDetails(Map<String, Object> params);
+
+    com.mall.product.vo.SkuItemVo item(Long skuId);
 }

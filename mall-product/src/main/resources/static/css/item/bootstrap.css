@@ -1,0 +1,57 @@
+/* 极简版 Bootstrap 组件，满足 PDP 页面需要 */
+.btn {
+    display: inline-block;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: 8px 24px;
+    font-size: 16px;
+    line-height: 1.5;
+    border-radius: 4px;
+    transition: all .2s ease;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn:disabled {
+    opacity: .65;
+    cursor: not-allowed;
+}
+
+.btn-danger {
+    color: #fff;
+    background-color: #e1251b;
+    border-color: #e1251b;
+}
+
+.btn-danger:hover {
+    background-color: #c81d15;
+    border-color: #c81d15;
+}
+
+.input-group {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid #dcdcdc;
+    border-radius: 4px;
+}
+
+.form-control {
+    flex: 1;
+    border: none;
+    padding: 8px 12px;
+    outline: none;
+    font-size: 16px;
+}
+
+.form-control:focus {
+    box-shadow: inset 0 0 0 2px rgba(225, 37, 27, .2);
+}
+
+.input-group .btn {
+    border-radius: 0;
+}
+
