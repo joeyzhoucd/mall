@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mall 注册页面</title>
+    <link rel="stylesheet" href="/static/css/reg/reg.css">
+</head>
+
+<body>
+    <div class="register-container">
+        <h2 style="text-align: center; color: #e4393c;">Mall 注册</h2>
+        <form action="/register" method="post" onsubmit="return submitRegister()">
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" name="userName" required placeholder="请输入用户名">
+                <div class="error-msg"
+                    th:text="${errors != null ? (errors['userName'] != null ? errors['userName'] : (errors['msg'] != null ? errors['msg'] : '')) : ''}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" name="password" required placeholder="请输入密码">
+                <div class="error-msg" th:text="${errors != null ? errors['password'] : ''}"></div>
+            </div>
+            <div class="form-group">
+                <label>手机号</label>
+                <input type="text" name="phone" id="phone" required placeholder="请输入手机号">
+                <div class="error-msg" th:text="${errors != null ? errors['phone'] : ''}"></div>
+                <a class="send-code-btn" onclick="sendCode()">发送验证码</a>
+            </div>
+            <div class="form-group">
+                <label>验证码</label>
+                <input type="text" name="code" required placeholder="请输入验证码">
+                <div class="error-msg" th:text="${errors != null ? errors['code'] : ''}"></div>
+            </div>
+            <button type="submit" class="btn">立即注册</button>
+        </form>
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="/login.html">已有账号？去登录</a>
+        </div>
+    </div>
+
+    <script src="/static/js/reg/reg.js"></script>
+</body>
+
+</html>

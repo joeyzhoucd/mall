@@ -18,6 +18,8 @@
         <module>mall-ware</module>
         <module>mall-common</module>
         <module>mall-generator</module>
+        <module>mall-auth</module>
+        <module>mall-session-starter</module>
     </modules>
 
     <!-- 可根据需要自定义是否启用映射配置 -->
@@ -124,6 +126,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.boot.version}</version>
                 <configuration>
                     <jvmArguments>
                         -Xmx512m -Xms256m

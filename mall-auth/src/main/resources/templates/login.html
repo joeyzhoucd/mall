@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mall 登录</title>
+    <link rel="stylesheet" href="/static/css/login/login.css">
+</head>
+
+<body>
+    <div class="login-container">
+        <div th:if="${currentUser != null}" style="background:#fff6e5;border:1px solid #ffd89b;padding:10px 12px;border-radius:4px;margin-bottom:12px;font-size:14px;color:#c77c11;">
+            已登录：<span th:text="${currentUser.nickname}"></span>
+            <span style="margin-left:12px;">
+                <a href="http://mall.com" style="color:#e4393c;">返回首页</a>
+                <span style="margin:0 8px;color:#999;">|</span>
+                <form action="/logout" method="post" style="display:inline;">
+                    <button type="submit" style="border:none;background:none;color:#e4393c;cursor:pointer;padding:0;">退出当前账号</button>
+                </form>
+            </span>
+        </div>
+        <div th:if="${currentUser == null}">
+            <h2 style="text-align: center; color: #e4393c;">Mall 登录</h2>
+            <div style="text-align: center; margin-bottom: 15px; color: red;" th:if="${errors != null}"
+                th:text="${errors['msg']}"></div>
+            <form action="/login" method="post">
+                <div class="form-group">
+                    <label>账号</label>
+                    <input type="text" name="loginacct" required placeholder="用户名/手机号">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" name="password" required placeholder="请输入密码">
+                </div>
+                <button type="submit" class="btn">登录</button>
+            </form>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="/register.html">没有账号？去注册</a>
+            </div>
+            <div style="text-align: center; margin-top: 15px;">
+                <a
+                    href="https://api.weibo.com/oauth2/authorize?client_id=4239681478&response_type=code&redirect_uri=http://auth.mall.com/oauth2.0/weibo/success">
+                    <img src="/static/img/login/weibo.png" style="width: 20px; vertical-align: middle;" /> 微博登录
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

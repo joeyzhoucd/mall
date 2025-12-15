@@ -26,6 +26,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- Session Starter：按需开启跨域登录态 -->
+        <dependency>
+            <groupId>com.mall</groupId>
+            <artifactId>mall-session-starter</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
         <!-- Redisson -->
         <dependency>
             <groupId>org.redisson</groupId>

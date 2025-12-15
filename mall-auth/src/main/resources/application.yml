@@ -1,0 +1,26 @@
+server:
+  port: 20000
+spring:
+  application:
+    name: mall-auth
+    admin:
+      enabled: false
+  jmx:
+    enabled: false
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.77.101:8848
+  redis:
+    host: 192.168.77.100
+    port: 6379
+  thymeleaf:
+    cache: false
+
+mall:
+  session:
+    enabled: true
+  auth:
+    weibo:
+      appKey: 4239681478
+      appSecret: 632f00612cb695abd9ddbae000204dec

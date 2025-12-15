@@ -32,6 +32,38 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+.header .topbar {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    font-size: 13px;
+    background: linear-gradient(90deg, #ff4d6d 0%, #ff0036 50%, #e6002e 100%);
+}
+
+.topbar-link {
+    color: var(--white);
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.topbar-link:hover {
+    opacity: 0.85;
+}
+
+.divider {
+    margin: 0 8px;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.user-links .welcome {
+    margin-right: 6px;
+    font-weight: 500;
+}
+
 .header .container {
     max-width: 1200px;
     margin: 0 auto;

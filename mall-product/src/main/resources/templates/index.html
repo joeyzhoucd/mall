@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,8 +8,26 @@
     <link rel="stylesheet" th:href="@{/static/css/index/index-layout.css}" />
     <!-- 参考页面：京东风格分类布局；示例来源见文档说明 -->
 </head>
+
 <body>
     <div class="header">
+        <div class="topbar">
+            <div class="topbar-left">
+                <a class="topbar-link" href="http://mall.com">商城首页</a>
+            </div>
+            <div class="topbar-right">
+                <span th:if="${session.loginUser == null}">
+                    <a class="topbar-link" href="http://auth.mall.com/login.html">登录</a>
+                    <span class="divider">|</span>
+                    <a class="topbar-link" href="http://auth.mall.com/register.html">注册</a>
+                </span>
+                <span th:if="${session.loginUser != null}" class="user-links">
+                    <span class="welcome">欢迎，[[${session.loginUser.nickname}]]</span>
+                    <span class="divider">|</span>
+                    <a class="topbar-link" href="javascript:void(0)" onclick="logout()">退出</a>
+                </span>
+            </div>
+        </div>
         <div class="container">
             <div class="logo">Mall</div>
             <div class="search">
@@ -24,15 +43,18 @@
             <ul class="category">
                 <!-- 一级分类 -->
                 <li th:each="lv1 : ${categories}">
-                    <a th:text="${lv1.name}" th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv1.catId}}"></a>
+                    <a th:text="${lv1.name}"
+                        th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv1.catId}}"></a>
                     <!-- 二级分类列表 -->
                     <ul class="children" th:if="${lv1.children} != null and ${#lists.size(lv1.children)} > 0">
                         <li th:each="lv2 : ${lv1.children}">
-                            <strong><a th:text="${lv2.name}" th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv2.catId}}"></a></strong>
+                            <strong><a th:text="${lv2.name}"
+                                    th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv2.catId}}"></a></strong>
                             <!-- 三级分类列表 -->
                             <ul class="children" th:if="${lv2.children} != null and ${#lists.size(lv2.children)} > 0">
                                 <li th:each="lv3 : ${lv2.children}">
-                                    <a th:text="${lv3.name}" th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv3.catId}}"></a>
+                                    <a th:text="${lv3.name}"
+                                        th:href="@{'http://search.mall.com/list.html?categoryId=' + ${lv3.catId}}"></a>
                                 </li>
                             </ul>
                         </li>
@@ -44,9 +66,15 @@
             <section class="banner">
                 <div class="swiper">
                     <div class="swiper-wrapper">
-                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-1.jpg}" alt="banner-1" onerror="this.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)'"></div>
-                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-2.jpg}" alt="banner-2" onerror="this.style.background='linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'"></div>
-                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-3.jpg}" alt="banner-3" onerror="this.style.background='linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'"></div>
+                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-1.jpg}" alt="banner-1"
+                                onerror="this.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)'">
+                        </div>
+                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-2.jpg}" alt="banner-2"
+                                onerror="this.style.background='linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'">
+                        </div>
+                        <div class="swiper-slide"><img th:src="@{/static/img/index/banner-3.jpg}" alt="banner-3"
+                                onerror="this.style.background='linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'">
+                        </div>
                     </div>
                     <div class="swiper-pagination"></div>
                     <div class="swiper-button-prev"></div>
@@ -56,7 +84,8 @@
             <div class="content">
                 <h2>欢迎来到 Mall</h2>
                 <p>左侧为动态渲染的三级分类（来自数据库）。其余为静态示例区域，后续可替换为轮播/楼层等业务模块。</p>
-                <p><small class="muted">页面使用 Spring Boot + Thymeleaf 渲染；分类树通过 `CategoryService.listAsTree()` 获取。</small></p>
+                <p><small class="muted">页面使用 Spring Boot + Thymeleaf 渲染；分类树通过 `CategoryService.listAsTree()` 获取。</small>
+                </p>
             </div>
         </main>
     </div>
@@ -65,6 +94,12 @@
 <script th:src="@{/static/js/index/header-interactions.js}"></script>
 <script th:src="@{/static/js/index/category-interactions.js}"></script>
 <script th:src="@{/static/js/index/banner-interactions.js}"></script>
+<script>
+    function logout() {
+        fetch('http://auth.mall.com/logout', {method: 'POST', credentials: 'include'})
+            .then(() => { window.location.href = 'http://auth.mall.com/login.html'; })
+            .catch(() => { window.location.href = 'http://auth.mall.com/login.html'; });
+    }
+</script>
+
 </html>
-
-
