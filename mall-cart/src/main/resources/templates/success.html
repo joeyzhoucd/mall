@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>加入购物车成功</title>
+    <link rel="stylesheet" th:href="@{/static/css/cart/cart.css}">
+</head>
+<body>
+<div class="header">
+    <div class="topbar">
+        <div class="topbar-left">
+            <a class="topbar-link" href="http://mall.com">商城首页</a>
+            <a class="topbar-link" href="http://cart.mall.com/cart.html">购物车</a>
+        </div>
+        <div class="topbar-right">
+            <span th:if="${session.loginUser == null}">
+                <a class="topbar-link" href="http://auth.mall.com/login.html">登录</a>
+                <span class="divider">|</span>
+                <a class="topbar-link" href="http://auth.mall.com/register.html">注册</a>
+            </span>
+            <span th:if="${session.loginUser != null}" class="user-links">
+                <span class="welcome">欢迎，[[${session.loginUser.nickname}]]</span>
+                <span class="divider">|</span>
+                <a class="topbar-link" href="http://mall.com">返回首页</a>
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="success-container">
+    <div class="success-box">
+        <h2>已加入购物车！</h2>
+        <div class="item" th:if="${item != null}">
+            <img th:src="${item.image}" alt="" onerror="this.style.display='none'">
+            <div>
+                <div class="title" th:text="${item.title}"></div>
+                <div class="attrs" th:text="${#strings.listJoin(item.skuAttr, ' / ')}"></div>
+                <div class="price">单价：¥[[${#numbers.formatDecimal(item.price,1,2)}]]</div>
+            </div>
+        </div>
+        <div class="actions">
+            <a class="btn primary" th:href="@{'http://cart.mall.com/cart.html'}">去购物车</a>
+            <a class="btn" th:href="@{'http://item.mall.com/' + ${item != null ? item.skuId : ''} + '.html'}">返回商品详情</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+

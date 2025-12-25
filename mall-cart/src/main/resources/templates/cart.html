@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>购物车</title>
+    <link rel="stylesheet" th:href="@{/static/css/cart/cart.css}">
+</head>
+<body>
+<div class="header">
+    <div class="topbar">
+        <div class="topbar-left">
+            <a class="topbar-link" href="http://mall.com">商城首页</a>
+            <a class="topbar-link" href="http://search.mall.com/list.html">全部商品</a>
+        </div>
+        <div class="topbar-right">
+            <span th:if="${session.loginUser == null}">
+                <a class="topbar-link" href="http://auth.mall.com/login.html">登录</a>
+                <span class="divider">|</span>
+                <a class="topbar-link" href="http://auth.mall.com/register.html">注册</a>
+            </span>
+            <span th:if="${session.loginUser != null}" class="user-links">
+                <span class="welcome">欢迎，[[${session.loginUser.nickname}]]</span>
+                <span class="divider">|</span>
+                <a class="topbar-link" href="http://mall.com">返回首页</a>
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="cart-container">
+    <h2>我的购物车</h2>
+    <div th:if="${cart == null or #lists.isEmpty(cart.items)}" class="empty">
+        购物车为空，<a href="http://mall.com">去逛逛</a>
+    </div>
+    <div th:if="${cart != null and !#lists.isEmpty(cart.items)}">
+        <table class="cart-table">
+            <thead>
+            <tr>
+                <th width="60">选择</th>
+                <th>商品</th>
+                <th width="140">单价</th>
+                <th width="160">数量</th>
+                <th width="140">小计</th>
+                <th width="120">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${cart.items}">
+                <td>
+                    <input type="checkbox"
+                           th:checked="${item.check}"
+                           th:onchange="|window.location.href='http://cart.mall.com/checkItem?skuId=${item.skuId}&check=' + this.checked|" />
+                </td>
+                <td class="goods">
+                    <img th:src="${item.image}" alt="" onerror="this.style.display='none'">
+                    <div>
+                        <div class="title" th:text="${item.title}"></div>
+                        <div class="attrs" th:text="${#strings.listJoin(item.skuAttr, ' / ')}"></div>
+                    </div>
+                </td>
+                <td>¥[[${#numbers.formatDecimal(item.price,1,2)}]]</td>
+                <td class="num">
+                    <button type="button"
+                            th:onclick="|window.location.href='http://cart.mall.com/changeItemCount?skuId=${item.skuId}&num=${item.count-1}'|">-</button>
+                    <input type="number" min="1" th:value="${item.count}"
+                           th:onchange="|window.location.href='http://cart.mall.com/changeItemCount?skuId=${item.skuId}&num=' + this.value|" />
+                    <button type="button"
+                            th:onclick="|window.location.href='http://cart.mall.com/changeItemCount?skuId=${item.skuId}&num=${item.count+1}'|">+</button>
+                </td>
+                <td>¥[[${#numbers.formatDecimal(item.totalPrice,1,2)}]]</td>
+                <td>
+                    <a th:href="@{'http://cart.mall.com/deleteItem'(skuId=${item.skuId})}">删除</a>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        <div class="cart-summary">
+            <div>已选 [[${cart.checkNum}]] 件商品</div>
+            <div class="total">合计：<span>¥[[${#numbers.formatDecimal(cart.totalAmount,1,2)}]]</span></div>
+            <a class="btn"
+               th:classappend="${cart.checkNum == 0} ? ' disabled' : ''"
+               th:href="${cart.checkNum == 0} ? 'javascript:void(0)' : '#'"
+               th:onclick="${cart.checkNum == 0} ? 'return false;' : null">去结算</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+

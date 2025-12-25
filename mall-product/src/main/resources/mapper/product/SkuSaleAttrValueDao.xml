@@ -33,4 +33,8 @@
         WHERE si.spu_id = #{spuId}
         GROUP BY ssav.attr_id, ssav.attr_name, ssav.attr_value
     </select>
+
+    <select id="getSkuSaleAttrValuesAsStringList" resultType="string">
+        SELECT attr_value FROM pms_sku_sale_attr_value WHERE sku_id = #{skuId}
+    </select>
 </mapper>
