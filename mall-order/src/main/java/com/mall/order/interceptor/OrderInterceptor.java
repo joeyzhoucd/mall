@@ -1,7 +1,7 @@
 package com.mall.order.interceptor;
 
-import com.mall.member.vo.MemberRespVo;
 import com.mall.order.to.UserInfoTo;
+import com.mall.session.vo.LoginUser;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
@@ -21,8 +21,8 @@ public class OrderInterceptor implements HandlerInterceptor {
                              @NonNull Object handler) {
         UserInfoTo userInfoTo = new UserInfoTo();
         Object loginUser = request.getSession().getAttribute("loginUser");
-        if (loginUser instanceof MemberRespVo) {
-            MemberRespVo member = (MemberRespVo) loginUser;
+        if (loginUser instanceof LoginUser) {
+            LoginUser member = (LoginUser) loginUser;
             userInfoTo.setUserId(member.getId());
             userInfoTo.setUsername(member.getUsername());
         }

@@ -17,7 +17,6 @@ import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.common.utils.R;
 import com.mall.common.utils.RUtils;
-import com.mall.member.entity.MemberReceiveAddressEntity;
 import com.mall.order.constant.OrderConstant;
 import com.mall.order.dao.OrderDao;
 import com.mall.order.entity.OrderEntity;
@@ -31,6 +30,7 @@ import com.mall.order.service.OrderOperateHistoryService;
 import com.mall.order.service.OrderService;
 import com.mall.order.to.OrderCreateTo;
 import com.mall.order.to.UserInfoTo;
+import com.mall.order.vo.MemberAddressVo;
 import com.mall.order.vo.OrderConfirmVo;
 import com.mall.order.vo.OrderItemLockVo;
 import com.mall.order.vo.OrderItemVo;
@@ -100,11 +100,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         }
 
         R addressResp = memberFeignService.getAddress(userInfoTo.getUserId());
-        List<MemberReceiveAddressEntity> address = RUtils.getData(
+        List<MemberAddressVo> address = RUtils.getData(
                 addressResp,
                 ResponseKeys.ADDRESS,
                 objectMapper,
-                new TypeReference<List<MemberReceiveAddressEntity>>() {}
+                new TypeReference<List<MemberAddressVo>>() {}
         );
         confirmVo.setAddress(address == null ? Collections.emptyList() : address);
 
@@ -258,7 +258,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         orderEntity.setStatus(OrderStatus.NEW);
         orderEntity.setNote(submitVo.getNote());
 
-        MemberReceiveAddressEntity address = getAddressById(userInfoTo.getUserId(), submitVo.getAddrId());
+        MemberAddressVo address = getAddressById(userInfoTo.getUserId(), submitVo.getAddrId());
         if (address != null) {
             orderEntity.setReceiverName(address.getName());
             orderEntity.setReceiverPhone(address.getPhone());
@@ -312,16 +312,16 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         return itemEntity;
     }
 
-    private MemberReceiveAddressEntity getAddressById(Long memberId, Long addrId) {
+    private MemberAddressVo getAddressById(Long memberId, Long addrId) {
         if (addrId == null) {
             return null;
         }
         R addressResp = memberFeignService.getAddress(memberId);
-        List<MemberReceiveAddressEntity> addressList = RUtils.getData(
+        List<MemberAddressVo> addressList = RUtils.getData(
                 addressResp,
                 ResponseKeys.ADDRESS,
                 objectMapper,
-                new TypeReference<List<MemberReceiveAddressEntity>>() {}
+                new TypeReference<List<MemberAddressVo>>() {}
         );
         if (addressList == null) {
             return null;

@@ -2,7 +2,7 @@ package com.mall.cart.interceptor;
 
 import com.mall.cart.constant.CartConstant;
 import com.mall.cart.to.UserInfoTo;
-import com.mall.member.vo.MemberRespVo;
+import com.mall.session.vo.LoginUser;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -22,8 +22,8 @@ public class CartInterceptor implements HandlerInterceptor {
         UserInfoTo userInfoTo = new UserInfoTo();
 
         Object loginUser = request.getSession().getAttribute("loginUser");
-        if (loginUser instanceof MemberRespVo) {
-            MemberRespVo member = (MemberRespVo) loginUser;
+        if (loginUser instanceof LoginUser) {
+            LoginUser member = (LoginUser) loginUser;
             userInfoTo.setUserId(member.getId());
         }
 

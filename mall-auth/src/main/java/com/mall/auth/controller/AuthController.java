@@ -1,9 +1,11 @@
 package com.mall.auth.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.auth.feign.MemberFeignService;
 import com.mall.auth.vo.UserLoginVo;
 import com.mall.auth.vo.UserRegistVo;
 import com.mall.common.utils.R;
+import com.mall.session.vo.LoginUser;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +36,9 @@ public class AuthController {
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @GetMapping("/register.html")
     public String regPage() {
@@ -141,7 +146,8 @@ public class AuthController {
             if (r.getCode() == 0) {
                 // Login success - renew session id to prevent fixation
                 request.changeSessionId();
-                session.setAttribute("loginUser", r.get("member")); // Store user info (already脱敏)
+                LoginUser loginUser = objectMapper.convertValue(r.get("member"), LoginUser.class);
+                session.setAttribute("loginUser", loginUser); // Store user info (already脱敏)
                 return "redirect:http://mall.com";
             } else {
                 Map<String, String> errors = new HashMap<>();

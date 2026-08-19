@@ -2,9 +2,11 @@ package com.mall.auth.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.auth.feign.MemberFeignService;
 import com.mall.auth.vo.SocialUser;
 import com.mall.common.utils.R;
+import com.mall.session.vo.LoginUser;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpResponse;
 import org.apache.http.util.EntityUtils;
@@ -26,6 +28,9 @@ public class OAuth2Controller {
 
     @Autowired
     private MemberFeignService memberFeignService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Value("${mall.auth.weibo.appKey}")
     private String appKey;
@@ -67,10 +72,10 @@ public class OAuth2Controller {
                 // Login successful
                 Object data = r.get("data");
 
-                Object member = r.get("member");
+                LoginUser loginUser = objectMapper.convertValue(r.get("member"), LoginUser.class);
 
-                log.info("Login successful: User info: {}", member);
-                session.setAttribute("loginUser", member);
+                log.info("Login successful: User info: {}", loginUser);
+                session.setAttribute("loginUser", loginUser);
 
                 // Redirect to homepage
                 return "redirect:http://mall.com";
