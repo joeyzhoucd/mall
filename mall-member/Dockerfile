@@ -6,6 +6,6 @@ RUN mvn -pl mall-member -am -DskipTests package -q
 
 FROM eclipse-temurin:8-jre-jammy
 WORKDIR /app
-COPY --from=build /workspace/mall-backend/mall-member/target/*.jar /app/app.jar
+COPY --from=build /workspace/mall-backend/mall-member/target/*-exec.jar /app/app.jar
 EXPOSE 11000
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]
