@@ -1,0 +1,65 @@
+name: Build and push service images
+
+# 这个仓库是 Gitee 镜像过来的(源头是 gitee.com/joeyzhoucd/mall.git),
+# 目前只手动同步,还没接 hub-mirror-action 自动镜像 —— 所以这个 workflow
+# 靠 push 到 master 触发(手动同步一次代码就会自动触发一次构建),
+# 也保留 workflow_dispatch 方便手动点一下重新跑。
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+# packages: write 是推镜像到 ghcr.io 必须的权限;GITHUB_TOKEN 是仓库自带的,
+# 不用额外去生成 PAT、不用存 secret。
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # 11 个服务各自独立构建,互不影响——某一个服务的 Dockerfile 写错了,
+      # 不会挡住其他 10 个的构建。
+      matrix:
+        service:
+          - mall-gateway
+          - mall-auth
+          - mall-member
+          - mall-product
+          - mall-cart
+          - mall-order
+          - mall-ware
+          - mall-coupon
+          - mall-search
+          - mall-thirdparty
+          - mall-admin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          # context 是整个仓库根目录(= mall-backend 本身),不是 matrix.service 那个子目录——
+          # Dockerfile 里的 `mvn -pl <module> -am` 需要看到整个多模块 reactor(比如 mall-common
+          # 这些被依赖的模块),只给子目录当 context 会编译不过。
+          context: .
+          file: ${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
