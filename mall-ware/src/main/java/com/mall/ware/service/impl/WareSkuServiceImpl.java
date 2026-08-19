@@ -341,7 +341,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
         if (detailEntity == null || detailEntity.getLockStatus() == null) {
             return false;
         }
-        if (!StockLockStatus.FAILED.equals(detailEntity.getLockStatus())) {
+        if (StockLockStatus.FAILED != detailEntity.getLockStatus()) {
             return false;
         }
         detailEntity.setRetryCount(0);
