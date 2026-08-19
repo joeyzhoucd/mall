@@ -4,7 +4,7 @@ spring:
   cloud:
     nacos:
       discovery:
-        server-addr: 192.168.77.101:8848
+        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
 feign:
   client:
     config:
@@ -18,7 +18,7 @@ feign:
     max-connections-per-route: 50  # 
 aliyun:
   oss:
-    endpoint: oss-cn-chengdu.aliyuncs.com
-    access-key-id: REDACTED-OSS-ACCESS-KEY-ID
-    access-key-secret: REDACTED-OSS-ACCESS-KEY-SECRET
-    bucket-name: mall-cd
+    endpoint: ${OSS_ENDPOINT:oss-cn-chengdu.aliyuncs.com}
+    access-key-id: ${OSS_ACCESS_KEY_ID}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET}
+    bucket-name: ${OSS_BUCKET_NAME:mall-cd}

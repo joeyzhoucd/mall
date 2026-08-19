@@ -2,14 +2,14 @@ server:
   port: 15000
 spring:
   datasource:
-    username: root
-    password: root
-    url: jdbc:mysql://192.168.77.100:3306/mall_pms
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_pms
     driver-class-name: com.mysql.cj.jdbc.Driver
   cloud:
     nacos:
       discovery:
-        server-addr: 192.168.77.101:8848
+        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
   main:
     allow-circular-references: false
   jackson:
@@ -21,8 +21,8 @@ spring:
     encoding: UTF-8
     cache: false
   redis:
-    host: 192.168.77.100
-    port: 6379
+    host: ${REDIS_HOST:192.168.77.100}
+    port: ${REDIS_PORT:6379}
     database: 0
 mall:
   session:

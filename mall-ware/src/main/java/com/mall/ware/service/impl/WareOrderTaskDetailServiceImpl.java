@@ -10,6 +10,7 @@ import com.mall.ware.entity.WareOrderTaskDetailEntity;
 import com.mall.ware.service.WareOrderTaskDetailService;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 
@@ -24,6 +25,26 @@ public class WareOrderTaskDetailServiceImpl extends ServiceImpl<WareOrderTaskDet
         );
 
         return new PageUtils(page);
+    }
+
+    @Override
+    public WareOrderTaskDetailEntity getByTaskIdAndSkuId(Long taskId, Long skuId) {
+        return this.getOne(new QueryWrapper<WareOrderTaskDetailEntity>()
+                .eq("task_id", taskId)
+                .eq("sku_id", skuId));
+    }
+
+    @Override
+    public List<WareOrderTaskDetailEntity> listRetryingDetails(Integer lockStatus, Integer retryLimit) {
+        QueryWrapper<WareOrderTaskDetailEntity> wrapper = new QueryWrapper<>();
+        wrapper.eq("lock_status", lockStatus);
+        wrapper.and(w -> w.isNull("retry_count").or().lt("retry_count", retryLimit));
+        return this.list(wrapper);
+    }
+
+    @Override
+    public List<WareOrderTaskDetailEntity> listByLockStatus(Integer lockStatus) {
+        return this.list(new QueryWrapper<WareOrderTaskDetailEntity>().eq("lock_status", lockStatus));
     }
 
 }

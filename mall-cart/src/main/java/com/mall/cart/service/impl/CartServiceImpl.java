@@ -193,5 +193,18 @@ public class CartServiceImpl implements CartService {
                 .filter(item -> Boolean.TRUE.equals(item.getCheck()))
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public void deleteItems(List<Long> skuIds) {
+        if (skuIds == null || skuIds.isEmpty()) {
+            return;
+        }
+        BoundHashOperations<String, Object, Object> cartOps = getCartOps();
+        for (Long skuId : skuIds) {
+            if (skuId != null) {
+                cartOps.delete(String.valueOf(skuId));
+            }
+        }
+    }
 }
 

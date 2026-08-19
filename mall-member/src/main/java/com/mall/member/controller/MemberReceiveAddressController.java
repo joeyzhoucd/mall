@@ -7,6 +7,7 @@ import com.mall.member.service.MemberReceiveAddressService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -25,6 +26,12 @@ public class MemberReceiveAddressController {
         PageUtils page = memberReceiveAddressService.queryPage(params);
 
         return R.ok().put("page", page);
+    }
+
+    @GetMapping("/{memberId}/list")
+    public R listByMemberId(@PathVariable("memberId") Long memberId) {
+        List<MemberReceiveAddressEntity> addressList = memberReceiveAddressService.getAddressByMemberId(memberId);
+        return R.ok().put("address", addressList);
     }
 
 

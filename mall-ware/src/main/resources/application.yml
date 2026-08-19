@@ -4,14 +4,14 @@ spring:
   application:
     name: mall-ware
   datasource:
-    username: root
-    password: root
-    url: jdbc:mysql://192.168.77.100:3306/mall_wms
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_wms
     driver-class-name: com.mysql.cj.jdbc.Driver
   cloud:
     nacos:
       discovery:
-        server-addr: 192.168.77.101:8848
+        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
 mybatis-plus:
@@ -28,3 +28,8 @@ feign:
     enabled: true          #  Apache HttpClient 
     max-connections: 200  # 
     max-connections-per-route: 50  # 
+
+mall:
+  mq:
+    stock:
+      enabled: true

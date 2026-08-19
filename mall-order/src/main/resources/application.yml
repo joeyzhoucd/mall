@@ -2,14 +2,17 @@ server:
   port: 9000
 spring:
   datasource:
-    username: root
-    password: root
-    url: jdbc:mysql://192.168.77.100:3306/mall_oms
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_oms
     driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    host: ${REDIS_HOST:192.168.77.100}
+    port: ${REDIS_PORT:6379}
   cloud:
     nacos:
       discovery:
-        server-addr: 192.168.77.101:8848
+        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
@@ -24,3 +27,14 @@ feign:
     enabled: true          #  Apache HttpClient 
     max-connections: 200  # 
     max-connections-per-route: 50  # 
+
+pay:
+  mock:
+    signKey: mall-pay-sign-key
+
+mall:
+  session:
+    enabled: true
+  mq:
+    order:
+      enabled: true

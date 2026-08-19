@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>收银台</title>
+    <link rel="stylesheet" th:href="@{/static/css/order/order.css}">
+</head>
+<body>
+<div class="header">
+    <div class="topbar">
+        <div class="topbar-left">
+            <a class="topbar-link" href="http://mall.com">商城首页</a>
+            <a class="topbar-link" href="http://search.mall.com/list.html">继续购物</a>
+        </div>
+        <div class="topbar-right">
+            <a class="topbar-link" th:href="@{/order/confirm.html}">返回确认页</a>
+        </div>
+    </div>
+</div>
+
+<div class="confirm-container">
+    <h2>京东风格收银台（Mock）</h2>
+
+    <div class="section">
+        <div class="card">
+            <div class="row">
+                <div class="col">
+                    <div class="card-title">订单号</div>
+                    <div class="muted" th:text="${order.orderSn}"></div>
+                </div>
+                <div class="col">
+                    <div class="card-title">应付金额</div>
+                    <div class="price">¥[[${totalAmount}]]</div>
+                </div>
+                <div class="col">
+                    <div class="card-title">订单状态</div>
+                    <div class="muted">[[${order.status}]]</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>支付方式</h3>
+        <div class="pay-grid">
+            <div class="pay-item active">支付宝（Mock）</div>
+            <div class="pay-item">微信（占位）</div>
+            <div class="pay-item">银行卡（占位）</div>
+        </div>
+        <div class="muted">提示：这里不会跳转真实支付宝，仅模拟异步通知与订单状态变更。</div>
+    </div>
+
+    <div class="section">
+        <h3>模拟回调（含签名校验）</h3>
+        <div class="btn-row">
+            <form th:action="@{/pay/mock/notify}" method="post">
+                <input type="hidden" name="orderSn" th:value="${order.orderSn}">
+                <input type="hidden" name="tradeStatus" value="TRADE_SUCCESS">
+                <input type="hidden" name="totalAmount" th:value="${totalAmount}">
+                <input type="hidden" name="sign" th:value="${signSuccess}">
+                <button class="btn" type="submit">支付成功</button>
+            </form>
+            <form th:action="@{/pay/mock/notify}" method="post">
+                <input type="hidden" name="orderSn" th:value="${order.orderSn}">
+                <input type="hidden" name="tradeStatus" value="FAIL">
+                <input type="hidden" name="totalAmount" th:value="${totalAmount}">
+                <input type="hidden" name="sign" th:value="${signFail}">
+                <button class="btn secondary" type="submit">支付失败</button>
+            </form>
+            <form th:action="@{/pay/mock/notify}" method="post">
+                <input type="hidden" name="orderSn" th:value="${order.orderSn}">
+                <input type="hidden" name="tradeStatus" value="TRADE_CLOSED">
+                <input type="hidden" name="totalAmount" th:value="${totalAmount}">
+                <input type="hidden" name="sign" th:value="${signClosed}">
+                <button class="btn secondary" type="submit">关闭交易</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>下一步</h3>
+        <div class="muted">
+            - 支付成功：订单状态更新为已支付，并发送库存扣减消息（锁转扣）<br/>
+            - 关闭交易：订单关闭并触发库存解锁
+        </div>
+    </div>
+</div>
+</body>
+</html>
+

@@ -31,6 +31,13 @@ public class R extends HashMap<String, Object> {
 		return r;
 	}
 
+	public static R error(com.mall.common.constant.ErrorCode errorCode) {
+		if (errorCode == null) {
+			return error();
+		}
+		return error(errorCode.getCode(), errorCode.getMessage());
+	}
+
 	public static R ok(String msg) {
 		R r = new R();
 		r.put("msg", msg);

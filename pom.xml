@@ -20,7 +20,10 @@
         <module>mall-generator</module>
         <module>mall-auth</module>
         <module>mall-session-starter</module>
+        <module>mall-mq-starter</module>
         <module>mall-cart</module>
+        <module>mall-search</module>
+        <module>mall-thirdparty</module>
     </modules>
 
     <!-- 可根据需要自定义是否启用映射配置 -->

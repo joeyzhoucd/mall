@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>订单确认</title>
+    <link rel="stylesheet" th:href="@{/static/css/order/order.css}">
+</head>
+<body>
+<div class="header">
+    <div class="topbar">
+        <div class="topbar-left">
+            <a class="topbar-link" href="http://mall.com">商城首页</a>
+            <a class="topbar-link" href="http://search.mall.com/list.html">全部商品</a>
+        </div>
+        <div class="topbar-right">
+            <span th:if="${session.loginUser == null}">
+                <a class="topbar-link" href="http://auth.mall.com/login.html">登录</a>
+                <span class="divider">|</span>
+                <a class="topbar-link" href="http://auth.mall.com/register.html">注册</a>
+            </span>
+            <span th:if="${session.loginUser != null}" class="user-links">
+                <span class="welcome">欢迎，[[${session.loginUser.nickname}]]</span>
+                <span class="divider">|</span>
+                <a class="topbar-link" href="http://mall.com">返回首页</a>
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="confirm-container">
+    <h2>确认订单</h2>
+    <div class="error" th:if="${errorMsg}" th:text="${errorMsg}"></div>
+    <form th:action="@{/order/submitOrder}" method="post">
+        <input type="hidden" name="orderToken" th:value="${confirmVo.orderToken}">
+        <input type="hidden" name="payPrice" th:value="${confirmVo.payAmount}">
+
+        <div class="section">
+            <h3>收货地址</h3>
+            <div th:if="${confirmVo.address == null or #lists.isEmpty(confirmVo.address)}">暂无地址</div>
+            <div th:if="${confirmVo.address != null and !#lists.isEmpty(confirmVo.address)}">
+                <label th:each="addr,iter : ${confirmVo.address}" class="address-item">
+                    <input type="radio" name="addrId" th:value="${addr.id}" th:checked="${iter.index == 0}">
+                    <span>[[${addr.name}]] [[${addr.phone}]]</span>
+                    <span>[[${addr.province}]] [[${addr.city}]] [[${addr.region}]] [[${addr.detailAddress}]]</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>商品清单</h3>
+            <table class="order-table">
+                <thead>
+                <tr>
+                    <th>商品</th>
+                    <th width="120">单价</th>
+                    <th width="120">数量</th>
+                    <th width="120">小计</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${confirmVo.items}">
+                    <td class="goods">
+                        <img th:src="${item.image}" alt="" onerror="this.style.display='none'">
+                        <div>
+                            <div class="title" th:text="${item.title}"></div>
+                            <div class="attrs" th:text="${#strings.listJoin(item.skuAttr, ' / ')}"></div>
+                        </div>
+                    </td>
+                    <td>¥[[${#numbers.formatDecimal(item.price,1,2)}]]</td>
+                    <td>[[${item.count}]]</td>
+                    <td>¥[[${#numbers.formatDecimal(item.totalPrice,1,2)}]]</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>配送方式</h3>
+            <div class="shipping-row">
+                <label class="shipping-item">
+                    <input type="radio" name="shippingType" value="STANDARD" checked>
+                    <span class="shipping-title">京配-标准达</span>
+                    <span class="shipping-desc">预计 2-3 天送达</span>
+                </label>
+                <label class="shipping-item">
+                    <input type="radio" name="shippingType" value="EXPRESS">
+                    <span class="shipping-title">京配-极速达</span>
+                    <span class="shipping-desc">预计 1 天送达</span>
+                </label>
+                <a class="link" th:href="@{/order/shipping.html}">更多配送选项</a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>备注</h3>
+            <input type="text" name="note" placeholder="订单备注">
+        </div>
+
+        <div class="summary">
+            <div>运费：<span>¥[[${#numbers.formatDecimal(confirmVo.freightAmount,1,2)}]]</span></div>
+            <div>合计：<span>¥[[${#numbers.formatDecimal(confirmVo.payAmount,1,2)}]]</span></div>
+            <button type="submit" class="btn">提交订单并去支付</button>
+        </div>
+    </form>
+</div>
+</body>
+</html>
+

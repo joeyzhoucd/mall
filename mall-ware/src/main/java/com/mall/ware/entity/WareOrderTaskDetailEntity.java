@@ -24,4 +24,8 @@ public class WareOrderTaskDetailEntity implements Serializable {
 	
 	private Long taskId;
 
+	private Integer lockStatus;
+
+	private Integer retryCount;
+
 }
