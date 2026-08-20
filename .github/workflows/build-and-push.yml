@@ -61,8 +61,12 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:latest
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          # scope 加了 -v2 后缀：实测发现某个服务的镜像层缓存复用了一份缺静态资源的旧层
+          # （本地/GitHub 拉同一个 commit 直接 mvn package 都能正常打包出这些文件，只有走
+          # 这条 CI 缓存链路才会丢——BuildKit 的 GHA 缓存复用出了问题，不是代码或 Dockerfile
+          # 本身的错）。换个新 scope 名字相当于清空缓存重新来一遍，之后可以保留继续用。
+          cache-from: type=gha,scope=${{ matrix.service }}-v2
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-v2
 
   # build 是矩阵 job，11 个服务全部成功（矩阵里任何一个失败，build 整体就是
   # failure）才会跑到这一步——不会出现"某个服务没构建成功，却把整个 tag 往前推"
