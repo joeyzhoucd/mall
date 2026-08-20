@@ -63,3 +63,31 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:latest
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # build 是矩阵 job，11 个服务全部成功（矩阵里任何一个失败，build 整体就是
+  # failure）才会跑到这一步——不会出现"某个服务没构建成功，却把整个 tag 往前推"
+  # 导致集群拉不到镜像的情况。mall-deploy 只在 Gitee 上，这个仓库的 CI 跑在
+  # GitHub 上，两边够不着，所以用 GITEE_TOKEN 直接 git clone/push，不走
+  # actions/checkout（它只认 GitHub 仓库）。
+  update-deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone mall-deploy from Gitee
+        run: git clone https://joeyzhoucd:${{ secrets.GITEE_TOKEN }}@gitee.com/joeyzhoucd/mall-deploy.git mall-deploy
+
+      - name: Bump backend image tag
+        run: yq e '.image.tag = "${{ github.sha }}"' -i mall-deploy/charts/mall/values.yaml
+
+      - name: Commit and push
+        run: |
+          cd mall-deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "tag 没变化，跳过提交"
+            exit 0
+          fi
+          git add charts/mall/values.yaml
+          git commit -m "chore: 后端镜像自动更新到 ${{ github.sha }}"
+          git push
