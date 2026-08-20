@@ -32,10 +32,24 @@
             <artifactId>mall-session-starter</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
-        <!-- Redisson -->
+        <!-- Redisson。redisson-spring-boot-starter 默认带的是 redisson-spring-data-30
+             （给 Spring Boot 3.x / Spring Data Redis 3.x 用的适配包，里面的类引用了我们这套
+             Spring Boot 2.7.9 / spring-data-redis 2.7.8 还没有的 zset.Tuple，
+             会导致 NoClassDefFoundError），换成匹配 2.7.x 的 redisson-spring-data-27。 -->
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-boot-starter</artifactId>
+            <version>3.20.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.redisson</groupId>
+                    <artifactId>redisson-spring-data-30</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson-spring-data-27</artifactId>
             <version>3.20.1</version>
         </dependency>
         <!-- Spring Cache -->
