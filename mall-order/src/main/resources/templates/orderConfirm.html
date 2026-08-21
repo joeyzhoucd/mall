@@ -36,13 +36,16 @@
 
         <div class="section">
             <h3>收货地址</h3>
-            <div th:if="${confirmVo.address == null or #lists.isEmpty(confirmVo.address)}">暂无地址</div>
+            <div th:if="${confirmVo.address == null or #lists.isEmpty(confirmVo.address)}">
+                暂无地址，<a class="link" th:href="@{/order/address/add.html}">添加收货地址</a>
+            </div>
             <div th:if="${confirmVo.address != null and !#lists.isEmpty(confirmVo.address)}">
                 <label th:each="addr,iter : ${confirmVo.address}" class="address-item">
                     <input type="radio" name="addrId" th:value="${addr.id}" th:checked="${iter.index == 0}">
                     <span>[[${addr.name}]] [[${addr.phone}]]</span>
                     <span>[[${addr.province}]] [[${addr.city}]] [[${addr.region}]] [[${addr.detailAddress}]]</span>
                 </label>
+                <a class="link" th:href="@{/order/address/add.html}">添加新地址</a>
             </div>
         </div>
 
@@ -103,6 +106,14 @@
         </div>
     </form>
 </div>
+<script th:inline="javascript">
+    document.querySelector('form').addEventListener('submit', function (e) {
+        if (!document.querySelector('input[name="addrId"]:checked')) {
+            e.preventDefault();
+            alert('请先添加并选择收货地址');
+        }
+    });
+</script>
 </body>
 </html>
 

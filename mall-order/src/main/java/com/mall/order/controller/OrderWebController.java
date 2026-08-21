@@ -6,6 +6,7 @@ import com.mall.order.interceptor.OrderInterceptor;
 import com.mall.order.service.OrderService;
 import com.mall.order.to.UserInfoTo;
 import com.mall.order.util.PaySignUtils;
+import com.mall.order.vo.MemberAddressVo;
 import com.mall.order.vo.OrderConfirmVo;
 import com.mall.order.vo.OrderSubmitVo;
 import com.mall.order.vo.SubmitOrderResponseVo;
@@ -47,6 +48,25 @@ public class OrderWebController {
         return "orderConfirm";
     }
 
+    @GetMapping("/order/address/add.html")
+    public String addAddressPage() {
+        UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
+        if (userInfoTo == null || userInfoTo.getUserId() == null) {
+            return "redirect:http://auth.mall.com/login.html";
+        }
+        return "orderAddressAdd";
+    }
+
+    @PostMapping("/order/address/add")
+    public String addAddress(MemberAddressVo addressVo, RedirectAttributes redirectAttributes) {
+        boolean ok = orderService.saveAddress(addressVo);
+        if (!ok) {
+            redirectAttributes.addFlashAttribute("errorMsg", "地址保存失败，请重试");
+            return "redirect:/order/address/add.html";
+        }
+        return "redirect:/order/confirm.html";
+    }
+
     @GetMapping("/order/shipping.html")
     public String shippingPage(Model model) {
         UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
@@ -70,6 +90,8 @@ public class OrderWebController {
             redirectAttributes.addFlashAttribute("errorMsg", "订单价格已变化，请确认后重新提交");
         } else if (code == 3) {
             redirectAttributes.addFlashAttribute("errorMsg", "库存不足");
+        } else if (code == 4) {
+            redirectAttributes.addFlashAttribute("errorMsg", "请先添加收货地址");
         } else {
             redirectAttributes.addFlashAttribute("errorMsg", "订单提交失败");
         }
@@ -111,6 +133,8 @@ public class OrderWebController {
             msg = "订单价格已变化，请确认后重新提交";
         } else if (code == 3) {
             msg = "库存不足";
+        } else if (code == 4) {
+            msg = "请先添加收货地址";
         } else {
             msg = "订单提交失败";
         }

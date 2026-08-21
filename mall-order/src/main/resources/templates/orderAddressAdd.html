@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>添加收货地址</title>
+    <link rel="stylesheet" th:href="@{/static/css/order/order.css}">
+</head>
+<body>
+<div class="header">
+    <div class="topbar">
+        <div class="topbar-left">
+            <a class="topbar-link" href="http://mall.com">商城首页</a>
+            <a class="topbar-link" href="http://search.mall.com/list.html">全部商品</a>
+        </div>
+    </div>
+</div>
+
+<div class="confirm-container">
+    <h2>添加收货地址</h2>
+    <div class="error" th:if="${errorMsg}" th:text="${errorMsg}"></div>
+    <form th:action="@{/order/address/add}" method="post">
+        <div class="section">
+            <div class="form-row">
+                <label>收货人</label>
+                <input type="text" name="name" placeholder="收货人姓名" required>
+            </div>
+            <div class="form-row">
+                <label>手机号</label>
+                <input type="text" name="phone" placeholder="手机号" required>
+            </div>
+            <div class="form-row">
+                <label>省份</label>
+                <input type="text" name="province" placeholder="省" required>
+            </div>
+            <div class="form-row">
+                <label>城市</label>
+                <input type="text" name="city" placeholder="市" required>
+            </div>
+            <div class="form-row">
+                <label>区/县</label>
+                <input type="text" name="region" placeholder="区/县" required>
+            </div>
+            <div class="form-row">
+                <label>详细地址</label>
+                <input type="text" name="detailAddress" placeholder="街道、楼号、门牌号等" required>
+            </div>
+            <div class="form-row">
+                <label>邮编</label>
+                <input type="text" name="postCode" placeholder="邮编（选填）">
+            </div>
+        </div>
+        <div class="summary">
+            <button type="submit" class="btn">保存地址</button>
+            <a class="link" th:href="@{/order/confirm.html}">取消</a>
+        </div>
+    </form>
+</div>
+</body>
+</html>

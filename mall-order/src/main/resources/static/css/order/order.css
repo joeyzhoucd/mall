@@ -29,6 +29,22 @@ body {
     display: block;
     margin-bottom: 10px;
 }
+.form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.form-row label {
+    width: 80px;
+    color: #666;
+}
+.form-row input {
+    flex: 1;
+    max-width: 360px;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+}
 .order-table {
     width: 100%;
     border-collapse: collapse;

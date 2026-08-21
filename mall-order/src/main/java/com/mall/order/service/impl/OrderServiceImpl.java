@@ -115,6 +115,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         return confirmVo;
     }
 
+    @Override
+    public boolean saveAddress(MemberAddressVo addressVo) {
+        UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
+        if (userInfoTo == null || userInfoTo.getUserId() == null) {
+            return false;
+        }
+        addressVo.setMemberId(userInfoTo.getUserId());
+        R result = memberFeignService.saveAddress(addressVo);
+        return result != null && result.getCode() == 0;
+    }
+
     @Transactional
     @Override
     public SubmitOrderResponseVo submitOrder(OrderSubmitVo submitVo) {
@@ -127,6 +138,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
 
         if (!verifyToken(userInfoTo.getUserId(), submitVo.getOrderToken())) {
             responseVo.setCode(1);
+            return responseVo;
+        }
+
+        if (submitVo.getAddrId() == null || getAddressById(userInfoTo.getUserId(), submitVo.getAddrId()) == null) {
+            responseVo.setCode(4);
             return responseVo;
         }
 
