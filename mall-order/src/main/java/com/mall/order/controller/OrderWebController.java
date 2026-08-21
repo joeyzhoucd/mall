@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.math.RoundingMode;
 import java.util.UUID;
@@ -58,13 +59,13 @@ public class OrderWebController {
     }
 
     @PostMapping("/order/address/add")
-    public String addAddress(MemberAddressVo addressVo, RedirectAttributes redirectAttributes) {
+    public String addAddress(MemberAddressVo addressVo, RedirectAttributes redirectAttributes, HttpServletRequest request) {
         boolean ok = orderService.saveAddress(addressVo);
         if (!ok) {
             redirectAttributes.addFlashAttribute("errorMsg", "地址保存失败，请重试");
-            return "redirect:/order/address/add.html";
+            return "redirect:" + externalBase(request) + "/order/address/add.html";
         }
-        return "redirect:/order/confirm.html";
+        return "redirect:" + externalBase(request) + "/order/confirm.html";
     }
 
     @GetMapping("/order/shipping.html")
@@ -79,10 +80,10 @@ public class OrderWebController {
     }
 
     @PostMapping("/order/submitOrder")
-    public String submitOrderPage(OrderSubmitVo submitVo, RedirectAttributes redirectAttributes) {
+    public String submitOrderPage(OrderSubmitVo submitVo, RedirectAttributes redirectAttributes, HttpServletRequest request) {
         SubmitOrderResponseVo responseVo = orderService.submitOrder(submitVo);
         if (responseVo.getCode() != null && responseVo.getCode() == 0 && responseVo.getOrder() != null) {
-            return "redirect:/order/payment.html?orderSn=" + responseVo.getOrder().getOrderSn();
+            return "redirect:" + externalBase(request) + "/order/payment.html?orderSn=" + responseVo.getOrder().getOrderSn();
         }
         int code = responseVo.getCode() == null ? 1 : responseVo.getCode();
         redirectAttributes.addFlashAttribute("errorCode", code);
@@ -95,18 +96,18 @@ public class OrderWebController {
         } else {
             redirectAttributes.addFlashAttribute("errorMsg", "订单提交失败");
         }
-        return "redirect:/order/confirm.html";
+        return "redirect:" + externalBase(request) + "/order/confirm.html";
     }
 
     @GetMapping("/order/payment.html")
-    public String paymentPage(@RequestParam("orderSn") String orderSn, Model model) {
+    public String paymentPage(@RequestParam("orderSn") String orderSn, Model model, HttpServletRequest request) {
         UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
         if (userInfoTo == null || userInfoTo.getUserId() == null) {
             return "redirect:http://auth.mall.com/login.html";
         }
         com.mall.order.entity.OrderEntity order = orderService.getOrderBySn(orderSn);
         if (order == null) {
-            return "redirect:/order/confirm.html";
+            return "redirect:" + externalBase(request) + "/order/confirm.html";
         }
 
         String totalAmount = (order.getPayAmount() == null ? "0.00" :
@@ -143,6 +144,25 @@ public class OrderWebController {
 
     private String sign(String content) {
         return PaySignUtils.hmacSha256(content, signKey);
+    }
+
+    /**
+     * mall-gateway 转发到 mall-order 时，Netty 客户端会把 Host 头改写成它实际连接的
+     * 那个 pod 地址，Tomcat 没配 forward-headers-strategy 就不会去信 X-Forwarded-Host，
+     * 相对路径的 redirect（"redirect:/xxx"）会被 Spring 拿这个被改写过的 Host 拼出
+     * Location，变成一个集群外访问不到的 pod 内部地址。ingress-nginx 在最外层已经把
+     * 真实域名放进 X-Forwarded-Host 了，这里手动读出来拼绝对地址，不依赖框架配置。
+     */
+    private String externalBase(HttpServletRequest request) {
+        String host = request.getHeader("X-Forwarded-Host");
+        if (host == null || host.isEmpty()) {
+            host = request.getHeader("Host");
+        }
+        String proto = request.getHeader("X-Forwarded-Proto");
+        if (proto == null || proto.isEmpty()) {
+            proto = "http";
+        }
+        return proto + "://" + host;
     }
 }
 
