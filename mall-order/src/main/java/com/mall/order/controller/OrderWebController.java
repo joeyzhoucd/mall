@@ -152,17 +152,30 @@ public class OrderWebController {
      * 相对路径的 redirect（"redirect:/xxx"）会被 Spring 拿这个被改写过的 Host 拼出
      * Location，变成一个集群外访问不到的 pod 内部地址。ingress-nginx 在最外层已经把
      * 真实域名放进 X-Forwarded-Host 了，这里手动读出来拼绝对地址，不依赖框架配置。
+     *
+     * 实测 ingress-nginx→mall-gateway 这两跳会各自往 X-Forwarded-Host/-Proto 追加一次，
+     * 变成逗号分隔的多值（比如 "http,http"），不是单值——只取第一段，否则拼出来的
+     * "http,http://cart.mall.com,cart.mall.com" 不是合法 URL，会被当成相对路径处理，
+     * 又绕回 pod IP 那个坑（复现过一次，教训写在这）。
      */
     private String externalBase(HttpServletRequest request) {
-        String host = request.getHeader("X-Forwarded-Host");
+        String host = firstValue(request.getHeader("X-Forwarded-Host"));
         if (host == null || host.isEmpty()) {
-            host = request.getHeader("Host");
+            host = firstValue(request.getHeader("Host"));
         }
-        String proto = request.getHeader("X-Forwarded-Proto");
+        String proto = firstValue(request.getHeader("X-Forwarded-Proto"));
         if (proto == null || proto.isEmpty()) {
             proto = "http";
         }
         return proto + "://" + host;
+    }
+
+    private String firstValue(String header) {
+        if (header == null) {
+            return null;
+        }
+        int comma = header.indexOf(',');
+        return (comma >= 0 ? header.substring(0, comma) : header).trim();
     }
 }
 
