@@ -79,7 +79,7 @@
             <div class="total">合计：<span>¥[[${#numbers.formatDecimal(cart.totalAmount,1,2)}]]</span></div>
             <a class="btn"
                th:classappend="${cart.checkNum == 0} ? ' disabled' : ''"
-               th:href="${cart.checkNum == 0} ? 'javascript:void(0)' : '#'"
+               th:href="${cart.checkNum == 0} ? 'javascript:void(0)' : '/order/confirm.html'"
                th:onclick="${cart.checkNum == 0} ? 'return false;' : null">去结算</a>
         </div>
     </div>

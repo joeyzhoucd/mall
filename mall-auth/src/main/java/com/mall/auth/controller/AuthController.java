@@ -86,8 +86,8 @@ public class AuthController {
         String redisValue = code + "_" + System.currentTimeMillis();
         redisTemplate.opsForValue().set("sms:code:" + phone, redisValue, 10, TimeUnit.MINUTES);
 
-        // 不再回显验证码，避免被绕过
-        return R.ok();
+        // 纯 mock 接口，没有真实短信通道，直接把验证码回显给前端方便测试
+        return R.ok().put("smsCode", code);
     }
 
     @PostMapping("/register")

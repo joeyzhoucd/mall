@@ -38,6 +38,18 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>.*),/admin/$\{segment}
 
+        # mall-order 没有自己的域名，走结算/支付这条链路是从 cart.mall.com（购物车页
+        # “去结算”）跳过来的，必须放在 mall_cart_route 之前，否则 Host=cart.mall.com
+        # 那条纯 Host 匹配规则会先接住，把 /order/** 也转给 mall-cart（它没有这些接口）。
+        - id: order_route
+          uri: lb://mall-order
+          predicates:
+            - Path=/order/**
+        - id: pay_mock_route
+          uri: lb://mall-order
+          predicates:
+            - Path=/pay/**
+
         - id: mall_auth_route
           uri: lb://mall-auth
           predicates:
