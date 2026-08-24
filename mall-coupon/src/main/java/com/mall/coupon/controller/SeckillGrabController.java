@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.concurrent.Callable;
+
 /**
  * 秒杀抢购面向前台会员的接口，走 seckill.mall.com 域名（见 mall-gateway 的
  * mall_seckill_route）。跟 {@link SeckillSkuRelationController} 那批 renren 生成的
@@ -57,27 +59,40 @@ public class SeckillGrabController {
         return R.ok();
     }
 
+    /**
+     * 返回 Callable 让 Spring MVC 走异步 servlet 处理：seckillGrabService.grab() 内部
+     * 要等 RabbitMQ publisher confirm（最多 3 秒），真正的等待丢给 CouponWebConfig
+     * 里配的那个有界线程池去做，Tomcat 线程立刻还给容器去服务别的请求，不会被
+     * 抢购高峰一波打满。这里没必要"提前"（这个方法的调用点）就先把 memberId/
+     * username 手动取出来再闭包传进去——CouponWebConfig.seckillAsyncExecutor 挂了
+     * UserContextTaskDecorator，登录态会自动跟着任务"跳"到线程池线程上，Callable
+     * 内部跟同步代码一样直接读 CouponInterceptor.threadLocal 就行。这里保留一次
+     * 提前判断只是为了没登录时不必浪费一次线程池调度（快速失败），不是必须的。
+     */
     @PostMapping("/grab/{relationId}")
-    public R grab(@PathVariable("relationId") Long relationId) {
-        Long memberId = requireMemberId();
-        if (memberId == null) {
-            return NOT_LOGIN;
+    public Callable<R> grab(@PathVariable("relationId") Long relationId) {
+        if (requireMemberId() == null) {
+            return () -> NOT_LOGIN;
         }
-        SeckillGrabResultVo vo = seckillGrabService.grab(relationId, memberId, requireUsername());
-        return toResponse(vo);
+        return () -> {
+            SeckillGrabResultVo vo = seckillGrabService.grab(relationId, requireMemberId(), requireUsername());
+            return toResponse(vo);
+        };
     }
 
     /**
      * 抢到但没有默认地址时，确认页选完地址后调用这个把订单真正建起来。
+     * 同样走异步处理，原因见 grab() 上面的注释。
      */
     @PostMapping("/message/{messageId}/address")
-    public R submitAddress(@PathVariable("messageId") Long messageId, @RequestParam("addrId") Long addrId) {
-        Long memberId = requireMemberId();
-        if (memberId == null) {
-            return NOT_LOGIN;
+    public Callable<R> submitAddress(@PathVariable("messageId") Long messageId, @RequestParam("addrId") Long addrId) {
+        if (requireMemberId() == null) {
+            return () -> NOT_LOGIN;
         }
-        SeckillGrabResultVo vo = seckillGrabService.submitAddress(messageId, memberId, addrId, requireUsername());
-        return toResponse(vo);
+        return () -> {
+            SeckillGrabResultVo vo = seckillGrabService.submitAddress(messageId, requireMemberId(), addrId, requireUsername());
+            return toResponse(vo);
+        };
     }
 
     /**
