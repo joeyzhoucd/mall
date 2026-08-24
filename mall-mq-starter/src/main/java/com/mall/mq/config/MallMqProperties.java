@@ -7,6 +7,7 @@ public class MallMqProperties {
 
     private final Order order = new Order();
     private final Stock stock = new Stock();
+    private final Seckill seckill = new Seckill();
     private final Connection connection = new Connection();
 
     public Order getOrder() {
@@ -15,6 +16,10 @@ public class MallMqProperties {
 
     public Stock getStock() {
         return stock;
+    }
+
+    public Seckill getSeckill() {
+        return seckill;
     }
 
     public Connection getConnection() {
@@ -43,6 +48,18 @@ public class MallMqProperties {
     }
 
     public static class Stock {
+        private boolean enabled = false;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+    }
+
+    public static class Seckill {
         private boolean enabled = false;
 
         public boolean isEnabled() {

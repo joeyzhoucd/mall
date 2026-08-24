@@ -13,6 +13,7 @@ import com.mall.common.to.StockDeductTo;
 import com.mall.common.to.StockReleaseItemTo;
 import com.mall.common.to.StockReleaseTo;
 import com.mall.common.to.OrderOperateTo;
+import com.mall.common.to.SeckillOrderTo;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.common.utils.R;
@@ -22,6 +23,7 @@ import com.mall.order.dao.OrderDao;
 import com.mall.order.entity.OrderEntity;
 import com.mall.order.entity.OrderItemEntity;
 import com.mall.order.feign.CartFeignService;
+import com.mall.order.feign.CouponFeignService;
 import com.mall.order.feign.MemberFeignService;
 import com.mall.order.feign.WareFeignService;
 import com.mall.order.interceptor.OrderInterceptor;
@@ -40,6 +42,7 @@ import com.mall.order.vo.WareSkuLockVo;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
@@ -80,6 +83,14 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    private CouponFeignService couponFeignService;
+
+    @Value("${mall.seckill.internal-token}")
+    private String internalToken;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderServiceImpl.class);
 
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
@@ -241,6 +252,112 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         history.setNote(operateTo.getNote());
         history.setCreateTime(new Date());
         orderOperateHistoryService.save(history);
+    }
+
+    @Transactional
+    @Override
+    public void createSeckillOrder(SeckillOrderTo seckillOrderTo) {
+        if (seckillOrderTo == null || seckillOrderTo.getLocalMessageId() == null) {
+            return;
+        }
+        String orderSn = "SK" + seckillOrderTo.getLocalMessageId();
+
+        OrderEntity existing;
+        try {
+            existing = getOrderBySn(orderSn);
+            if (existing == null) {
+                buildAndLockSeckillOrder(seckillOrderTo, orderSn);
+            }
+        } catch (Exception e) {
+            // 故意不往上抛：这里如果抛出去，@RabbitListener 默认行为是 nack+重新入队，
+            // 而这个方法里没有配 DLQ/重试上限，一条持续失败的消息（比如 mall-member/
+            // mall-ware 短暂不可用）会被无限重投，堵住 seckill.order.queue 后面所有
+            // 排队的其他秒杀订单。这里选择记日志、放弃这一条消息——本地消息表停在
+            // SENT 状态，人工介入即可看到这单没能建成，比堵住整条队列安全。
+            log.error("秒杀建单流程异常 messageId={} orderSn={}: {}",
+                    seckillOrderTo.getLocalMessageId(), orderSn, e.getMessage(), e);
+            return;
+        }
+
+        try {
+            couponFeignService.handleOrderCreated(seckillOrderTo.getLocalMessageId(), orderSn, internalToken);
+        } catch (Exception e) {
+            // 故意不往上抛：这个方法整体在一个事务里，抛出去会把刚提交的订单和已经
+            // 锁成功的库存一起回滚，而 MQ 重投时 orderLockStock 并不是幂等的，会导致
+            // 同一个 orderSn 被重复锁两次库存——两害相较，回调失败只留个日志，本地消息表
+            // 停在 SENT 状态等人工核对，比库存被错误多锁一份要安全。
+            log.error("秒杀建单成功但回调 mall-coupon 失败(sold_count/审计记录未更新) messageId={} orderSn={}: {}",
+                    seckillOrderTo.getLocalMessageId(), orderSn, e.getMessage());
+        }
+    }
+
+    /**
+     * 真正建单+锁库存那部分逻辑单独拎出来，方便上面统一 try/catch 兜底。
+     * 锁库存失败（秒杀没有在上架时把库存从普通渠道划出来，理论上可能被普通购物提前
+     * 买光——设计里已知接受的边界情况）只记日志不抛异常，跟其他异常一视同仁地放弃。
+     */
+    private void buildAndLockSeckillOrder(SeckillOrderTo seckillOrderTo, String orderSn) {
+        MemberAddressVo address = getAddressById(seckillOrderTo.getMemberId(), seckillOrderTo.getAddrId());
+
+        OrderEntity orderEntity = new OrderEntity();
+        orderEntity.setOrderSn(orderSn);
+        orderEntity.setCreateTime(new Date());
+        orderEntity.setMemberId(seckillOrderTo.getMemberId());
+        orderEntity.setMemberUsername(seckillOrderTo.getUsername());
+        orderEntity.setPayType(0);
+        orderEntity.setSourceType(0);
+        orderEntity.setStatus(OrderStatus.NEW);
+        orderEntity.setNote("秒杀订单");
+        if (address != null) {
+            orderEntity.setReceiverName(address.getName());
+            orderEntity.setReceiverPhone(address.getPhone());
+            orderEntity.setReceiverPostCode(address.getPostCode());
+            orderEntity.setReceiverProvince(address.getProvince());
+            orderEntity.setReceiverCity(address.getCity());
+            orderEntity.setReceiverRegion(address.getRegion());
+            orderEntity.setReceiverDetailAddress(address.getDetailAddress());
+        }
+
+        BigDecimal seckillPrice = seckillOrderTo.getSeckillPrice();
+        orderEntity.setTotalAmount(seckillPrice);
+        orderEntity.setPayAmount(seckillPrice);
+        orderEntity.setFreightAmount(BigDecimal.ZERO);
+        orderEntity.setPromotionAmount(BigDecimal.ZERO);
+        orderEntity.setIntegrationAmount(BigDecimal.ZERO);
+        orderEntity.setCouponAmount(BigDecimal.ZERO);
+        orderEntity.setDiscountAmount(BigDecimal.ZERO);
+        orderEntity.setIntegration(0);
+        orderEntity.setGrowth(0);
+
+        OrderItemEntity itemEntity = new OrderItemEntity();
+        itemEntity.setOrderSn(orderSn);
+        itemEntity.setSkuId(seckillOrderTo.getSkuId());
+        itemEntity.setSkuName(seckillOrderTo.getSkuName());
+        itemEntity.setSkuPic(seckillOrderTo.getSkuPic());
+        itemEntity.setSkuPrice(seckillPrice);
+        itemEntity.setSkuQuantity(1);
+        itemEntity.setSkuAttrsVals("秒杀");
+        itemEntity.setPromotionAmount(BigDecimal.ZERO);
+        itemEntity.setCouponAmount(BigDecimal.ZERO);
+        itemEntity.setIntegrationAmount(BigDecimal.ZERO);
+        itemEntity.setRealAmount(seckillPrice);
+        itemEntity.setGiftIntegration(0);
+        itemEntity.setGiftGrowth(0);
+
+        OrderCreateTo orderCreateTo = new OrderCreateTo();
+        orderCreateTo.setOrder(orderEntity);
+        orderCreateTo.setOrderItems(Collections.singletonList(itemEntity));
+        orderCreateTo.setPayPrice(seckillPrice);
+
+        WareSkuLockVo lockVo = buildLockVo(orderCreateTo);
+        R lockResp = wareFeignService.orderLockStock(lockVo);
+        if (lockResp == null || lockResp.getCode() != 0) {
+            log.error("秒杀建单锁库存失败 orderSn={} skuId={}, resp={}", orderSn, seckillOrderTo.getSkuId(), lockResp);
+            return;
+        }
+
+        saveOrder(orderCreateTo);
+        sendOrderCreateMessage(orderSn);
     }
 
     private boolean verifyToken(Long memberId, String orderToken) {

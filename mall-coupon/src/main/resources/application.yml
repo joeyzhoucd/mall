@@ -10,6 +10,11 @@ spring:
     nacos:
       discovery:
         server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
+  redis:
+    host: ${REDIS_HOST:192.168.77.100}
+    port: ${REDIS_PORT:6379}
+  thymeleaf:
+    cache: false
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
@@ -17,10 +22,22 @@ feign:
   client:
     config:
       default:
-        connectTimeout: 5000  # 
-        readTimeout: 5000     # 
-        loggerLevel: full     # basicheadersfull 
+        connectTimeout: 5000  #
+        readTimeout: 5000     #
+        loggerLevel: full     # basicheadersfull
   httpclient:
-    enabled: true          #  Apache HttpClient 
-    max-connections: 200  # 
-    max-connections-per-route: 50  # 
+    enabled: true          #  Apache HttpClient
+    max-connections: 200  #
+    max-connections-per-route: 50  #
+
+mall:
+  session:
+    enabled: true
+  mq:
+    seckill:
+      enabled: true
+  # 秒杀 activate/order-created 这两个"内部调用"接口靠这个共享密钥挡住公网匿名请求
+  # （它们走的 seckill.mall.com 网关路由没有其他鉴权）。mall-order 那边要配成一样的值
+  # 才能调通 order-created 回调，见 mall-order/application.yml 里的同名配置。
+  seckill:
+    internal-token: ${SECKILL_INTERNAL_TOKEN:seckill-internal-secret}

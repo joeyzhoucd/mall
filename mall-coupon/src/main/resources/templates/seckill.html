@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${page.skuName} + ' - 秒杀'">秒杀</title>
+    <style>
+        body { font-family: Arial, "Microsoft YaHei", sans-serif; background: #f5f5f5; margin: 0; }
+        .topbar { background: #fff; padding: 10px 30px; border-bottom: 1px solid #eee; }
+        .topbar a { color: #333; text-decoration: none; margin-right: 16px; }
+        .container { max-width: 760px; margin: 30px auto; background: #fff; padding: 24px; border-radius: 4px; }
+        .product { display: flex; gap: 24px; }
+        .product img { width: 220px; height: 220px; object-fit: cover; background: #f0f0f0; }
+        .info { flex: 1; }
+        .name { font-size: 20px; margin-bottom: 12px; }
+        .original { color: #999; text-decoration: line-through; margin-right: 10px; }
+        .seckill-price { color: #e1251b; font-size: 28px; font-weight: bold; }
+        .stock { color: #666; margin: 16px 0; }
+        .grab-btn { background: #e1251b; color: #fff; border: none; padding: 14px 48px; font-size: 18px; border-radius: 4px; cursor: pointer; }
+        .grab-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .msg { color: #e1251b; margin-top: 12px; min-height: 20px; }
+        .waiting { color: #666; margin-top: 12px; }
+        .address-panel { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; display: none; }
+        .address-item { border: 1px solid #ddd; padding: 10px; margin-bottom: 8px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .address-item button { background: #e1251b; color: #fff; border: none; padding: 6px 16px; border-radius: 3px; cursor: pointer; }
+        .add-address-form input { display: block; width: 100%; box-sizing: border-box; margin-bottom: 8px; padding: 8px; border: 1px solid #ddd; border-radius: 3px; }
+        .add-address-form button { background: #333; color: #fff; border: none; padding: 8px 20px; border-radius: 3px; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <a href="http://mall.com">商城首页</a>
+    <span th:if="${session.loginUser == null}">
+        <a href="http://auth.mall.com/login.html">登录</a>
+    </span>
+    <span th:if="${session.loginUser != null}">
+        欢迎，[[${session.loginUser.nickname}]]
+    </span>
+</div>
+
+<div class="container">
+    <div class="product">
+        <img th:src="${page.skuPic}" alt="" onerror="this.style.opacity=0">
+        <div class="info">
+            <div class="name" th:text="${page.skuName}"></div>
+            <div>
+                <span class="original" th:if="${page.originalPrice != null}">原价 ¥[[${#numbers.formatDecimal(page.originalPrice,1,2)}]]</span>
+                <span class="seckill-price">¥[[${#numbers.formatDecimal(page.seckillPrice,1,2)}]]</span>
+            </div>
+            <div class="stock">已抢 [[${page.soldCount}]] / [[${page.seckillCount}]]</div>
+            <button id="grabBtn" class="grab-btn" onclick="grab()">立即抢购</button>
+            <div id="msg" class="msg"></div>
+            <div id="waiting" class="waiting" style="display:none;">正在生成订单，请稍候...</div>
+        </div>
+    </div>
+
+    <div id="addressPanel" class="address-panel">
+        <h3>选择收货地址</h3>
+        <div id="addressList"></div>
+        <h4>新增地址</h4>
+        <div class="add-address-form">
+            <input id="addrName" placeholder="收货人姓名">
+            <input id="addrPhone" placeholder="手机号">
+            <input id="addrProvince" placeholder="省">
+            <input id="addrCity" placeholder="市">
+            <input id="addrRegion" placeholder="区">
+            <input id="addrDetail" placeholder="详细地址">
+            <input id="addrPostCode" placeholder="邮编">
+            <button onclick="addAddress()">保存并使用</button>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    var relationId = /*[[${page.relationId}]]*/ 0;
+    var loggedIn = /*[[${session.loginUser != null}]]*/ false;
+    var memberId = /*[[${session.loginUser != null ? session.loginUser.id : 0}]]*/ 0;
+    var currentMessageId = null;
+    var pollTimer = null;
+
+    function showMsg(text) {
+        document.getElementById('msg').innerText = text || '';
+    }
+
+    function grab() {
+        if (!loggedIn) {
+            window.location.href = 'http://auth.mall.com/login.html';
+            return;
+        }
+        var btn = document.getElementById('grabBtn');
+        btn.disabled = true;
+        showMsg('');
+        fetch('/coupon/seckill/grab/' + relationId, { method: 'POST' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.code !== 0) {
+                    showMsg(data.msg || '抢购失败');
+                    btn.disabled = false;
+                    return;
+                }
+                currentMessageId = data.messageId;
+                if (data.hasDefaultAddress) {
+                    document.getElementById('waiting').style.display = 'block';
+                    pollStatus(currentMessageId);
+                } else {
+                    document.getElementById('addressPanel').style.display = 'block';
+                    loadAddresses();
+                }
+            })
+            .catch(function () {
+                showMsg('网络异常，请重试');
+                btn.disabled = false;
+            });
+    }
+
+    function pollStatus(messageId) {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+        }
+        pollTimer = setInterval(function () {
+            fetch('/coupon/seckill/message/' + messageId)
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.code !== 0) {
+                        return;
+                    }
+                    if (data.orderSn) {
+                        clearInterval(pollTimer);
+                        window.location.href = '/order/payment.html?orderSn=' + data.orderSn;
+                    } else if (data.status === 2) {
+                        clearInterval(pollTimer);
+                        document.getElementById('waiting').style.display = 'none';
+                        showMsg('抢购失败，请重试');
+                        document.getElementById('grabBtn').disabled = false;
+                    }
+                });
+        }, 1000);
+    }
+
+    function loadAddresses() {
+        fetch('/api/member/memberreceiveaddress/' + memberId + '/list')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var list = (data && data.address) || [];
+                var container = document.getElementById('addressList');
+                container.innerHTML = '';
+                list.forEach(function (addr) {
+                    var item = document.createElement('div');
+                    item.className = 'address-item';
+                    var label = document.createElement('span');
+                    label.innerText = addr.name + ' ' + addr.phone + ' ' + addr.province + addr.city + addr.region + addr.detailAddress;
+                    var btn = document.createElement('button');
+                    btn.innerText = '使用该地址';
+                    btn.onclick = function () { useAddress(addr.id); };
+                    item.appendChild(label);
+                    item.appendChild(btn);
+                    container.appendChild(item);
+                });
+                if (list.length === 0) {
+                    container.innerHTML = '<div style="color:#999;">还没有收货地址，请在下方新增</div>';
+                }
+            });
+    }
+
+    function addAddress() {
+        var addressVo = {
+            memberId: memberId,
+            name: document.getElementById('addrName').value,
+            phone: document.getElementById('addrPhone').value,
+            province: document.getElementById('addrProvince').value,
+            city: document.getElementById('addrCity').value,
+            region: document.getElementById('addrRegion').value,
+            detailAddress: document.getElementById('addrDetail').value,
+            postCode: document.getElementById('addrPostCode').value,
+            defaultStatus: 0
+        };
+        fetch('/api/member/memberreceiveaddress/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(addressVo)
+        })
+            .then(function (r) { return r.json(); })
+            .then(function () { loadAddresses(); });
+    }
+
+    function useAddress(addrId) {
+        fetch('/coupon/seckill/message/' + currentMessageId + '/address?addrId=' + addrId, { method: 'POST' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.code !== 0) {
+                    showMsg(data.msg || '提交失败');
+                    return;
+                }
+                document.getElementById('addressPanel').style.display = 'none';
+                document.getElementById('waiting').style.display = 'block';
+                pollStatus(currentMessageId);
+            });
+    }
+</script>
+</body>
+</html>

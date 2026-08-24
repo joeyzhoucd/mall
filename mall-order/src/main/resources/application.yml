@@ -43,3 +43,9 @@ mall:
   mq:
     order:
       enabled: true
+    seckill:
+      enabled: true
+  # 必须和 mall-coupon/application.yml 里的 mall.seckill.internal-token 保持一致，
+  # 否则回调 mall-coupon 的 order-created 接口会被当成未授权请求拒绝。
+  seckill:
+    internal-token: ${SECKILL_INTERNAL_TOKEN:seckill-internal-secret}

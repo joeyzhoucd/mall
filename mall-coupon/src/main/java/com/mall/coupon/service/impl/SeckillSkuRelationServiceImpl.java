@@ -1,6 +1,7 @@
 package com.mall.coupon.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.mall.common.utils.PageUtils;
@@ -24,6 +25,13 @@ public class SeckillSkuRelationServiceImpl extends ServiceImpl<SeckillSkuRelatio
         );
 
         return new PageUtils(page);
+    }
+
+    @Override
+    public void incrementSoldCount(Long relationId) {
+        this.update(new UpdateWrapper<SeckillSkuRelationEntity>()
+                .eq("id", relationId)
+                .setSql("sold_count = sold_count + 1"));
     }
 
 }

@@ -34,6 +34,11 @@ public class MallMqAutoConfiguration {
         CachingConnectionFactory factory = new CachingConnectionFactory(connection.getHost(), connection.getPort());
         factory.setUsername(connection.getUsername());
         factory.setPassword(connection.getPassword());
+        // 秒杀抢购要在返回用户"成功"之前等 broker 真正确认收到消息（publisher confirm），
+        // 光靠 convertAndSend 不出异常不代表消息真的落进了 broker——网络抖动/broker 短暂
+        // 拒收都不会在调用侧直接抛异常。这里对所有服务统一开启，其他现有的订单/库存
+        // 队列不使用 CorrelationData 就不会受影响，开着也没有额外成本。
+        factory.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED);
         return factory;
     }
 
@@ -113,6 +118,27 @@ public class MallMqAutoConfiguration {
         public Binding stockFailBinding(Queue stockFailQueue, Exchange stockReleaseExchange) {
             return BindingBuilder.bind(stockFailQueue).to(stockReleaseExchange)
                     .with(MqConstants.STOCK_FAIL_ROUTING_KEY).noargs();
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "mall.mq.seckill", name = "enabled", havingValue = "true")
+    public static class SeckillMqConfiguration {
+
+        @Bean
+        public Exchange seckillEventExchange() {
+            return ExchangeBuilder.topicExchange(MqConstants.SECKILL_EVENT_EXCHANGE).durable(true).build();
+        }
+
+        @Bean
+        public Queue seckillOrderQueue() {
+            return QueueBuilder.durable(MqConstants.SECKILL_ORDER_QUEUE).build();
+        }
+
+        @Bean
+        public Binding seckillOrderBinding(Queue seckillOrderQueue, Exchange seckillEventExchange) {
+            return BindingBuilder.bind(seckillOrderQueue).to(seckillEventExchange)
+                    .with(MqConstants.SECKILL_ORDER_ROUTING_KEY).noargs();
         }
     }
 }

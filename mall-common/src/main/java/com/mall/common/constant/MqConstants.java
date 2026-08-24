@@ -15,6 +15,10 @@ public class MqConstants {
     public static final String STOCK_DEDUCT_ROUTING_KEY = "stock.deduct";
     public static final String STOCK_FAIL_ROUTING_KEY = "stock.fail";
 
+    public static final String SECKILL_EVENT_EXCHANGE = "seckill-event-exchange";
+    public static final String SECKILL_ORDER_QUEUE = "seckill.order.queue";
+    public static final String SECKILL_ORDER_ROUTING_KEY = "seckill.order.create";
+
     private MqConstants() {
     }
 }

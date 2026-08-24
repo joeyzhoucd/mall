@@ -70,6 +70,11 @@ spring:
           predicates:
             - Host=item.mall.com
 
+        - id: mall_seckill_route
+          uri: lb://mall-coupon
+          predicates:
+            - Host=seckill.mall.com
+
         - id: product_site_route
           uri: lb://mall-product
           predicates:
