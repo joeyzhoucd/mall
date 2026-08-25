@@ -34,6 +34,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Service("seckillGrabService")
@@ -41,6 +42,14 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
 
     private static final Logger log = LoggerFactory.getLogger(SeckillGrabServiceImpl.class);
     private static final long CONFIRM_WAIT_SECONDS = 3;
+    /**
+     * 本地"已售罄"标记的兜底有效期。正常情况下 activate() 会通过 Redis Pub/Sub
+     * （见 SeckillPubSubConfig/SeckillActivateListener）立刻广播给所有 pod 清掉这个
+     * 标记，不需要靠这个 TTL 去猜；这里只是防广播消息丢失（网络抖动、pod 刚重启
+     * 还没订阅上）时的最后一道保险，所以可以给得比"猜时间"那版更长一些，进一步
+     * 减少对 Redis 的压力，也不用担心耽误重新激活——真正的即时生效靠广播，不靠它。
+     */
+    private static final long LOCAL_SOLD_OUT_TTL_MILLIS = 10_000;
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -65,6 +74,20 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
 
     private final RedisScript<Long> grabScript =
             new DefaultRedisScript<>(readLua(), Long.class);
+
+    /**
+     * 每个 pod 自己进程内的"这场秒杀已经卖光了"标记，value 是这个标记的过期时间戳。
+     * 秒杀卖光之后，后面几分钟涌进来的绝大多数请求都是"来晚了"，这些请求完全没必要
+     * 再打一次 Redis——本地内存判断一下直接拒绝，把 Redis 的压力留给真正还有机会的
+     * 请求。get() 这个读操作在 ConcurrentHashMap 里是无锁的，不用担心"同一个 key
+     * 高并发读"会互相阻塞；只有卖光那一瞬间大量请求同时 put() 会在那个桶上短暂
+     * 排队，但代价是纳秒级的，远小于它省下来的那次 Redis 网络往返。
+     * <p>
+     * TTL 现在只是广播丢失时的兜底（见 clearLocalSoldOutFlag/SeckillPubSubConfig）——
+     * activate() 重新激活同一场时会通过 Redis Pub/Sub 广播给所有 pod 立刻清掉这个
+     * 标记，不用再靠这个 TTL 去猜"多久之后重新确认一次"。
+     */
+    private final Map<Long, Long> localSoldOutUntil = new ConcurrentHashMap<>();
 
     private static String readLua() {
         try {
@@ -97,6 +120,9 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         int count = relation.getSeckillCount().intValue();
         redisTemplate.opsForValue().set(stockKey(relationId), String.valueOf(count));
         redisTemplate.delete(userKey(relationId));
+        localSoldOutUntil.remove(relationId);
+        // 广播给所有 pod（包括自己）立刻清掉本地售罄标记，不用等 TTL。
+        redisTemplate.convertAndSend(com.mall.coupon.config.SeckillPubSubConfig.ACTIVATE_CHANNEL, String.valueOf(relationId));
 
         // 把 skuId/秒杀价/商品名/图片一起缓存进 Redis，供 grab() 直接读取——避免每一次
         // 抢购请求都重新查一次数据库和商品服务，也避免 relation 行在活动进行中被后台
@@ -115,6 +141,15 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
     public SeckillGrabResultVo grab(Long relationId, Long memberId, String username) {
         SeckillGrabResultVo result = new SeckillGrabResultVo();
 
+        Long soldOutUntil = localSoldOutUntil.get(relationId);
+        if (soldOutUntil != null && soldOutUntil > System.currentTimeMillis()) {
+            // 本地已经知道卖光了，连 Redis 都不用打——这是"来晚了"的大多数请求
+            // 该走的路径。过了 TTL 还是会乖乖回 Redis 确认一次，不会永久卡死。
+            result.setSuccess(false);
+            result.setFailReason(ErrorCode.SECKILL_SOLD_OUT);
+            return result;
+        }
+
         Long grabResult = redisTemplate.execute(grabScript,
                 java.util.Arrays.asList(stockKey(relationId), userKey(relationId)),
                 String.valueOf(memberId));
@@ -130,6 +165,7 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
             return result;
         }
         if (grabResult == 0) {
+            localSoldOutUntil.put(relationId, System.currentTimeMillis() + LOCAL_SOLD_OUT_TTL_MILLIS);
             result.setSuccess(false);
             result.setFailReason(ErrorCode.SECKILL_SOLD_OUT);
             return result;
@@ -183,7 +219,7 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
             Long addrId = lookupDefaultAddressId(memberId);
             try {
                 message = seckillLocalMessageService.createPending(
-                        relationId, memberId, skuId, skuName, skuPic, seckillPrice, addrId);
+                        relationId, memberId, username, skuId, skuName, skuPic, seckillPrice, addrId);
             } catch (org.springframework.dao.DuplicateKeyException e) {
                 // 并发竞态：两个请求同时查到没有记录，一个插入成功一个撞了唯一索引。
                 message = seckillLocalMessageService.getByRelationAndMember(relationId, memberId);
@@ -216,7 +252,7 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
             return result;
         }
 
-        boolean sent = publishAndWaitConfirm(message, username);
+        boolean sent = publishAndWaitConfirm(message);
         if (!sent) {
             seckillLocalMessageService.markSendFailed(message.getId());
             rollbackRedisGrab(relationId, memberId);
@@ -233,7 +269,7 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
     }
 
     @Override
-    public SeckillGrabResultVo submitAddress(Long messageId, Long memberId, Long addrId, String username) {
+    public SeckillGrabResultVo submitAddress(Long messageId, Long memberId, Long addrId) {
         SeckillGrabResultVo result = new SeckillGrabResultVo();
 
         SeckillLocalMessageEntity message = seckillLocalMessageService.getById(messageId);
@@ -258,7 +294,7 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         seckillLocalMessageService.updateAddr(messageId, addrId);
         message.setAddrId(addrId);
 
-        boolean sent = publishAndWaitConfirm(message, username);
+        boolean sent = publishAndWaitConfirm(message);
         if (!sent) {
             seckillLocalMessageService.markSendFailed(messageId);
             rollbackRedisGrab(message.getRelationId(), memberId);
@@ -286,6 +322,41 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         }
         seckillLocalMessageService.markOrderCreated(messageId, orderSn);
         seckillSkuRelationService.incrementSoldCount(message.getRelationId());
+    }
+
+    @Override
+    public void releaseRedisHold(Long relationId, Long memberId) {
+        rollbackRedisGrab(relationId, memberId);
+    }
+
+    @Override
+    public void clearLocalSoldOutFlag(Long relationId) {
+        localSoldOutUntil.remove(relationId);
+    }
+
+    @Override
+    public boolean resendPendingMessage(SeckillLocalMessageEntity message) {
+        boolean sent = publishAndWaitConfirm(message);
+        if (!sent) {
+            // 跟正常抢购失败时的处理完全一致：这条记录在 Redis 里的持有权从没被
+            // 释放过，补发失败了就按第一次发送失败一样处理，标记失败并把名额还回去。
+            seckillLocalMessageService.markSendFailed(message.getId());
+            rollbackRedisGrab(message.getRelationId(), message.getMemberId());
+        } else {
+            seckillLocalMessageService.markSent(message.getId());
+        }
+        return sent;
+    }
+
+    @Override
+    public void resendSentMessage(SeckillLocalMessageEntity message) {
+        boolean sent = publishAndWaitConfirm(message);
+        if (!sent) {
+            // 不回滚、不降级：这条消息曾经真实地被 broker confirm 过，这次补发
+            // 失败大概率是broker/网络的临时问题，不能因为一次补发超时就当它
+            // 从没成功过——下次对账再试一次就好，状态继续留在 SENT。
+            log.warn("对账补发 SENT 消息仍失败，保留 SENT 状态等下次对账重试 messageId={}", message.getId());
+        }
     }
 
     private Long lookupDefaultAddressId(Long memberId) {
@@ -317,12 +388,12 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         }
     }
 
-    private boolean publishAndWaitConfirm(SeckillLocalMessageEntity message, String username) {
+    private boolean publishAndWaitConfirm(SeckillLocalMessageEntity message) {
         SeckillOrderTo to = new SeckillOrderTo();
         to.setLocalMessageId(message.getId());
         to.setRelationId(message.getRelationId());
         to.setMemberId(message.getMemberId());
-        to.setUsername(username);
+        to.setUsername(message.getUsername());
         to.setSkuId(message.getSkuId());
         to.setSkuName(message.getSkuName());
         to.setSkuPic(message.getSkuPic());

@@ -90,7 +90,7 @@ public class SeckillGrabController {
             return () -> NOT_LOGIN;
         }
         return () -> {
-            SeckillGrabResultVo vo = seckillGrabService.submitAddress(messageId, requireMemberId(), addrId, requireUsername());
+            SeckillGrabResultVo vo = seckillGrabService.submitAddress(messageId, requireMemberId(), addrId);
             return toResponse(vo);
         };
     }

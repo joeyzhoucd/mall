@@ -24,6 +24,8 @@ public class SeckillLocalMessageEntity implements Serializable {
 
     private Long memberId;
 
+    private String username;
+
     private Long skuId;
 
     private String skuName;

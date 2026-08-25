@@ -7,6 +7,7 @@
         <result property="id" column="id"/>
         <result property="relationId" column="relation_id"/>
         <result property="memberId" column="member_id"/>
+        <result property="username" column="username"/>
         <result property="skuId" column="sku_id"/>
         <result property="skuName" column="sku_name"/>
         <result property="skuPic" column="sku_pic"/>
