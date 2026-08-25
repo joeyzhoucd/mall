@@ -20,8 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # 11 个服务各自独立构建,互不影响——某一个服务的 Dockerfile 写错了,
-      # 不会挡住其他 10 个的构建。
+      # 各服务独立构建,互不影响——某一个服务的 Dockerfile 写错了,
+      # 不会挡住其他服务的构建。
       matrix:
         service:
           - mall-gateway
@@ -34,7 +34,6 @@ jobs:
           - mall-coupon
           - mall-search
           - mall-thirdparty
-          - mall-admin
           - static-assets
           - elasticsearch-ik
     steps:
@@ -66,7 +65,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}-v2
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}-v2
 
-  # build 是矩阵 job，11 个服务全部成功（矩阵里任何一个失败，build 整体就是
+  # build 是矩阵 job，矩阵里的服务全部成功（任何一个失败，build 整体就是
   # failure）才会跑到这一步——不会出现"某个服务没构建成功，却把整个 tag 往前推"
   # 导致集群拉不到镜像的情况。mall-deploy 只在 Gitee 上，这个仓库的 CI 跑在
   # GitHub 上，两边够不着，所以用 GITEE_TOKEN 直接 git clone/push，不走

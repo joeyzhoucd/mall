@@ -9,7 +9,6 @@
     <description>mall root</description>
     <packaging>pom</packaging>
     <modules>
-        <module>mall-admin</module>
         <module>mall-gateway</module>
         <module>mall-coupon</module>
         <module>mall-member</module>
@@ -17,7 +16,6 @@
         <module>mall-product</module>
         <module>mall-ware</module>
         <module>mall-common</module>
-        <module>mall-generator</module>
         <module>mall-auth</module>
         <module>mall-session-starter</module>
         <module>mall-mq-starter</module>

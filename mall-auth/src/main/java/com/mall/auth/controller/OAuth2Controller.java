@@ -1,7 +1,5 @@
 package com.mall.auth.controller;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.auth.feign.MemberFeignService;
 import com.mall.auth.vo.SocialUser;
@@ -64,7 +62,7 @@ public class OAuth2Controller {
         if (response.getStatusLine().getStatusCode() == 200) {
             // Success
             String json = EntityUtils.toString(response.getEntity());
-            SocialUser socialUser = JSON.parseObject(json, SocialUser.class);
+            SocialUser socialUser = objectMapper.readValue(json, SocialUser.class);
 
             // Login or Register
             R r = memberFeignService.oauthLogin(socialUser);

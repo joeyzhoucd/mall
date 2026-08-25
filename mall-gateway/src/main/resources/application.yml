@@ -1,6 +1,10 @@
 server:
   port: 88
 spring:
+  redis:
+    # 只给 RequestRateLimiter 限流用，跟其他服务复用同一个 Redis 实例，不是单独一份数据。
+    host: ${REDIS_HOST:192.168.77.100}
+    port: ${REDIS_PORT:6379}
   cloud:
     nacos:
       discovery:
@@ -31,12 +35,11 @@ spring:
             - Path=/api/ware/**
           filters:
             - RewritePath=/api/(?<segment>.*),/$\{segment}
-        - id: admin_route
-          uri: lb://mall-admin
-          predicates:
-            - Path=/api/**
-          filters:
-            - RewritePath=/api/(?<segment>.*),/admin/$\{segment}
+        # 注意这里原本有一条 admin_route（Path=/api/** 的兜底规则，转发给 mall-admin
+        # 并把路径重写成 /admin/xxx）。renren-fast 那套后台（mall-admin/mall-generator）
+        # 已经整体删掉，等阶段 6 用 Spring Security 重建后再把这条路由加回来。
+        # 重建时要注意：它是 /api/** 的兜底规则，会把前面几条 /api/product、/api/member
+        # 等没匹配上的流量全部吃掉，所以必须保持在那几条之后。
 
         # mall-order 没有自己的域名，走结算/支付这条链路是从 cart.mall.com（购物车页
         # “去结算”）跳过来的，必须放在 mall_cart_route 之前，否则 Host=cart.mall.com
@@ -70,10 +73,24 @@ spring:
           predicates:
             - Host=item.mall.com
 
+        # 秒杀这条路由单独加限流：真正要防的是"总请求量把 mall-coupon/Redis/数据库冲垮"，
+        # 不是防某个人刷（秒杀本来就是海量不同用户同时各发一两个请求，按用户/IP 限流
+        # 挡不住这种"人多但单个请求量不大"的合法流量），所以用一个全局 key（见
+        # RateLimiterConfig.seckillGlobalKeyResolver）——所有请求共用同一个令牌桶。
+        # replenishRate/burstCapacity 是按这套本地学习集群的资源量给的起始值，真要用在
+        # 生产环境需要压测之后再调。超过限流之后 Gateway 默认直接返回 429，不会占用
+        # 下游任何资源。
         - id: mall_seckill_route
           uri: lb://mall-coupon
           predicates:
             - Host=seckill.mall.com
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@seckillGlobalKeyResolver}"
 
         - id: product_site_route
           uri: lb://mall-product

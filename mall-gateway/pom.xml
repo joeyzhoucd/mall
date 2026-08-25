@@ -28,6 +28,14 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
+        <!-- 限流用：Spring Cloud Gateway 自带的 RequestRateLimiter 过滤器要靠这个操作 Redis
+             （令牌桶算法本身就是一段 Lua 脚本，框架内置，不用自己写）。网关是 WebFlux/
+             reactive 技术栈，要用 reactive 版本的 Redis starter，不能跟其他服务一样用
+             阻塞版的 spring-boot-starter-data-redis。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
