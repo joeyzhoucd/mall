@@ -6,6 +6,7 @@ import com.mall.coupon.entity.SeckillLocalMessageEntity;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 public interface SeckillLocalMessageService extends IService<SeckillLocalMessageEntity> {
 
@@ -28,9 +29,20 @@ public interface SeckillLocalMessageService extends IService<SeckillLocalMessage
     void markSendFailed(Long id);
 
     /**
-     * 抢购时没有默认地址，用户在确认页选完地址后回填。
+     * 抢购时没有默认地址，用户在确认页选完地址后回填。只在 doGrab() 的
+     * SEND_FAILED 重试分支里用——那个分支不会跟对账任务的"超时未选地址判定放弃"
+     * 撞车（对账只处理 PENDING 状态），所以不需要带条件更新。
      */
     void updateAddr(Long id, Long addrId);
+
+    /**
+     * submitAddress() 专用：带 status=PENDING 条件的回填地址。跟对账任务的
+     * expireAbandonedPending 存在真实竞态——如果这条记录在用户提交地址的同时
+     * 被对账任务判定"超时未选地址"过期掉，这次更新会因为状态已经不是 PENDING
+     * 而失效，返回 false，调用方据此拒绝继续建单，不会出现"库存已经被对账任务
+     * 放出去、但这个用户还是照样建了单"的重复售出。
+     */
+    boolean updateAddrIfPending(Long id, Long addrId);
 
     /**
      * 消费者建单成功后回填 order_sn，状态置为已生成订单。
@@ -58,8 +70,20 @@ public interface SeckillLocalMessageService extends IService<SeckillLocalMessage
 
     /**
      * 对账任务用：把一条"待发送、一直没地址"的记录标记为过期，
-     * 带 status=PENDING 的条件更新——如果这期间用户自己已经选完地址甚至建单了，
-     * 这次更新会因为条件不满足而不生效，返回 false，调用方据此跳过后续的库存回滚。
+     * 带 status=PENDING AND addr_id IS NULL 的条件更新——如果这期间用户自己已经
+     * 选完地址（哪怕状态还没来得及变成 SENT），这次更新也会因为 addr_id 不再是
+     * null 而失效，返回 false，调用方据此跳过后续的库存回滚。只带 status=PENDING
+     * 不够：地址回填(updateAddr)不改状态，单靠状态判断会跟正在提交地址的用户请求
+     * 撞车（对方前脚刚把地址填上，这里后脚还是能把状态改成过期，库存被错误放出去）。
      */
     boolean markExpiredIfPending(Long id);
+
+    /**
+     * 对账任务用：一次性查出这场秒杀所有已经落库的 member_id。抢购成功的用户
+     * 会一直留在 Redis 的抢购名单里（不会被清掉，否则同一个人能重复抢），
+     * 对账任务扫描"孤儿"记录时如果每个人都单独查一次数据库，随着这场秒杀累计
+     * 卖出去的数量越来越多，这个扫描的开销会无限增长——批量查一次、在内存里
+     * 做差集，扫描成本就只跟"当前这一轮 Redis 名单大小"有关，不会越滚越大。
+     */
+    Set<Long> getMemberIdsWithRecord(Long relationId);
 }

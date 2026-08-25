@@ -121,8 +121,6 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         redisTemplate.opsForValue().set(stockKey(relationId), String.valueOf(count));
         redisTemplate.delete(userKey(relationId));
         localSoldOutUntil.remove(relationId);
-        // 广播给所有 pod（包括自己）立刻清掉本地售罄标记，不用等 TTL。
-        redisTemplate.convertAndSend(com.mall.coupon.config.SeckillPubSubConfig.ACTIVATE_CHANNEL, String.valueOf(relationId));
 
         // 把 skuId/秒杀价/商品名/图片一起缓存进 Redis，供 grab() 直接读取——避免每一次
         // 抢购请求都重新查一次数据库和商品服务，也避免 relation 行在活动进行中被后台
@@ -134,6 +132,11 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         info.put("skuName", skuInfo != null && skuInfo.getSkuName() != null ? skuInfo.getSkuName() : "");
         info.put("skuPic", skuInfo != null && skuInfo.getSkuDefaultImg() != null ? skuInfo.getSkuDefaultImg() : "");
         redisTemplate.opsForHash().putAll(infoKey(relationId), info);
+
+        // 广播必须放在 infoKey 写完之后：广播一发出去，别的 pod 立刻清掉本地售罄标记、
+        // 重新对 Redis 放行抢购，如果这时候 infoKey 还没写完，doGrab() 读到空 hash 会
+        // 直接抛异常，把一个本该成功的赢家错误地回滚+报系统错误。
+        redisTemplate.convertAndSend(com.mall.coupon.config.SeckillPubSubConfig.ACTIVATE_CHANNEL, String.valueOf(relationId));
         return true;
     }
 
@@ -252,20 +255,7 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
             return result;
         }
 
-        boolean sent = publishAndWaitConfirm(message);
-        if (!sent) {
-            seckillLocalMessageService.markSendFailed(message.getId());
-            rollbackRedisGrab(relationId, memberId);
-            result.setSuccess(false);
-            result.setFailReason(ErrorCode.SECKILL_MQ_FAILED);
-            return result;
-        }
-
-        seckillLocalMessageService.markSent(message.getId());
-        result.setSuccess(true);
-        result.setHasDefaultAddress(true);
-        result.setMessageId(message.getId());
-        return result;
+        return finalizeSend(message, result);
     }
 
     @Override
@@ -291,22 +281,40 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
             return result;
         }
 
-        seckillLocalMessageService.updateAddr(messageId, addrId);
+        // 带 status=PENDING 条件的更新：如果对账任务恰好在这一刻判定这条记录
+        // "超时未选地址"并把它标记过期、放出了库存（expireAbandonedPending），
+        // 这里会因为条件不满足而更新失败——不能假装没这回事继续往下发 MQ，
+        // 那样库存已经被放给别人、这边还是照样建单，等于一份库存卖了两次。
+        boolean addrUpdated = seckillLocalMessageService.updateAddrIfPending(messageId, addrId);
+        if (!addrUpdated) {
+            result.setSuccess(false);
+            result.setFailReason(ErrorCode.SECKILL_MESSAGE_INVALID);
+            return result;
+        }
         message.setAddrId(addrId);
 
+        return finalizeSend(message, result);
+    }
+
+    /**
+     * 发 MQ 等 confirm、根据结果更新状态这一整套逻辑，doGrab()/submitAddress() 首次
+     * 发送、以及对账任务补发 PENDING 消息(resendPendingMessage)三处共用同一份实现，
+     * 避免以后改失败处理逻辑时漏改其中一处。
+     */
+    private SeckillGrabResultVo finalizeSend(SeckillLocalMessageEntity message, SeckillGrabResultVo result) {
         boolean sent = publishAndWaitConfirm(message);
         if (!sent) {
-            seckillLocalMessageService.markSendFailed(messageId);
-            rollbackRedisGrab(message.getRelationId(), memberId);
+            seckillLocalMessageService.markSendFailed(message.getId());
+            rollbackRedisGrab(message.getRelationId(), message.getMemberId());
             result.setSuccess(false);
             result.setFailReason(ErrorCode.SECKILL_MQ_FAILED);
             return result;
         }
 
-        seckillLocalMessageService.markSent(messageId);
+        seckillLocalMessageService.markSent(message.getId());
         result.setSuccess(true);
         result.setHasDefaultAddress(true);
-        result.setMessageId(messageId);
+        result.setMessageId(message.getId());
         return result;
     }
 
@@ -336,16 +344,10 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
 
     @Override
     public boolean resendPendingMessage(SeckillLocalMessageEntity message) {
-        boolean sent = publishAndWaitConfirm(message);
-        if (!sent) {
-            // 跟正常抢购失败时的处理完全一致：这条记录在 Redis 里的持有权从没被
-            // 释放过，补发失败了就按第一次发送失败一样处理，标记失败并把名额还回去。
-            seckillLocalMessageService.markSendFailed(message.getId());
-            rollbackRedisGrab(message.getRelationId(), message.getMemberId());
-        } else {
-            seckillLocalMessageService.markSent(message.getId());
-        }
-        return sent;
+        // 跟正常抢购首次发送完全复用同一份失败处理逻辑（finalizeSend）：这条记录
+        // 在 Redis 里的持有权从没被释放过，补发失败了就按第一次发送失败一样处理，
+        // 标记失败并把名额还回去。
+        return finalizeSend(message, new SeckillGrabResultVo()).isSuccess();
     }
 
     @Override
@@ -414,5 +416,10 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
     private void rollbackRedisGrab(Long relationId, Long memberId) {
         redisTemplate.opsForValue().increment(stockKey(relationId));
         redisTemplate.opsForSet().remove(userKey(relationId), String.valueOf(memberId));
+        // 库存被还回去了，之前缓存"已售罄"的 pod（可能是任何一个副本，不一定是
+        // 处理这次回滚的这个）不该继续拒绝后面的请求，广播一下让大家都刷新。
+        // activate() 之外，发送失败/对账任务释放孤儿名额都会走到这里，所以广播
+        // 放在这个共用方法里，而不是只放在 activate() 那一条路径上。
+        redisTemplate.convertAndSend(com.mall.coupon.config.SeckillPubSubConfig.ACTIVATE_CHANNEL, String.valueOf(relationId));
     }
 }

@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service("seckillLocalMessageService")
 public class SeckillLocalMessageServiceImpl extends ServiceImpl<SeckillLocalMessageDao, SeckillLocalMessageEntity>
@@ -63,6 +65,16 @@ public class SeckillLocalMessageServiceImpl extends ServiceImpl<SeckillLocalMess
     }
 
     @Override
+    public boolean updateAddrIfPending(Long id, Long addrId) {
+        SeckillLocalMessageEntity entity = new SeckillLocalMessageEntity();
+        entity.setAddrId(addrId);
+        entity.setUpdateTime(new Date());
+        return this.update(entity, new QueryWrapper<SeckillLocalMessageEntity>()
+                .eq("id", id)
+                .eq("status", SeckillMessageStatus.PENDING));
+    }
+
+    @Override
     public void markSendFailed(Long id) {
         SeckillLocalMessageEntity current = this.getById(id);
         SeckillLocalMessageEntity entity = new SeckillLocalMessageEntity();
@@ -111,13 +123,23 @@ public class SeckillLocalMessageServiceImpl extends ServiceImpl<SeckillLocalMess
         SeckillLocalMessageEntity entity = new SeckillLocalMessageEntity();
         entity.setStatus(SeckillMessageStatus.EXPIRED);
         entity.setUpdateTime(new Date());
-        // 带 status=PENDING 的条件更新：这期间如果用户自己已经把流程走完了
-        // （地址填了、MQ 发了，状态不再是 PENDING），这条 UPDATE 会因为 WHERE
-        // 条件不满足而影响 0 行，MyBatis-Plus 的 update(entity, wrapper) 据此
-        // 返回 false——调用方看到 false 就知道"别人已经处理过了，我不该再去
-        // 回滚库存"，避免对账任务跟正在进行中的正常请求打架。
+        // 带 status=PENDING AND addr_id IS NULL 的条件更新：光判断 status=PENDING
+        // 不够——updateAddr/updateAddrIfPending 回填地址时并不会改 status，如果用户
+        // 正好在这个时间点提交了地址，status 还是 PENDING 但 addr_id 已经不是 null
+        // 了，只看 status 会让这条过期更新照样生效，把库存错误地放出去。加上
+        // addr_id IS NULL 之后，只要地址填上了（哪怕状态还没来得及变成 SENT），
+        // 这次更新就会因为条件不满足而影响 0 行，返回 false。
         return this.update(entity, new QueryWrapper<SeckillLocalMessageEntity>()
                 .eq("id", id)
-                .eq("status", SeckillMessageStatus.PENDING));
+                .eq("status", SeckillMessageStatus.PENDING)
+                .isNull("addr_id"));
+    }
+
+    @Override
+    public Set<Long> getMemberIdsWithRecord(Long relationId) {
+        List<SeckillLocalMessageEntity> rows = this.list(new QueryWrapper<SeckillLocalMessageEntity>()
+                .select("member_id")
+                .eq("relation_id", relationId));
+        return rows.stream().map(SeckillLocalMessageEntity::getMemberId).collect(Collectors.toSet());
     }
 }

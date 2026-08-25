@@ -66,8 +66,12 @@ public class SeckillGrabController {
      * 抢购高峰一波打满。这里没必要"提前"（这个方法的调用点）就先把 memberId/
      * username 手动取出来再闭包传进去——CouponWebConfig.seckillAsyncExecutor 挂了
      * UserContextTaskDecorator，登录态会自动跟着任务"跳"到线程池线程上，Callable
-     * 内部跟同步代码一样直接读 CouponInterceptor.threadLocal 就行。这里保留一次
-     * 提前判断只是为了没登录时不必浪费一次线程池调度（快速失败），不是必须的。
+     * 内部跟同步代码一样直接读 CouponInterceptor.threadLocal 就行。
+     * <p>
+     * 注意：下面 requireMemberId()==null 这个提前判断只是让没登录的请求不用真的
+     * 调一次 seckillGrabService（省一次业务逻辑），并不会省掉"提交给线程池"这一步
+     * 本身——方法返回类型是 Callable，不管里面装的是什么，Spring MVC 都会照样把它
+     * 交给异步执行器跑一遍，这个开销跳不过去，纯粹是异步 servlet 处理的机制决定的。
      */
     @PostMapping("/grab/{relationId}")
     public Callable<R> grab(@PathVariable("relationId") Long relationId) {

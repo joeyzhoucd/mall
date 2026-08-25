@@ -50,6 +50,12 @@ public class CouponWebConfig implements WebMvcConfigurer {
     @Override
     public void configureAsyncSupport(@NonNull AsyncSupportConfigurer configurer) {
         configurer.setTaskExecutor(seckillAsyncExecutor());
-        configurer.setDefaultTimeout(5000);
+        // 这个超时要能扛住 grab() 内部最坏情况下几个阻塞调用叠加的耗时：查地址的
+        // Feign 调用（feign.client.config.default 里配的 5000ms 连接/读超时）+
+        // 等 MQ publisher confirm（最多 3 秒），两个加起来最坏能到 8 秒左右。
+        // 给到 15 秒留足余量——Spring 的默认超时行为是只提前给客户端返回超时响应，
+        // 并不会打断/取消还在跑的 Callable，超时值设太小只会让"服务端其实抢购成功了、
+        // 客户端却被告知失败"的情况更容易出现，不会让请求真的变快。
+        configurer.setDefaultTimeout(15_000);
     }
 }
