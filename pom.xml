@@ -110,6 +110,23 @@
                     <encoding>UTF-8</encoding>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
+                    <!-- -parameters：把方法参数名写进 class 文件。这是必须的，不是可选优化。
+                         Spring 在"一个注入点有多个候选 bean"时按【参数名】匹配 bean 名。
+                         Spring Framework 6.1 之前，参数名拿不到还能退回去读字节码里的
+                         LocalVariableTable 调试信息（Maven 默认带 -g 所以一直有），
+                         6.1 起【移除了这个回退】，参数名不在 class 文件里就直接解析失败。
+
+                         本项目没继承 spring-boot-starter-parent（只 import 了 BOM），
+                         所以拿不到它默认配好的 -parameters，一直是缺的。Boot 2.7 时代靠
+                         上面那个回退在跑，升到 Boot 4 就炸了：
+                           Parameter 0 of method seckillOrderBinding ... required a single
+                           bean, but 3 were found
+                         mall-order 和 mall-ware 都因此启动失败。
+
+                         这修的是【一整类】问题：任何按参数名区分多个同类型 bean 的地方
+                         都受影响，只是要走到那个配置类才会暴露。
+                         验证方式：javap -v 看目标 class 里有没有 MethodParameters 段。 -->
+                    <parameters>true</parameters>
                 </configuration>
             </plugin>
             <plugin>

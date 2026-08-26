@@ -1,6 +1,14 @@
 server:
   port: 88
 spring:
+  # 这一段原来写在文件【根级别】（顶格的 main:），也就是 main.web-application-type——
+  # Spring 压根没有这个属性，等于完全没配。正确的是 spring.main.web-application-type。
+  # 之所以一直没出问题：mall-gateway 的 pom 把 mall-common 带来的
+  # spring-boot-starter-web 排掉了，classpath 上只有 WebFlux，Boot 自动就判定成
+  # reactive。所以这是个隐性错误——哪天有人去掉那个 exclusion，网关会以 servlet
+  # 模式启动、路由全部失效，而这行配置看起来明明写着 reactive。
+  main:
+    web-application-type: reactive
   application:
     name: mall-gateway
   # 从 Config Server 拉配置。用 spring.config.import 而不是旧的 bootstrap.yml——
@@ -28,94 +36,104 @@ spring:
       port: ${REDIS_PORT:6379}
   cloud:
     gateway:
-      routes:
-        - id: product_route
-          uri: lb://mall-product
-          predicates:
-            - Path=/api/product/**
-          filters:
-            - RewritePath=/api/(?<segment>.*),/$\{segment}
-        - id: member_route
-          uri: lb://mall-member
-          predicates:
-            - Path=/api/member/**
-          filters:
-            - RewritePath=/api/(?<segment>.*),/$\{segment}
-        - id: thirdparty_route
-          uri: lb://mall-thirdparty
-          predicates:
-            - Path=/api/thirdparty/**
-          filters:
-            - RewritePath=/api/(?<segment>.*),/$\{segment}
-        - id: ware_route
-          uri: lb://mall-ware
-          predicates:
-            - Path=/api/ware/**
-          filters:
-            - RewritePath=/api/(?<segment>.*),/$\{segment}
-        # 注意这里原本有一条 admin_route（Path=/api/** 的兜底规则，转发给 mall-admin
-        # 并把路径重写成 /admin/xxx）。renren-fast 那套后台（mall-admin/mall-generator）
-        # 已经整体删掉，等阶段 6 用 Spring Security 重建后再把这条路由加回来。
-        # 重建时要注意：它是 /api/** 的兜底规则，会把前面几条 /api/product、/api/member
-        # 等没匹配上的流量全部吃掉，所以必须保持在那几条之后。
+      # 路由配置的属性前缀是 spring.cloud.gateway.server.webflux.routes，
+      # 不是老的 spring.cloud.gateway.routes。Spring Cloud 2025.x 把网关拆成了
+      # server-webflux / server-webmvc / proxyexchange 几个变体（依赖也从
+      # spring-cloud-starter-gateway 改名成 spring-cloud-starter-gateway-server-webflux），
+      # 配置前缀跟着一起加了 server.webflux 这两层。
+      #
+      # 这是这次迁移里后果最严重的一个静默失效：旧前缀在新版元数据里【完全不存在】
+      # （连 deprecated 记录都没留），写了不报错、不告警，网关正常启动、
+      # /actuator/health 是 UP、pod 是 Ready——但它一条路由都没有，
+      # 所有 /api/** 请求全部 404。前端整站等于挂了，而每一层监控都显示绿色。
+      server:
+        webflux:
+          routes:
+            - id: product_route
+              uri: lb://mall-product
+              predicates:
+                - Path=/api/product/**
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+            - id: member_route
+              uri: lb://mall-member
+              predicates:
+                - Path=/api/member/**
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+            - id: thirdparty_route
+              uri: lb://mall-thirdparty
+              predicates:
+                - Path=/api/thirdparty/**
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+            - id: ware_route
+              uri: lb://mall-ware
+              predicates:
+                - Path=/api/ware/**
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+            # 注意这里原本有一条 admin_route（Path=/api/** 的兜底规则，转发给 mall-admin
+            # 并把路径重写成 /admin/xxx）。renren-fast 那套后台（mall-admin/mall-generator）
+            # 已经整体删掉，等阶段 6 用 Spring Security 重建后再把这条路由加回来。
+            # 重建时要注意：它是 /api/** 的兜底规则，会把前面几条 /api/product、/api/member
+            # 等没匹配上的流量全部吃掉，所以必须保持在那几条之后。
 
-        # mall-order 没有自己的域名，走结算/支付这条链路是从 cart.mall.com（购物车页
-        # “去结算”）跳过来的，必须放在 mall_cart_route 之前，否则 Host=cart.mall.com
-        # 那条纯 Host 匹配规则会先接住，把 /order/** 也转给 mall-cart（它没有这些接口）。
-        - id: order_route
-          uri: lb://mall-order
-          predicates:
-            - Path=/order/**
-        - id: pay_mock_route
-          uri: lb://mall-order
-          predicates:
-            - Path=/pay/**
+            # mall-order 没有自己的域名，走结算/支付这条链路是从 cart.mall.com（购物车页
+            # “去结算”）跳过来的，必须放在 mall_cart_route 之前，否则 Host=cart.mall.com
+            # 那条纯 Host 匹配规则会先接住，把 /order/** 也转给 mall-cart（它没有这些接口）。
+            - id: order_route
+              uri: lb://mall-order
+              predicates:
+                - Path=/order/**
+            - id: pay_mock_route
+              uri: lb://mall-order
+              predicates:
+                - Path=/pay/**
 
-        - id: mall_auth_route
-          uri: lb://mall-auth
-          predicates:
-            - Host=auth.mall.com
+            - id: mall_auth_route
+              uri: lb://mall-auth
+              predicates:
+                - Host=auth.mall.com
 
-        - id: mall_search_route
-          uri: lb://mall-search
-          predicates:
-            - Host=search.mall.com
+            - id: mall_search_route
+              uri: lb://mall-search
+              predicates:
+                - Host=search.mall.com
 
-        - id: mall_cart_route
-          uri: lb://mall-cart
-          predicates:
-            - Host=cart.mall.com
+            - id: mall_cart_route
+              uri: lb://mall-cart
+              predicates:
+                - Host=cart.mall.com
 
-        - id: product_item_route
-          uri: lb://mall-product
-          predicates:
-            - Host=item.mall.com
+            - id: product_item_route
+              uri: lb://mall-product
+              predicates:
+                - Host=item.mall.com
 
-        # 秒杀这条路由单独加限流：真正要防的是"总请求量把 mall-coupon/Redis/数据库冲垮"，
-        # 不是防某个人刷（秒杀本来就是海量不同用户同时各发一两个请求，按用户/IP 限流
-        # 挡不住这种"人多但单个请求量不大"的合法流量），所以用一个全局 key（见
-        # RateLimiterConfig.seckillGlobalKeyResolver）——所有请求共用同一个令牌桶。
-        # replenishRate/burstCapacity 是按这套本地学习集群的资源量给的起始值，真要用在
-        # 生产环境需要压测之后再调。超过限流之后 Gateway 默认直接返回 429，不会占用
-        # 下游任何资源。
-        - id: mall_seckill_route
-          uri: lb://mall-coupon
-          predicates:
-            - Host=seckill.mall.com
-          filters:
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: 50
-                redis-rate-limiter.burstCapacity: 100
-                redis-rate-limiter.requestedTokens: 1
-                key-resolver: "#{@seckillGlobalKeyResolver}"
+            # 秒杀这条路由单独加限流：真正要防的是"总请求量把 mall-coupon/Redis/数据库冲垮"，
+            # 不是防某个人刷（秒杀本来就是海量不同用户同时各发一两个请求，按用户/IP 限流
+            # 挡不住这种"人多但单个请求量不大"的合法流量），所以用一个全局 key（见
+            # RateLimiterConfig.seckillGlobalKeyResolver）——所有请求共用同一个令牌桶。
+            # replenishRate/burstCapacity 是按这套本地学习集群的资源量给的起始值，真要用在
+            # 生产环境需要压测之后再调。超过限流之后 Gateway 默认直接返回 429，不会占用
+            # 下游任何资源。
+            - id: mall_seckill_route
+              uri: lb://mall-coupon
+              predicates:
+                - Host=seckill.mall.com
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 50
+                    redis-rate-limiter.burstCapacity: 100
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@seckillGlobalKeyResolver}"
 
-        - id: product_site_route
-          uri: lb://mall-product
-          predicates:
-            - Host=**.mall.com
+            - id: product_site_route
+              uri: lb://mall-product
+              predicates:
+                - Host=**.mall.com
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
-main:
-  web-application-type: reactive

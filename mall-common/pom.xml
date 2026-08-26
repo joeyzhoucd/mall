@@ -74,17 +74,29 @@
 
         <!-- 分布式链路追踪。Spring Cloud Sleuth 在 Boot 3+ 已经不存在了，替代品是
              Micrometer Tracing；这里用 OpenTelemetry 作为桥接实现（OTel 是 CNCF 的
-             instrumentation 标准），配合 otlp exporter 把 span 发给 Tempo。
+             instrumentation 标准），把 span 通过 OTLP 发给 Tempo。
              对这个项目价值最大的地方是秒杀链路：mall-coupon → RabbitMQ → mall-order
              → mall-ware 跨了三个服务加一个消息队列，这种跨组件的状态问题正是追踪
-             存在的理由。 -->
+             存在的理由。
+
+             这里原来直接声明的是 micrometer-tracing-bridge-otel +
+             opentelemetry-exporter-otlp 两个【裸库】。在 Boot 3 那样是可以的：
+             tracing 的自动配置都在 spring-boot-actuator-autoconfigure 里，
+             库在 classpath 上就会被 @ConditionalOnClass 接上。
+             Boot 4 把 actuator 的自动配置拆成了很多独立模块，tracing 那部分挪到了
+             spring-boot-micrometer-tracing-opentelemetry / spring-boot-opentelemetry，
+             这两个模块【不会】被 spring-boot-starter-actuator 传递引入。
+             后果是最典型的静默失效：两个裸库确实在 classpath 上，编译通过、启动没有
+             任何警告，但没有任何东西去创建 Tracer / SpanExporter，一条 span 都不会产生。
+             而且 management.tracing.* / management.otlp.tracing.* 这些属性因为对应的
+             @ConfigurationProperties 类不在 classpath 上，写了也是完全无效的未知属性。
+             实测就是这样：Tempo 里 service.name 的取值列表是空的，服务日志里连
+             otlp/tracing 字样都搜不到一条。
+             正确做法是用 spring-boot-starter-opentelemetry，由它把 OTel SDK、
+             OTLP exporter 和 Boot 的自动配置模块一起带进来。 -->
         <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-tracing-bridge-otel</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-exporter-otlp</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
         </dependency>
 
         <dependency>

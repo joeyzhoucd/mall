@@ -15,8 +15,10 @@ spring:
   # 再加一层"先查注册中心"只是多一个启动顺序依赖，而 Service 名本身就是稳定入口。
   config:
     import: optional:configserver:${CONFIG_SERVER_URI:http://localhost:8888}
-    admin:
-      enabled: false
+  # 这里原来有 spring.config.admin.enabled: false —— Spring 没有这个属性
+  # （正确的是 spring.application.admin.enabled，而且它默认就是 false）。
+  # 加上下面 spring.jmx.enabled=false 已经把 JMX 整个关了，admin MBean 依赖 JMX，
+  # 所以这行本来就是多余的死配置，直接删掉。
   jmx:
     enabled: false
   # Redis 连接参数的属性前缀必须是 spring.data.redis.*，不能写 spring.redis.*。
