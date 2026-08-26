@@ -1,6 +1,7 @@
 package com.mall.mq.config;
 
 import com.mall.common.constant.MqConstants;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Exchange;
@@ -19,6 +20,26 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties(MallMqProperties.class)
+/**
+ * MQ 的交换机、队列、绑定关系。
+ *
+ * <h3>为什么每个参数都显式写了 @Qualifier</h3>
+ * 这些 @Bean 方法要注入 Queue / Exchange，而同一个配置类里有多个同类型的 bean。
+ * Spring 在有多个候选时会退化到【按参数名匹配 bean 名】，而参数名要靠编译时的
+ * -parameters 选项写进 class 文件才拿得到。也就是说不加 @Qualifier 的话，
+ * 这份配置能不能装配成功取决于一个【编译选项】。
+ *
+ * 这不是理论担忧：实测出现过「本地构建的 class 有参数名、CI 构建的没有」，
+ * 于是同一份代码本地起得来、集群里起不来，报错是
+ *   Parameter 0 of method stockReleaseBinding required a single bean, but 3 were found
+ * 而且 Spring 那段报错里关于 -parameters 的提示是【无条件输出】的
+ * （反汇编 NoUniqueBeanDefinitionFailureAnalyzer 确认过：ldc 到 append 之间没有分支），
+ * 所以看到那句话并不能说明参数名真的缺失 —— 它会把排查带向错误的方向。
+ *
+ * 显式 @Qualifier 让装配结果只依赖源码本身，不依赖编译选项、也不依赖参数名保留。
+ * 这也是 Spring 报错里给出的第一个建议。-parameters 该开还是要开（它对别处有用），
+ * 但正确性不应该建立在它一定生效之上。
+ */
 public class MallMqAutoConfiguration {
 
     @Bean
@@ -68,13 +89,15 @@ public class MallMqAutoConfiguration {
         }
 
         @Bean
-        public Binding orderCreateBinding(Queue orderDelayQueue, Exchange orderEventExchange) {
+        public Binding orderCreateBinding(@Qualifier("orderDelayQueue") Queue orderDelayQueue,
+                                          @Qualifier("orderEventExchange") Exchange orderEventExchange) {
             return BindingBuilder.bind(orderDelayQueue).to(orderEventExchange)
                     .with(MqConstants.ORDER_CREATE_ROUTING_KEY).noargs();
         }
 
         @Bean
-        public Binding orderReleaseBinding(Queue orderReleaseQueue, Exchange orderEventExchange) {
+        public Binding orderReleaseBinding(@Qualifier("orderReleaseQueue") Queue orderReleaseQueue,
+                                          @Qualifier("orderEventExchange") Exchange orderEventExchange) {
             return BindingBuilder.bind(orderReleaseQueue).to(orderEventExchange)
                     .with(MqConstants.ORDER_RELEASE_ROUTING_KEY).noargs();
         }
@@ -105,19 +128,22 @@ public class MallMqAutoConfiguration {
         }
 
         @Bean
-        public Binding stockReleaseBinding(Queue stockReleaseQueue, Exchange stockReleaseExchange) {
+        public Binding stockReleaseBinding(@Qualifier("stockReleaseQueue") Queue stockReleaseQueue,
+                                          @Qualifier("stockReleaseExchange") Exchange stockReleaseExchange) {
             return BindingBuilder.bind(stockReleaseQueue).to(stockReleaseExchange)
                     .with(MqConstants.STOCK_RELEASE_ROUTING_KEY).noargs();
         }
 
         @Bean
-        public Binding stockDeductBinding(Queue stockDeductQueue, Exchange stockReleaseExchange) {
+        public Binding stockDeductBinding(@Qualifier("stockDeductQueue") Queue stockDeductQueue,
+                                          @Qualifier("stockReleaseExchange") Exchange stockReleaseExchange) {
             return BindingBuilder.bind(stockDeductQueue).to(stockReleaseExchange)
                     .with(MqConstants.STOCK_DEDUCT_ROUTING_KEY).noargs();
         }
 
         @Bean
-        public Binding stockFailBinding(Queue stockFailQueue, Exchange stockReleaseExchange) {
+        public Binding stockFailBinding(@Qualifier("stockFailQueue") Queue stockFailQueue,
+                                          @Qualifier("stockReleaseExchange") Exchange stockReleaseExchange) {
             return BindingBuilder.bind(stockFailQueue).to(stockReleaseExchange)
                     .with(MqConstants.STOCK_FAIL_ROUTING_KEY).noargs();
         }
@@ -138,7 +164,8 @@ public class MallMqAutoConfiguration {
         }
 
         @Bean
-        public Binding seckillOrderBinding(Queue seckillOrderQueue, Exchange seckillEventExchange) {
+        public Binding seckillOrderBinding(@Qualifier("seckillOrderQueue") Queue seckillOrderQueue,
+                                          @Qualifier("seckillEventExchange") Exchange seckillEventExchange) {
             return BindingBuilder.bind(seckillOrderQueue).to(seckillEventExchange)
                     .with(MqConstants.SECKILL_ORDER_ROUTING_KEY).noargs();
         }
