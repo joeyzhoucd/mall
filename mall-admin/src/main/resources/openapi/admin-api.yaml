@@ -1,0 +1,946 @@
+openapi: 3.0.3
+
+# ============================================================================
+# mall-admin 的接口契约 —— 这个文件是【唯一依据】
+# ============================================================================
+#
+# 原来的后台是 renren-fast 脚手架（Shiro + 自带的一套约定），整个模块已在阶段 1 删除。
+# 这里用 Spring Security 重建，但【前端不重写】：mall-frontend 里的后台 UI 保持原样，
+# 由后端来适配它的既有约定。所以这份契约不是"我想怎么设计"，而是"前端实际在调什么"——
+# 每一条都是从 mall-frontend/src 里读出来的，包括它自带的 mock 模块
+# （src/mock/modules/*.js，那些 mock 就是前端对响应形状的精确期望）。
+#
+# ---------------------------------------------------------------------------
+# 五条反直觉的约定，写错任何一条页面都会以很难查的方式坏掉
+# ---------------------------------------------------------------------------
+#
+# 1) 令牌放在【裸 token 请求头】里，不是 Authorization: Bearer。
+#    见 src/utils/httpRequest.js: config.headers['token'] = Vue.cookie.get('token')
+#
+# 2) 【鉴权失败必须回 HTTP 200，body 里写 code: 401】，绝对不能回真正的 HTTP 401。
+#    前端的响应拦截器是这样的：
+#      http.interceptors.response.use(
+#        response => { if (response.data.code === 401) { 清登录态; 跳登录页 } ... },
+#        error    => { return Promise.reject(error) }          // ← 没有任何跳转
+#      )
+#    真的 401 会走进 error 分支，那里既不清登录态也不跳转，页面就永远卡在加载中。
+#    这是整份契约里最容易踩、也最难查的一条：从 HTTP 语义看回 401 才"正确"，
+#    但那样会让前端表现为"点了没反应"。
+#
+# 3) 成功的判据是 code === 0（不是 HTTP 状态码，也不是 success 字段）。
+#
+# 4) 分页响应统一是 { code, msg, page: { list, totalCount, pageSize, totalPage, currPage } }。
+#    注意 list 在 page 里面，不是顶层。
+#
+# 5) GET /sys/menu/list 必须返回【裸 JSON 数组】，不能套 code/msg 信封。
+#    见 menu.vue: this.dataList = treeDataTranslate(data, 'menuId') —— data 直接当数组用，
+#    连 code 都不检查。套了信封的话菜单树和角色授权树会双双变成空的，而且不报错。
+#
+# ---------------------------------------------------------------------------
+# 第六条：角色菜单里的 -666666 分隔符
+# ---------------------------------------------------------------------------
+# 前端的菜单授权树用 element-ui 的 tree，它区分"全勾选"和"半勾选"（父节点部分选中）。
+# 因为半勾选的 key 拿不到统一接口，前端用了个哨兵值把两段拼在一起传：
+#   保存时（role-add-or-update.vue:101）：
+#     menuIdList = [...getCheckedKeys(), -666666, ...getHalfCheckedKeys()]
+#   回显时（同文件 80-84 行）：
+#     idx = menuIdList.indexOf(-666666)
+#     if (idx !== -1) menuIdList.splice(idx, length - idx)   // 从哨兵处截断
+#     setCheckedKeys(menuIdList)
+#
+# 所以后端必须：
+#   - 保存时把整个数组【原样按顺序落库】，【包括 -666666 这一行本身】；
+#   - 查询时【按插入顺序原样返回】。
+# 如果过滤掉 -666666，前端找不到分隔符就不截断，会把半勾选的父节点也当成完全勾选，
+# 授权范围被悄悄放大。如果不保序，截断位置就是错的。
+# 这两种错误都不会报错，只会让权限数据慢慢失真。
+#
+# ---------------------------------------------------------------------------
+# 与旧实现刻意不同的地方
+# ---------------------------------------------------------------------------
+# * 密码哈希从 Shiro 的 sha256(salt + password) 换成 BCrypt。
+#   已验证种子数据里的 admin 用的就是 sha256(salt+password)、密码是 admin123
+#   （salt=YzcmCZNvbXocrsz9dm8e）。加盐 SHA256 是快哈希、没有工作因子，不该沿用；
+#   BCrypt 也和 mall-member 已有的 BCryptPasswordEncoder 保持一致。
+#   密码本身仍然是 admin123，只换哈希方案，种子数据同步更新。
+# * 令牌从"数据库表 sys_user_token 存随机串"换成 JWT（无状态，网关和多副本下不用共享会话）。
+#   代价是登出无法立即失效令牌，所以过期时间设短一些。
+#
+# ---------------------------------------------------------------------------
+# 网关路由
+# ---------------------------------------------------------------------------
+# 前端的 baseUrl 是 /api（static/config/index-prod.js），所以它调的是 /api/sys/...。
+# 网关需要一条 Path=/api/sys/** 的路由（外加 /api/captcha.jpg），RewritePath 去掉 /api 前缀，
+# 转发给 mall-admin。注意【不要】用 /api/** 的兜底规则（旧实现是那样做的）：
+# 那会把 /api/coupon/** 这类还没配路由的请求也吃进来，把"缺一条路由"变成"报 404 但看不出原因"。
+
+info:
+  title: mall-admin 后台管理 API
+  version: 1.0.0
+  description: |
+    重建后的后台管理接口。消费方是 mall-frontend 里的后台 UI（renren-fast-vue 派生），
+    该前端不做修改，因此本接口需要完全兼容它的既有约定。详见本文件顶部的注释。
+
+servers:
+  - url: /
+    description: 服务自身（网关会把 /api 前缀去掉再转发到这里）
+
+tags:
+  - name: 认证
+    description: 登录、登出、验证码
+  - name: 用户
+  - name: 角色
+  - name: 菜单
+  - name: 参数配置
+  - name: 定时任务
+  - name: 系统日志
+  - name: 文件存储
+
+paths:
+
+  # ========================= 认证 =========================
+
+  /captcha.jpg:
+    get:
+      tags: [认证]
+      summary: 获取图形验证码
+      description: |
+        返回一张 PNG 图片。前端在登录页用 `<img :src="/captcha.jpg?uuid=xxx">` 直接加载，
+        uuid 由前端生成（src/utils/index.js 的 getUUID），登录时一起提交。
+        验证码是前端强制的（表单校验 required），所以这个接口不能省略。
+      operationId: captcha
+      security: []
+      parameters:
+        - name: uuid
+          in: query
+          required: true
+          description: 前端生成的一次性标识，登录请求要带同一个值
+          schema: { type: string, maxLength: 64 }
+      responses:
+        '200':
+          description: 验证码图片
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+
+  /sys/login:
+    post:
+      tags: [认证]
+      summary: 登录
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: |
+            无论成功失败都是 HTTP 200，用 body 里的 code 区分。
+            失败（用户名密码错、验证码错、账号停用）回 code=500 加 msg，
+            前端会把 msg 直接弹出来。
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+
+  /sys/logout:
+    post:
+      tags: [认证]
+      summary: 登出
+      description: |
+        令牌是 JWT、无状态，服务端没有可删除的会话，所以这里只是回一个成功让前端清 cookie。
+        真正的失效依赖过期时间。如果将来需要"立即失效"，得引入一个 Redis 黑名单。
+      operationId: logout
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  # ========================= 用户 =========================
+
+  /sys/user/list:
+    get:
+      tags: [用户]
+      summary: 用户分页列表
+      operationId: userList
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: username
+          in: query
+          required: false
+          description: 按用户名模糊查询
+          schema: { type: string }
+      responses:
+        '200':
+          description: 分页结果，list 元素为 SysUser
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      page:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - type: object
+                            properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/SysUser' }
+
+  /sys/user/info:
+    get:
+      tags: [用户]
+      summary: 当前登录用户信息
+      description: 主框架（main.vue）加载时调用，只用到 user.userId 和 user.username。
+      operationId: currentUserInfo
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      user: { $ref: '#/components/schemas/SysUser' }
+
+  /sys/user/info/{userId}:
+    get:
+      tags: [用户]
+      summary: 指定用户信息
+      description: 编辑弹窗用。返回的 user 里要带 roleIdList，前端用它勾选已有角色。
+      operationId: userInfo
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      user: { $ref: '#/components/schemas/SysUser' }
+
+  /sys/user/save:
+    post:
+      tags: [用户]
+      summary: 新增用户
+      operationId: userSave
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysUserUpsert' }
+      responses:
+        '200':
+          description: 成功或校验失败（都是 HTTP 200，看 code）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/user/update:
+    post:
+      tags: [用户]
+      summary: 修改用户
+      description: password 为空表示不修改密码。
+      operationId: userUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysUserUpsert' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/user/delete:
+    post:
+      tags: [用户]
+      summary: 批量删除用户
+      description: |
+        请求体是【裸 JSON 数组】（前端 adornData(ids, false) 不套对象）。
+        必须拒绝删除 userId=1（超级管理员）和删除自己。
+      operationId: userDelete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IdArray' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/user/password:
+    post:
+      tags: [用户]
+      summary: 修改当前用户密码
+      operationId: updatePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password, newPassword]
+              properties:
+                password: { type: string, description: 原密码 }
+                newPassword: { type: string, description: 新密码 }
+      responses:
+        '200':
+          description: 成功；原密码错误时 code=500
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  # ========================= 角色 =========================
+
+  /sys/role/list:
+    get:
+      tags: [角色]
+      summary: 角色分页列表
+      operationId: roleList
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: roleName
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      page:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - type: object
+                            properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/SysRole' }
+
+  /sys/role/select:
+    get:
+      tags: [角色]
+      summary: 角色下拉列表（不分页）
+      description: 用户编辑弹窗里选角色用。list 直接在顶层，不在 page 里面。
+      operationId: roleSelect
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/SysRole' }
+
+  /sys/role/info/{roleId}:
+    get:
+      tags: [角色]
+      summary: 角色详情
+      description: |
+        返回的 role.menuIdList 必须【按插入顺序原样返回，包含 -666666 哨兵】，
+        前端靠它区分全勾选和半勾选。详见本文件顶部第六条。
+      operationId: roleInfo
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      role: { $ref: '#/components/schemas/SysRole' }
+
+  /sys/role/save:
+    post:
+      tags: [角色]
+      summary: 新增角色
+      operationId: roleSave
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysRoleUpsert' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/role/update:
+    post:
+      tags: [角色]
+      summary: 修改角色
+      operationId: roleUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysRoleUpsert' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/role/delete:
+    post:
+      tags: [角色]
+      summary: 批量删除角色
+      operationId: roleDelete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IdArray' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  # ========================= 菜单 =========================
+
+  /sys/menu/nav:
+    get:
+      tags: [菜单]
+      summary: 当前用户的导航菜单与权限串
+      description: |
+        这个接口的响应【就是前端的路由表】：router/index.js 拿到 menuList 之后直接
+        fnAddDynamicMenuRoutes(data.menuList) 生成路由。所以菜单数据错了不是"菜单显示不对"，
+        而是整个后台没有可用页面。
+        menuList 是只含目录(type=0)和菜单(type=1)的树，按钮(type=2)不进树、只进 permissions。
+      operationId: menuNav
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      menuList:
+                        type: array
+                        items: { $ref: '#/components/schemas/SysMenuNode' }
+                      permissions:
+                        type: array
+                        description: 扁平的权限标识集合，前端 isAuth() 用它控制按钮显隐
+                        items: { type: string, example: 'sys:user:save' }
+
+  /sys/menu/list:
+    get:
+      tags: [菜单]
+      summary: 全部菜单（裸数组）
+      description: |
+        【必须返回裸 JSON 数组，不能套 code/msg 信封】。
+        menu.vue 里是 treeDataTranslate(data, 'menuId')，把 data 直接当数组用、连 code 都不看。
+        套了信封的话菜单管理页和角色授权树都会静默变空。
+        这是全契约里唯一一个不带信封的响应，实现时特别容易被统一的返回值包装器"顺手包上"。
+      operationId: menuList
+      responses:
+        '200':
+          description: 菜单数组（含所有类型，带 parentName）
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SysMenu' }
+
+  /sys/menu/select:
+    get:
+      tags: [菜单]
+      summary: 可作为上级的菜单列表
+      description: 只含目录和菜单（type=0/1），并在最前面插入一个 menuId=0 的"一级菜单"虚拟根。
+      operationId: menuSelect
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      menuList:
+                        type: array
+                        items: { $ref: '#/components/schemas/SysMenu' }
+
+  /sys/menu/info/{menuId}:
+    get:
+      tags: [菜单]
+      summary: 菜单详情
+      operationId: menuInfo
+      parameters:
+        - name: menuId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      menu: { $ref: '#/components/schemas/SysMenu' }
+
+  /sys/menu/save:
+    post:
+      tags: [菜单]
+      summary: 新增菜单
+      operationId: menuSave
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysMenu' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/menu/update:
+    post:
+      tags: [菜单]
+      summary: 修改菜单
+      operationId: menuUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysMenu' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/menu/delete/{menuId}:
+    post:
+      tags: [菜单]
+      summary: 删除菜单
+      description: 注意是【路径参数 + POST】，不是请求体传数组（和用户/角色的删除不一致，但前端就是这么调的）。
+      operationId: menuDelete
+      parameters:
+        - name: menuId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功；存在子菜单时 code=500
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  # ========================= 参数配置 =========================
+
+  /sys/config/list:
+    get:
+      tags: [参数配置]
+      summary: 参数分页列表
+      operationId: configList
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: paramKey
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      page:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - type: object
+                            properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/SysConfig' }
+
+  /sys/config/info/{id}:
+    get:
+      tags: [参数配置]
+      summary: 参数详情
+      operationId: configInfo
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      config: { $ref: '#/components/schemas/SysConfig' }
+
+  /sys/config/save:
+    post:
+      tags: [参数配置]
+      summary: 新增参数
+      operationId: configSave
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysConfig' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/config/update:
+    post:
+      tags: [参数配置]
+      summary: 修改参数
+      operationId: configUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysConfig' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/config/delete:
+    post:
+      tags: [参数配置]
+      summary: 批量删除参数
+      operationId: configDelete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IdArray' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  # ========================= 系统日志 =========================
+
+  /sys/log/list:
+    get:
+      tags: [系统日志]
+      summary: 操作日志分页列表
+      operationId: logList
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: key
+          in: query
+          required: false
+          description: 按用户名或操作内容模糊查询
+          schema: { type: string }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      page:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - type: object
+                            properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/SysLog' }
+
+components:
+
+  securitySchemes:
+    tokenHeader:
+      type: apiKey
+      in: header
+      name: token
+      description: |
+        裸 token 请求头，不是 Authorization: Bearer。值是登录接口返回的 JWT。
+        未登录/令牌失效时【返回 HTTP 200 + body code:401】，不要返回真正的 401，
+        原因见本文件顶部第 2 条。
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      description: 页码，从 1 开始
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: 每页条数
+      schema: { type: integer, minimum: 1, maximum: 200, default: 10 }
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    UserIdPath:
+      name: userId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+
+  schemas:
+
+    Result:
+      type: object
+      description: 统一返回信封。code=0 表示成功，前端只认这个字段。
+      required: [code]
+      properties:
+        code:
+          type: integer
+          description: |
+            0 = 成功；500 = 业务失败（msg 会被前端直接弹出）；
+            401 = 未登录或令牌失效（前端据此清登录态并跳登录页）。
+            注意 401 是【body 里的值】，HTTP 状态码始终是 200。
+          example: 0
+        msg:
+          type: string
+          example: success
+
+    Page:
+      type: object
+      description: 分页信息。注意 list 在这一层里面，不在响应顶层。
+      properties:
+        totalCount: { type: integer, description: 总条数 }
+        pageSize: { type: integer, description: 每页条数 }
+        totalPage: { type: integer, description: 总页数 }
+        currPage: { type: integer, description: 当前页码 }
+        list:
+          type: array
+          items: { type: object }
+
+    IdArray:
+      type: array
+      description: 裸 JSON 数组形式的主键列表（前端 adornData(ids, false)，不套对象）
+      items: { type: integer, format: int64 }
+      example: [2, 3]
+
+    LoginRequest:
+      type: object
+      required: [username, password, uuid, captcha]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        uuid:
+          type: string
+          description: 与获取验证码时使用的 uuid 相同
+        captcha:
+          type: string
+          description: 用户输入的验证码，前端强制必填
+
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            token:
+              type: string
+              description: JWT，前端存进 cookie 并放到后续请求的 token 头里
+            expire:
+              type: integer
+              description: 有效期秒数（前端目前不使用，保留是为了和旧响应形状一致）
+
+    SysUser:
+      type: object
+      properties:
+        userId: { type: integer, format: int64 }
+        username: { type: string }
+        email: { type: string }
+        mobile: { type: string }
+        status:
+          type: integer
+          description: 0 停用，1 正常
+        roleIdList:
+          type: array
+          nullable: true
+          description: 列表接口返回 null，详情接口返回实际角色 id
+          items: { type: integer, format: int64 }
+        createUserId: { type: integer, format: int64 }
+        createTime: { type: string, format: date-time }
+
+    SysUserUpsert:
+      type: object
+      required: [username]
+      properties:
+        userId:
+          type: integer
+          format: int64
+          description: 新增时不传
+        username: { type: string }
+        password:
+          type: string
+          description: 修改时留空表示不改密码
+        email: { type: string }
+        mobile: { type: string }
+        status: { type: integer }
+        roleIdList:
+          type: array
+          items: { type: integer, format: int64 }
+
+    SysRole:
+      type: object
+      properties:
+        roleId: { type: integer, format: int64 }
+        roleName: { type: string }
+        remark: { type: string }
+        createUserId: { type: integer, format: int64 }
+        createTime: { type: string, format: date-time }
+        menuIdList:
+          type: array
+          description: |
+            详情接口返回。【必须按插入顺序原样返回并包含 -666666 哨兵】，
+            前端用它区分全勾选与半勾选，详见本文件顶部第六条。
+          items: { type: integer, format: int64 }
+          example: [2, 3, 4, -666666, 1]
+
+    SysRoleUpsert:
+      type: object
+      required: [roleName]
+      properties:
+        roleId:
+          type: integer
+          format: int64
+          description: 新增时不传
+        roleName: { type: string }
+        remark: { type: string }
+        menuIdList:
+          type: array
+          description: 形如 [...全勾选, -666666, ...半勾选]，后端原样保序落库
+          items: { type: integer, format: int64 }
+
+    SysMenu:
+      type: object
+      properties:
+        menuId: { type: integer, format: int64 }
+        parentId:
+          type: integer
+          format: int64
+          description: 0 表示一级
+        parentName:
+          type: string
+          description: 上级菜单名，仅列表接口填充（数据库里没有这一列）
+        name: { type: string }
+        url:
+          type: string
+          nullable: true
+          description: 前端路由路径，如 sys/user
+        perms:
+          type: string
+          nullable: true
+          description: 权限标识，多个用逗号分隔，如 sys:user:list,sys:user:info
+        type:
+          type: integer
+          description: 0 目录，1 菜单，2 按钮
+        icon: { type: string, nullable: true }
+        orderNum: { type: integer, nullable: true }
+
+    SysMenuNode:
+      description: 导航树节点，比 SysMenu 多一个 list 子节点数组
+      allOf:
+        - $ref: '#/components/schemas/SysMenu'
+        - type: object
+          properties:
+            list:
+              type: array
+              items: { $ref: '#/components/schemas/SysMenuNode' }
+
+    SysConfig:
+      type: object
+      required: [paramKey, paramValue]
+      properties:
+        id: { type: integer, format: int64 }
+        paramKey: { type: string }
+        paramValue: { type: string }
+        status:
+          type: integer
+          description: 0 隐藏，1 显示
+        remark: { type: string }
+
+    SysLog:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        operation: { type: string }
+        method: { type: string }
+        params: { type: string }
+        time: { type: integer, format: int64, description: 耗时毫秒 }
+        ip: { type: string }
+        createDate: { type: string, format: date-time }
+
+security:
+  - tokenHeader: []

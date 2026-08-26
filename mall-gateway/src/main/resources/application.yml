@@ -73,11 +73,49 @@ spring:
                 - Path=/api/ware/**
               filters:
                 - RewritePath=/api/(?<segment>.*),/$\{segment}
-            # 注意这里原本有一条 admin_route（Path=/api/** 的兜底规则，转发给 mall-admin
-            # 并把路径重写成 /admin/xxx）。renren-fast 那套后台（mall-admin/mall-generator）
-            # 已经整体删掉，等阶段 6 用 Spring Security 重建后再把这条路由加回来。
-            # 重建时要注意：它是 /api/** 的兜底规则，会把前面几条 /api/product、/api/member
-            # 等没匹配上的流量全部吃掉，所以必须保持在那几条之后。
+            # 后台管理（阶段 7 用 Spring Security 重建的 mall-admin）。
+            #
+            # 和旧实现的关键区别：旧的是 Path=/api/** 的【兜底规则】，把前面几条没匹配上的
+            # /api 流量全部吃掉转给 renren-fast。现在改成【精确前缀】/api/sys/**。
+            # 原因是兜底规则会掩盖"某个前缀忘配路由"这类问题：请求不会 404 在网关，
+            # 而是被转给一个根本没有这些接口的服务，然后由它回 404 —— 现象一样、原因完全不同，
+            # 排查时会往错的方向找。实际就踩到了：/api/coupon/** 一直没有路由（见下一条），
+            # 后台的 SKU 优惠设置页因此不可用，但因为有兜底规则，看起来只是"接口 404"。
+            - id: admin_route
+              uri: lb://mall-admin
+              predicates:
+                - Path=/api/sys/**
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+
+            # 验证码是根路径下的单个文件名，不在 /sys 下面（前端写死了 /captcha.jpg?uuid=xxx），
+            # 所以要单独一条。它必须匿名可访问，mall-admin 的 SecurityConfig 里也放开了。
+            - id: admin_captcha_route
+              uri: lb://mall-admin
+              predicates:
+                - Path=/api/captcha.jpg
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+
+            # 优惠券服务。这条路由【原本是缺失的】—— 前端后台的 SKU 编辑页会调
+            # /api/coupon/coupon/list、/api/coupon/skuladder/save 等一批接口，但网关里从来没有
+            # 对应规则。以前被 /api/** 兜底规则接走转给了 renren-fast，得到 404，
+            # 看起来像"接口不存在"而不是"路由没配"。补上。
+            #
+            # 注意：即使补了路由，其中一部分接口在 mall-coupon 里仍然不存在（只有 /placeholder
+            # 占位桩）。那是原项目遗留的未完成功能，属于另一件事，不在阶段 7 范围内。
+            - id: coupon_route
+              uri: lb://mall-coupon
+              predicates:
+                - Path=/api/coupon/**
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+
+            # 还差一个 /api/seckill/**：前端会调 /api/seckill/scheduler/save，但后端【压根没有
+            # 这个接口】（已全仓库确认，mall-coupon 里的秒杀接口在 coupon/seckill 和
+            # coupon/seckillpromotion 下面）。所以这里刻意不加路由 —— 加一条指向不存在接口的
+            # 路由只是把 404 从网关挪到服务，不解决任何问题。
+            # 正确的做法是让前端改调已有接口，或者在 mall-coupon 里补上这个端点，另开一件事做。
 
             # mall-order 没有自己的域名，走结算/支付这条链路是从 cart.mall.com（购物车页
             # “去结算”）跳过来的，必须放在 mall_cart_route 之前，否则 Host=cart.mall.com

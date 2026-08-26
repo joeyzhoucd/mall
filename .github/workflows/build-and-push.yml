@@ -42,8 +42,16 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Run unit tests
-        run: mvn -B test
+      # 用 package 而不是 test：package 会跑测试【并且】产出 jar，下一步的 fat jar 校验
+      # 需要 jar 在。一次 Maven 调用比 test + package 两次快得多（第二次要重新解析整个 reactor）。
+      - name: Run unit tests and package
+        run: mvn -B package
+
+      # 校验每个可部署模块都产出了可执行 fat jar。逻辑放在独立脚本里而不是内嵌到 YAML：
+      # 内嵌 shell 要同时应付 YAML 的块标量和 shell 的引号转义，很容易写坏（实际写坏过一次），
+      # 而且脚本单独存在还能在本地直接跑。
+      - name: Verify deployable modules produced fat jars
+        run: bash .github/scripts/verify-fat-jars.sh
 
       - name: Upload test reports on failure
         if: failure()
@@ -65,6 +73,7 @@ jobs:
           # 配置中心要先起来（其他服务的 spring.config.import 指向它），
           # 但矩阵是并行的、构建顺序跟启动顺序无关，放第一个只是为了看着顺眼。
           - mall-config
+          - mall-admin
           - mall-gateway
           - mall-auth
           - mall-member

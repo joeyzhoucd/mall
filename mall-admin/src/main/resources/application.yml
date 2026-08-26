@@ -1,0 +1,40 @@
+server:
+  # 8080 是原来 renren-fast 用的端口，沿用它是为了少改一处（Helm values、网关路由都按这个走）。
+  port: 8080
+spring:
+  application:
+    name: mall-admin
+  # 从 Config Server 拉配置。optional: 前缀是必须的——chart 里没有启动顺序编排，
+  # 不加的话 Config Server 没就绪时这个服务会 crashloop。
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URI:http://localhost:8888}
+  datasource:
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_admin?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # 请求/响应编码。注意前缀是 spring.servlet.encoding.*，不是 server.servlet.encoding.*
+  # （后者从 Boot 3.0 起就不再绑定了，写了完全不生效——mall-order 踩过，中文直接乱码）。
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+
+mall:
+  admin:
+    jwt:
+      # JWT 签名密钥。必须从环境变量注入，且长度 >= 32 字节（HS256 的要求）。
+      # 生产环境走 Sealed Secret（sealed-secrets/local/admin-jwt.yaml 里那份还在，
+      # 阶段 1 删模块时刻意没删，就是为了重建时直接复用）。
+      # 这里的默认值只为本地能跑起来，一眼就能看出不是真密钥。
+      secret: ${JWT_SECRET:local-dev-only-do-not-use-in-any-real-environment}
+      # 令牌有效期。JWT 是无状态的，登出没法立刻让令牌失效，所以不宜设太长。
+      # 想要"登出即失效"需要额外做一个 Redis 黑名单，当前没做。
+      expire-seconds: ${JWT_EXPIRE_SECONDS:43200}
+    captcha:
+      # 验证码有效期。存在服务端内存里，多副本下会出现"在 A 实例取的码到 B 实例校验不到"，
+      # 所以 replicaCount>1 时必须改成放 Redis。当前单副本，先用内存实现并把这个限制写清楚。
+      expire-seconds: 300

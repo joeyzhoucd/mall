@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.mall</groupId>
+        <artifactId>mall</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>mall-admin</artifactId>
+    <name>mall-admin</name>
+    <description>后台管理服务（用 Spring Security 重建，替代原来的 renren-fast 脚手架）</description>
+
+    <!--
+      这是阶段 7 的重建产物。原来的 mall-admin 是 renren-fast 脚手架（Shiro + 一堆自带约定），
+      在阶段 1 已经整体删除。之所以选择"重建"而不是"把它的阿里系依赖换掉"：
+      那个脚手架是本仓库里 javax→jakarta 迁移负担最重的部分，而它本来就要被重写，
+      先移植再重写等于白做一遍。
+
+      接口契约在 src/main/resources/openapi/admin-api.yaml —— 那是【唯一依据】，
+      因为前端不重写，后端必须适配 mall-frontend 里后台 UI 的既有约定。
+      动手改这个模块之前先读那个文件的头部注释，里面写了六条反直觉的约定，
+      写错任何一条页面都会以很难查的方式坏掉（比如鉴权失败回真的 HTTP 401 会让页面永久卡住）。
+    -->
+
+    <dependencies>
+        <dependency>
+            <groupId>com.mall</groupId>
+            <artifactId>mall-common</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
+        <!-- Spring Security 7（随 Boot 4.1.1 的 BOM）。取代原来的 Shiro：
+             Shiro 的 javax.servlet 绑定是 jakarta 迁移的主要障碍之一，而且社区活跃度和
+             Spring 生态集成度都不如 Spring Security，重建时没有理由沿用。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- JWT 的编解码。刻意【不引第三方 JWT 库】（jjwt / java-jwt 之类）：
+             spring-security-oauth2-jose 里的 NimbusJwtEncoder / NimbusJwtDecoder 已经够用，
+             底层是 Nimbus JOSE+JWT（JOSE 规范的主流实现），而且版本由 spring-security-bom 统一管，
+             不用自己盯一个额外依赖的安全更新。
+             注意这里【没有】引 spring-boot-starter-security-oauth2-resource-server：
+             那个 starter 的自动配置默认从 "Authorization: Bearer xxx" 取令牌，而本项目的前端
+             用的是裸 token 请求头（见契约文件第 1 条），套它反而要绕开它的默认行为。
+             只取编解码能力、自己写一个读 token 头的过滤器，逻辑更直白。 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
+
+        <!-- 图形验证码。前端登录表单把 captcha 设成了必填，所以这个接口不能省。
+             用 Java 自带的 Graphics2D 手画，不引第三方验证码库：需求只是"生成一张有几个
+             扭曲字符的图"，引一个库反而多一个要维护的依赖。见 CaptchaService。 -->
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <!-- 这个 execution 是必须显式写的，不能只声明插件。
+                     spring-boot-maven-plugin 的 repackage 目标（把普通 jar 变成可执行的
+                     fat jar）平时是由 spring-boot-starter-parent 帮你绑定的，而本项目没有
+                     继承那个 parent（只 import 了 spring-boot-dependencies BOM），
+                     所以每个服务模块都得自己写一遍 —— 其他 10 个服务的 pom 都是这么写的。
+
+                     漏写的后果很隐蔽：构建【完全成功】，target 下也确实有 jar，
+                     只是那个 jar 里没有 BOOT-INF/lib，也没有 Main-Class，
+                     是个普通的库 jar。大小是最直接的线索：正常 fat jar 几十 MB，
+                     漏写的话只有几十 KB。要到镜像启动时才会报
+                     no main manifest attribute。 -->
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

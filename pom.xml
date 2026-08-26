@@ -9,6 +9,7 @@
     <description>mall root</description>
     <packaging>pom</packaging>
     <modules>
+        <module>mall-admin</module>
         <module>mall-config</module>
         <module>mall-gateway</module>
         <module>mall-coupon</module>
