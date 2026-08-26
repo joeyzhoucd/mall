@@ -7,10 +7,6 @@ spring:
       enabled: false
   jmx:
     enabled: false
-  cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
   redis:
     host: ${REDIS_HOST:192.168.77.100}
     port: ${REDIS_PORT:6379}

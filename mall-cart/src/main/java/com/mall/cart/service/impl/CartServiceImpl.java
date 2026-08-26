@@ -1,7 +1,7 @@
 package com.mall.cart.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.mall.cart.constant.CartConstant;
 import com.mall.cart.feign.ProductFeignService;
 import com.mall.cart.interceptor.CartInterceptor;
@@ -12,7 +12,7 @@ import com.mall.cart.vo.CartVo;
 import com.mall.cart.vo.SkuInfoVo;
 import com.mall.common.utils.R;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.BoundHashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -97,7 +97,7 @@ public class CartServiceImpl implements CartService {
     private void saveCartItem(BoundHashOperations<String, Object, Object> cartOps, CartItemVo cartItem) {
         try {
             cartOps.put(String.valueOf(cartItem.getSkuId()), objectMapper.writeValueAsString(cartItem));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("保存购物车数据失败", e);
         }
     }
@@ -105,7 +105,7 @@ public class CartServiceImpl implements CartService {
     private CartItemVo readCartItem(String cacheValue) {
         try {
             return objectMapper.readValue(cacheValue, CartItemVo.class);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("解析购物车数据失败", e);
         }
     }

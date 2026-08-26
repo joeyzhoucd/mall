@@ -6,6 +6,8 @@ server:
       enabled: true
       force: true
 spring:
+  application:
+    name: mall-order
   datasource:
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
@@ -14,10 +16,6 @@ spring:
   redis:
     host: ${REDIS_HOST:192.168.77.100}
     port: ${REDIS_PORT:6379}
-  cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 

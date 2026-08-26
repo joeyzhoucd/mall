@@ -14,7 +14,7 @@ import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.StringReader;

@@ -1,6 +1,10 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.mall.mq.config.MallMqAutoConfiguration
-
-org.springframework.boot.env.EnvironmentPostProcessor=\
+# 注意两处 Boot 版本相关的坑：
+# 1. 这里原来还有一行 org.springframework.boot.autoconfigure.EnableAutoConfiguration=
+#    用来注册 MallMqAutoConfiguration。那个机制在 Spring Boot 3 就被移除了（改成
+#    META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports，
+#    见同目录下那个文件）。留着不报错，但自动配置根本不生效——属于静默失效。
+# 2. EnvironmentPostProcessor 接口在 Boot 4 从 org.springframework.boot.env 挪到了
+#    org.springframework.boot（旧包仍在但已标记弃用，会在后续版本移除）。因为
+#    spring.factories 的 key 就是接口全限定名，换包之后这一行的 key 也要跟着改。
+org.springframework.boot.EnvironmentPostProcessor=\
 com.mall.mq.config.MallMqEnvironmentPostProcessor
-

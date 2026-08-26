@@ -16,14 +16,22 @@
         <dependency>
             <groupId>com.mall</groupId>
             <artifactId>mall-common</artifactId>
+            <!-- 这个服务不连关系型数据库，排掉 mall-common 带来的持久化依赖。
+                 注意 artifact 名随 Boot 4 迁移变了（mybatis-plus-boot-starter →
+                 mybatis-plus-spring-boot4-starter，mysql:mysql-connector-java →
+                 com.mysql:mysql-connector-j），写旧名字不报错但排除会静默失效。 -->
             <exclusions>
                 <exclusion>
                     <groupId>com.baomidou</groupId>
-                    <artifactId>mybatis-plus-boot-starter</artifactId>
+                    <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>mysql</groupId>
-                    <artifactId>mysql-connector-java</artifactId>
+                    <groupId>com.baomidou</groupId>
+                    <artifactId>mybatis-plus-jsqlparser</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.mysql</groupId>
+                    <artifactId>mysql-connector-j</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

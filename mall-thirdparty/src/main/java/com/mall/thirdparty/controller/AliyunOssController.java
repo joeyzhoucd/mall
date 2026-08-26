@@ -58,7 +58,7 @@ public class AliyunOssController {
             policyMap.put("conditions", conditions);
 
             // Convert Policy to JSON
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            tools.jackson.databind.ObjectMapper mapper = new tools.jackson.databind.ObjectMapper();
             String policyJson = mapper.writeValueAsString(policyMap);
             // Encode using SDK Base64
             String encodedPolicy = BinaryUtil.toBase64String(policyJson.getBytes(StandardCharsets.UTF_8));

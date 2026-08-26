@@ -1,6 +1,7 @@
 package com.mall.common.tools;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -21,12 +22,17 @@ import java.util.List;
 /**
  * 导出 MySQL 所有表结构 DDL（SHOW CREATE TABLE），写入仓库 db/ddl/mysql/ 目录。
  *
- * 运行方式（在 mall-backend 目录）：
- * mvn -pl mall-common -Dtest=DbDdlExportTest test
+ * 注意这不是单元测试，是一个借测试框架当"可执行入口"的工具类——它要连一个真实的
+ * MySQL。所以加了 @EnabledIfSystemProperty 门禁：普通的 mvn test 会跳过它，
+ * 不会因为连不上那个硬编码的数据库地址而让整个构建失败。
+ *
+ * 运行方式（在 mall-backend 目录，必须显式打开开关）：
+ * mvn -pl mall-common -Dtest=DbDdlExportTest -Dddl.export=true test
  *
  * 可通过系统属性覆盖连接信息：
  * -Ddb.host=192.168.77.100 -Ddb.port=3306 -Ddb.user=root -Ddb.password=root
  */
+@EnabledIfSystemProperty(named = "ddl.export", matches = "true")
 public class DbDdlExportTest {
 
     private static final List<String> SCHEMAS = Arrays.asList(

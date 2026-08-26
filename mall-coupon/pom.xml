@@ -36,25 +36,14 @@
             <artifactId>mall-mq-starter</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
-        <!-- Redisson，给对账任务的分布式锁用（watchdog 自动续期，比手写 SETNX+Lua 更安全）。
-             redisson-spring-boot-starter 默认带的是给 Spring Boot 3.x 用的 redisson-spring-data-30，
-             跟我们这套 Spring Boot 2.7.9 不兼容会 NoClassDefFoundError，换成匹配 2.7.x 的
-             redisson-spring-data-27——跟 mall-product 里的写法保持一致。 -->
+        <!-- Redisson 4.x 是支持 Boot 4 的版本线（3.20.x 那条是给 Boot 2.7 的）。
+             原来这里为了绕开 Boot 2.7 跟 redisson-spring-data-30 的不兼容，做了
+             "排除 -30、手动引入 -27" 的操作；换到 Boot 4 之后 starter 自带的适配包
+             就是对的，那套 exclusion + 手动指定全部删掉，交给 starter 自己带。 -->
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-boot-starter</artifactId>
-            <version>3.20.1</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.redisson</groupId>
-                    <artifactId>redisson-spring-data-30</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.redisson</groupId>
-            <artifactId>redisson-spring-data-27</artifactId>
-            <version>3.20.1</version>
+            <version>${redisson.version}</version>
         </dependency>
     </dependencies>
 

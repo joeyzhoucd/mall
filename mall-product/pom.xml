@@ -26,31 +26,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
-        <!-- Session Starter：按需开启跨域登录态 -->
-        <dependency>
-            <groupId>com.mall</groupId>
-            <artifactId>mall-session-starter</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-        <!-- Redisson。redisson-spring-boot-starter 默认带的是 redisson-spring-data-30
-             （给 Spring Boot 3.x / Spring Data Redis 3.x 用的适配包，里面的类引用了我们这套
-             Spring Boot 2.7.9 / spring-data-redis 2.7.8 还没有的 zset.Tuple，
-             会导致 NoClassDefFoundError），换成匹配 2.7.x 的 redisson-spring-data-27。 -->
+        <!-- Redisson 4.x 是支持 Boot 4 的版本线（3.20.x 那条是给 Boot 2.7 的）。
+             原来这里为了绕开 Boot 2.7 跟 redisson-spring-data-30 的不兼容，做了
+             "排除 -30、手动引入 -27" 的操作；换到 Boot 4 之后 starter 自带的适配包
+             就是对的，那套 exclusion + 手动指定全部删掉，交给 starter 自己带。 -->
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-boot-starter</artifactId>
-            <version>3.20.1</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.redisson</groupId>
-                    <artifactId>redisson-spring-data-30</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.redisson</groupId>
-            <artifactId>redisson-spring-data-27</artifactId>
-            <version>3.20.1</version>
+            <version>${redisson.version}</version>
         </dependency>
         <!-- Spring Cache -->
         <dependency>

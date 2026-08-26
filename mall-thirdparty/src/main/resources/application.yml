@@ -1,10 +1,8 @@
 server:
   port: 13000
 spring:
-  cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
+  application:
+    name: mall-thirdparty
 feign:
   client:
     config:

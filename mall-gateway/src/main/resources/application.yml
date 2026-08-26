@@ -1,14 +1,13 @@
 server:
   port: 88
 spring:
+  application:
+    name: mall-gateway
   redis:
     # 只给 RequestRateLimiter 限流用，跟其他服务复用同一个 Redis 实例，不是单独一份数据。
     host: ${REDIS_HOST:192.168.77.100}
     port: ${REDIS_PORT:6379}
   cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
     gateway:
       routes:
         - id: product_route

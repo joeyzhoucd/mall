@@ -3,13 +3,13 @@ package com.mall.cart.interceptor;
 import com.mall.cart.constant.CartConstant;
 import com.mall.cart.to.UserInfoTo;
 import com.mall.session.vo.LoginUser;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.UUID;
 
 @Component

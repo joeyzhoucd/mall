@@ -1,0 +1,6 @@
+# 共享基础设施默认配置（Consul / actuator / 链路追踪），见
+# mall-common-default.properties。EnvironmentPostProcessor 接口在 Boot 4 已从
+# org.springframework.boot.env 挪到 org.springframework.boot，spring.factories 的 key
+# 就是接口全限定名，所以这里用的是新包名。
+org.springframework.boot.EnvironmentPostProcessor=\
+com.mall.common.config.MallCommonEnvironmentPostProcessor

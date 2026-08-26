@@ -1,15 +1,13 @@
 server:
   port: 10000
 spring:
+  application:
+    name: mall-coupon
   datasource:
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
     url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_sms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
     driver-class-name: com.mysql.cj.jdbc.Driver
-  cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
   redis:
     host: ${REDIS_HOST:192.168.77.100}
     port: ${REDIS_PORT:6379}

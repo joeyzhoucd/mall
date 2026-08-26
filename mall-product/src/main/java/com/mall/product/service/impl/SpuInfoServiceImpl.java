@@ -2,7 +2,7 @@ package com.mall.product.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.common.utils.R;
@@ -13,7 +13,7 @@ import com.mall.product.feign.SmsFeignService;
 import com.mall.product.service.*;
 import com.mall.product.vo.SkuEsModelVo;
 import com.mall.product.vo.SpuSaveVo;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

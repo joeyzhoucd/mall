@@ -11,29 +11,29 @@
 
     <artifactId>mall-common</artifactId>
 
-    <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-    </properties>
+    <!-- 原来这里把 source/target 覆盖成 8，会盖掉父 pom 的设置。现在统一跟父 pom
+         走 Java 21，所以这个覆盖删掉了。 -->
 
     <dependencies>
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-boot-starter</artifactId>
+            <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
         </dependency>
 
+        <!-- 分页插件（PaginationInnerInterceptor，见 mall-product 的 MybatisPlusConfig）
+             需要 SQL 解析能力。MyBatis-Plus 新版把 jsqlparser 拆成了 optional 依赖，
+             不会随 starter 传递引入，必须显式声明，否则编译时找不到
+             com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor。 -->
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>${mybatis-plus.version}</version>
         </dependency>
 
+        <!-- 新坐标；旧的 mysql:mysql-connector-java 已废弃，版本由 Boot BOM 管理 -->
         <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpcore</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>commons-lang</groupId>
-            <artifactId>commons-lang</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
         </dependency>
 
         <dependency>
@@ -41,9 +41,50 @@
             <artifactId>lombok</artifactId>
         </dependency>
 
+        <!-- commons-lang 2.6（2011 年，包名 org.apache.commons.lang）换成还在维护的
+             lang3。14 个文件用到 StringUtils 的 isBlank/isNotBlank/isEmpty/isNotEmpty/
+             replace/equalsIgnoreCase，这几个方法在 lang3 里名字和语义完全一致，
+             属于改 import 就行的迁移，版本由 Boot BOM 管理。 -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- 所有服务统一带上 actuator。两个用途：
+             1) Consul 注册默认拿 /actuator/health 做健康检查，而 consul-discovery 把
+                actuator 标成了 optional 不会传递继承，不显式加的话所有服务会注册成
+                CRITICAL 状态（当前 Helm 用的是 tcpSocket 探针，所以之前没暴露这个问题）。
+             2) 观测栈要用 /actuator/prometheus 抓指标（见下面 micrometer 那个依赖）。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Micrometer 的 Prometheus 注册器：加了它 actuator 才会暴露
+             /actuator/prometheus 端点。指标采集就这一个依赖的事。 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- 分布式链路追踪。Spring Cloud Sleuth 在 Boot 3+ 已经不存在了，替代品是
+             Micrometer Tracing；这里用 OpenTelemetry 作为桥接实现（OTel 是 CNCF 的
+             instrumentation 标准），配合 otlp exporter 把 span 发给 Tempo。
+             对这个项目价值最大的地方是秒杀链路：mall-coupon → RabbitMQ → mall-order
+             → mall-ware 跨了三个服务加一个消息队列，这种跨组件的状态问题正是追踪
+             存在的理由。 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
         </dependency>
 
         <dependency>
@@ -57,41 +98,29 @@
             </exclusions>
         </dependency>
 
+        <!-- 服务发现从 Nacos 换成 Consul（HashiCorp，国际主流）。
+             @EnableDiscoveryClient / @FeignClient("mall-xxx") / 网关的 lb:// 路由
+             写法都不用改——Consul 同样提供 DiscoveryClient 和 ReactiveDiscoveryClient
+             （后者是响应式网关需要的），consul-discovery 自己会带上
+             spring-cloud-starter-loadbalancer，所以原来单独声明的 loadbalancer 依赖
+             也删掉了。 -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-bootstrap</artifactId>
+            <artifactId>spring-cloud-starter-consul-discovery</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
-            <version>2.0.1.Final</version>
-        </dependency>
-
-        <!-- 可根据需要自定义是否启用映射配置 -->
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
-        </dependency>
-
-        <!-- 可根据需要自定义是否启用映射配置 -->
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
-            <scope>test</scope>
-        </dependency>
-
+        <!-- 这里原来还有：
+             * spring-cloud-starter-bootstrap —— 只为激活 9 个 bootstrap.properties 让
+               Nacos 配置中心生效。Boot 2.4+ 起配置中心的标准做法是 spring.config.import
+               （Config Data API），不需要 bootstrap 上下文，所以整个删掉。
+             * spring-cloud-starter-alibaba-nacos-config / -discovery —— 去阿里系的主要
+               目标。注意实测线上 Nacos 配置中心是完全空的（namespace 都不存在，9 个
+               data-id 全 404，变更历史为空），所有服务一直靠自己打包的 application.yml
+               加环境变量在跑，所以删除配置中心这一侧零风险。
+             * javax.validation:validation-api 2.0.1 —— jakarta 化之后由
+               spring-boot-starter-validation 提供 jakarta.validation，不用单独声明。
+             * commons-lang 2.6 / httpcore 4.x —— 见根 pom 的说明。
+             * junit 4 —— Boot 4 的测试栈是 JUnit 5，由 spring-boot-starter-test 提供。 -->
     </dependencies>
 
 </project>

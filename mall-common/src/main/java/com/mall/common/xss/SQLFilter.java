@@ -1,7 +1,7 @@
 package com.mall.common.xss;
 
 import com.mall.common.exception.RRException;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * SQL injection filter

@@ -1,17 +1,14 @@
 server:
   port: 14000
 spring:
+  application:
+    name: mall-search
   thymeleaf:
     cache: false
     prefix: classpath:/templates/
     suffix: .html
     mode: HTML
     encoding: UTF-8
-  cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_SERVER_ADDR:192.168.77.101:8848}
-
 elasticsearch:
   host: ${ES_HOST:192.168.77.102}
   port: ${ES_PORT:9200}

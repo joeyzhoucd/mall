@@ -4,7 +4,7 @@ import com.mall.common.constant.ErrorCode;
 import com.mall.common.utils.R;
 import com.mall.order.service.OrderService;
 import com.mall.order.util.PaySignUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;

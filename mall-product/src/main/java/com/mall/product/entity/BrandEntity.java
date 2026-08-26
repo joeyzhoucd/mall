@@ -6,8 +6,8 @@ import com.mall.common.validator.group.AddGroup;
 import com.mall.common.validator.group.UpdateGroup;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Null;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Null;
 import java.io.Serializable;
 
 

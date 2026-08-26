@@ -24,9 +24,12 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- Spring Cloud 2025.1（= Gateway 5.0）把网关的坐标按"响应式 / MVC"两种
+             web 栈拆开了，旧的 spring-cloud-starter-gateway 已删除。我们这个网关是
+             响应式的（WebFlux），所以用 -server-webflux 这个。 -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-gateway</artifactId>
+            <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
         </dependency>
         <!-- 限流用：Spring Cloud Gateway 自带的 RequestRateLimiter 过滤器要靠这个操作 Redis
              （令牌桶算法本身就是一段 Lua 脚本，框架内置，不用自己写）。网关是 WebFlux/

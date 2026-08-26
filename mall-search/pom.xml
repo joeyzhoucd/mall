@@ -16,44 +16,45 @@
         <dependency>
             <groupId>com.mall</groupId>
             <artifactId>mall-common</artifactId>
+            <!-- 这个服务不连关系型数据库，把 mall-common 带过来的持久化那一套排掉，
+                 否则 Boot 会因为找不到 datasource 配置而启动失败。
+                 注意 artifact 名随 Boot 4 迁移变了：mybatis-plus-boot-starter →
+                 mybatis-plus-spring-boot4-starter，mysql:mysql-connector-java →
+                 com.mysql:mysql-connector-j。旧名字写在这里不会报错，但排除会静默失效。 -->
             <exclusions>
                 <exclusion>
                     <groupId>com.baomidou</groupId>
-                    <artifactId>mybatis-plus-boot-starter</artifactId>
+                    <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>mysql</groupId>
-                    <artifactId>mysql-connector-java</artifactId>
+                    <groupId>com.baomidou</groupId>
+                    <artifactId>mybatis-plus-jsqlparser</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.mysql</groupId>
+                    <artifactId>mysql-connector-j</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- Elasticsearch Java API Client 8.x -->
+        <!-- Elasticsearch Java API Client。
+             这里原来把 jackson-core/databind/annotations 全排掉了，靠 Boot 提供 Jackson。
+             Boot 4 之后不能这么干了：Boot 提供的是 Jackson 3（tools.jackson.*），而这个
+             版本的 ES 客户端编译时链接的是 Jackson 2（com.fasterxml.jackson.*），排掉之后
+             运行时会 NoClassDefFoundError。所以现在让它自己带 Jackson 2 进来——
+             Jackson 2 和 3 的 Maven 坐标和包名都不同，可以在同一个 classpath 上共存，
+             这是 Spring 官方文档明确支持的迁移过渡形态。
+             服务端 ES 是 8.11.1，客户端版本要跟它对齐，不能只为了 Jackson 3 盲目跳大版本。 -->
         <dependency>
             <groupId>co.elastic.clients</groupId>
             <artifactId>elasticsearch-java</artifactId>
             <version>8.11.1</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-annotations</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-client</artifactId>
             <version>8.11.1</version>
         </dependency>
-        <!-- 使用 Spring Boot 2.7.9 管理的 Jackson 版本（无需显式声明版本或可不声明依赖） -->
-        <!-- JSON-P provider required by Elasticsearch Java API Client -->
+        <!-- ES Java 客户端需要一个 JSON-P（jakarta.json）实现 -->
         <dependency>
             <groupId>org.glassfish</groupId>
             <artifactId>jakarta.json</artifactId>
@@ -78,11 +79,8 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- 原来这里显式声明了 junit（JUnit 4）。Boot 4 的测试栈是 JUnit 5，
+             由根 pom 的 spring-boot-starter-test 提供，不用单独声明。 -->
     </dependencies>
 
     <build>
