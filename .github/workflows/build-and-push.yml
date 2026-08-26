@@ -24,6 +24,9 @@ jobs:
       # 不会挡住其他服务的构建。
       matrix:
         service:
+          # 配置中心要先起来（其他服务的 spring.config.import 指向它），
+          # 但矩阵是并行的、构建顺序跟启动顺序无关，放第一个只是为了看着顺眼。
+          - mall-config
           - mall-gateway
           - mall-auth
           - mall-member

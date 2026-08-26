@@ -37,13 +37,7 @@
             </exclusions>
         </dependency>
         <!-- Elasticsearch Java API Client。
-             这里原来把 jackson-core/databind/annotations 全排掉了，靠 Boot 提供 Jackson。
-             Boot 4 之后不能这么干了：Boot 提供的是 Jackson 3（tools.jackson.*），而这个
-             版本的 ES 客户端编译时链接的是 Jackson 2（com.fasterxml.jackson.*），排掉之后
-             运行时会 NoClassDefFoundError。所以现在让它自己带 Jackson 2 进来——
-             Jackson 2 和 3 的 Maven 坐标和包名都不同，可以在同一个 classpath 上共存，
-             这是 Spring 官方文档明确支持的迁移过渡形态。
-             服务端 ES 是 8.11.1，客户端版本要跟它对齐，不能只为了 Jackson 3 盲目跳大版本。 -->
+             版本跟服务端 ES 对齐（8.11.1），不为了别的原因盲目跳大版本。 -->
         <dependency>
             <groupId>co.elastic.clients</groupId>
             <artifactId>elasticsearch-java</artifactId>
@@ -53,6 +47,38 @@
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-client</artifactId>
             <version>8.11.1</version>
+        </dependency>
+
+        <!-- Jackson 2 的 databind，专门为 ES 客户端而加。
+             ES 客户端用的 JacksonJsonpMapper 在 co.elastic.clients.json.jackson 包下，
+             链接的是 Jackson 2 的 com.fasterxml.jackson.databind.ObjectMapper；这个客户端
+             至今没有 Jackson 3 版本的 mapper（jar 里只有 jackson/ 和 jsonb/ 两套）。
+             Boot 2.7 时代 Jackson 2 是 web starter 顺带提供的，ES 客户端一直在白蹭；
+             Boot 4 换成 Jackson 3 之后这个"白蹭"就断了，于是运行时抛
+             NoClassDefFoundError: com/fasterxml/jackson/databind/ObjectMapper。
+
+             这里有个我一开始判断错了、值得记下来的点：我以为把原先的 exclusion 删掉，
+             Jackson 2 就会作为 elasticsearch-java 的传递依赖回来。实际不会——
+             elasticsearch-java 的 pom 里【一个 jackson 字样都没有】（grep 计数 0），
+             它把 JSON 映射实现完全交给使用方选（Jackson 2 或 JSON-B），所以必须显式声明。
+             "删掉 exclusion" 和 "显式声明" 在这里不是一回事。
+
+             和上面那三处 Jackson 炸点的区别要说清楚：那三处是【我们自己的代码】用了带 2
+             的 Spring 类，改成不带 2 的 Jackson 3 版本就行；这一处是【第三方库本身】只支持
+             Jackson 2，没有可换的目标，只能把 Jackson 2 加回来。
+             这样做是安全的：Jackson 2 的包名是 com.fasterxml.jackson.*、Jackson 3 是
+             tools.jackson.*，Maven 坐标也不同（com.fasterxml.jackson.core vs
+             tools.jackson.core），两代可以在同一个 classpath 上共存——这正是 Jackson 3
+             重命名整个包结构的目的。运行时分工也很清晰：Spring MVC 的 HTTP 序列化走
+             Jackson 3，ES 客户端内部走 Jackson 2，互不干扰。
+
+             不写版本号：Boot 4 的 BOM 同时 import 了两个 jackson-bom
+             （com.fasterxml.jackson:jackson-bom 2.21.5 和 tools.jackson:jackson-bom 3.1.5），
+             版本由它统一管。另外注意 jackson-annotations 只有 2.x 这一条线，Jackson 3 也
+             依赖它，所以两代共用同一个注解 artifact，不会冲突。 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
         <!-- ES Java 客户端需要一个 JSON-P（jakarta.json）实现 -->
         <dependency>
