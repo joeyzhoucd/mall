@@ -3,17 +3,6 @@ server:
 spring:
   application:
     name: mall-thirdparty
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000  # 
-        readTimeout: 5000     # 
-        loggerLevel: full     # basicheadersfull 
-  httpclient:
-    enabled: true          #  Apache HttpClient 
-    max-connections: 200  # 
-    max-connections-per-route: 50  # 
 aliyun:
   oss:
     endpoint: ${OSS_ENDPOINT:oss-cn-chengdu.aliyuncs.com}

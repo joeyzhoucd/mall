@@ -12,15 +12,3 @@ spring:
 elasticsearch:
   host: ${ES_HOST:192.168.77.102}
   port: ${ES_PORT:9200}
-
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000  # 
-        readTimeout: 5000     # 
-        loggerLevel: full     # basicheadersfull 
-  httpclient:
-    enabled: true          #  Apache HttpClient 
-    max-connections: 200  # 
-    max-connections-per-route: 50  #

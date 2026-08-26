@@ -98,6 +98,18 @@
             </exclusions>
         </dependency>
 
+        <!-- Feign 的 Apache HttpClient 5 客户端实现，为了连接池。
+             原来是靠 httpclient 4.5.13 + feign.httpclient.enabled=true 启用 HC4 池化的
+             （200 连接 / 每路由 50）。新版 OpenFeign 已经完全移除 HttpClient 4 支持，
+             而且 starter 默认不带任何 HTTP 客户端实现——不显式加这个的话 Feign 会退回
+             JDK 的 HttpURLConnection，没有连接池，秒杀热路径上每次跨服务调用都要新建
+             TCP 连接，是实质性的性能退化。另外新版没有 enabled 开关了，是"依赖在就启用"。
+             版本由 Spring Cloud BOM 管理。 -->
+        <dependency>
+            <groupId>io.github.openfeign</groupId>
+            <artifactId>feign-hc5</artifactId>
+        </dependency>
+
         <!-- 服务发现从 Nacos 换成 Consul（HashiCorp，国际主流）。
              @EnableDiscoveryClient / @FeignClient("mall-xxx") / 网关的 lb:// 路由
              写法都不用改——Consul 同样提供 DiscoveryClient 和 ReactiveDiscoveryClient

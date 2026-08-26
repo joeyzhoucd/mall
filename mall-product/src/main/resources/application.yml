@@ -33,14 +33,3 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000
-        readTimeout: 5000
-        loggerLevel: full
-  httpclient:
-    enabled: true
-    max-connections: 200
-    max-connections-per-route: 50
