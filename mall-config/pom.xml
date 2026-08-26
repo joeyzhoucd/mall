@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.mall</groupId>
+        <artifactId>mall</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+    <groupId>com.mall</groupId>
+    <artifactId>mall-config</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>mall-config</name>
+    <description>Spring Cloud Config Server（替代原来的 Nacos 配置中心）</description>
+
+    <!--
+      注意这个模块故意【不依赖 mall-common】。
+      mall-common 里有 spring-cloud-starter-config（配置中心的客户端），如果 mall-config
+      也继承了它，这个服务启动时会试图向"自己"拉配置——自己还没起来，形成循环依赖。
+      所以这里只声明真正需要的东西，actuator 和指标也单独引，不走 mall-common。
+      这也符合它的定位：它是基础设施，不是业务服务。
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-config-server</artifactId>
+        </dependency>
+
+        <!-- 健康检查（K8s 探针 + 其他服务判断它起来了没）和 Prometheus 指标 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

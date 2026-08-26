@@ -2,7 +2,7 @@ package com.mall.product.config;
 
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
-import org.redisson.codec.JsonJacksonCodec;
+import org.redisson.codec.JsonJackson3Codec;
 import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -28,7 +28,7 @@ public class RedissonConfig {
                 .setAddress("redis://" + redisHost + ":" + redisPort)
                 .setDatabase(0);
         // 使用 JSON 序列化
-        config.setCodec(new JsonJacksonCodec());
+        config.setCodec(new JsonJackson3Codec());
 
         return Redisson.create(config);
     }

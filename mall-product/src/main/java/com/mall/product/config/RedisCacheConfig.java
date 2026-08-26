@@ -6,7 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
@@ -22,7 +23,10 @@ public class RedisCacheConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        GenericJackson2JsonRedisSerializer valueSerializer = new GenericJackson2JsonRedisSerializer();
+        // 类名不带 2 的才是 Jackson 3 实现（Boot 4 默认只带 Jackson 3）。带 2 的那个会在
+        // 运行时抛 NoClassDefFoundError: com/fasterxml/jackson/databind/jsontype/TypeResolverBuilder，
+        // 而且编译期完全看不出来——详见 mall-session-starter 里同一个坑的说明。
+        GenericJacksonJsonRedisSerializer valueSerializer = new GenericJacksonJsonRedisSerializer(new ObjectMapper());
 
         RedisCacheConfiguration baseConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))

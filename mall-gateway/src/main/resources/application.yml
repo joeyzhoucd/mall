@@ -3,6 +3,18 @@ server:
 spring:
   application:
     name: mall-gateway
+  # 从 Config Server 拉配置。用 spring.config.import 而不是旧的 bootstrap.yml——
+  # Boot 2.4 起这就是官方推荐的方式（Config Data API），不需要 bootstrap 上下文。
+  #
+  # optional: 前缀很关键：Config Server 没起来时服务照常启动（用本地配置兜底），
+  # 不加的话 Helm chart 里没有任何启动顺序编排，10 个服务会一起 crashloop 直到
+  # mall-config 就绪。代价是"配置中心在但返回空内容"这种情况会静默地退回本地默认值，
+  # 所以别把只存在于 Config Server 里的关键配置设计成没有本地兜底。
+  #
+  # 地址直接用 K8s 的 Service DNS，不走服务发现——配置中心是启动阶段就要用的东西，
+  # 再加一层"先查注册中心"只是多一个启动顺序依赖，而 Service 名本身就是稳定入口。
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URI:http://localhost:8888}
   redis:
     # 只给 RequestRateLimiter 限流用，跟其他服务复用同一个 Redis 实例，不是单独一份数据。
     host: ${REDIS_HOST:192.168.77.100}

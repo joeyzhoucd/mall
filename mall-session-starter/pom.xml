@@ -24,6 +24,15 @@
             <groupId>org.springframework.session</groupId>
             <artifactId>spring-session-data-redis</artifactId>
         </dependency>
+        <!-- Session 存 Redis 用 JSON 序列化，需要 Jackson 3 的 ObjectMapper
+             （GenericJacksonJsonRedisSerializer 的构造参数）。spring-data-redis
+             对 Jackson 的依赖是 optional 的，不会传递过来，得显式声明。
+             注意 groupId 是 tools.jackson.core（Jackson 3），不是老的
+             com.fasterxml.jackson.core；版本由 Boot BOM 管理。 -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>

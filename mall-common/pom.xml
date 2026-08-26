@@ -110,6 +110,23 @@
             <artifactId>feign-hc5</artifactId>
         </dependency>
 
+        <!-- 配置中心客户端（Spring Cloud Config），替代原来的 nacos-config。
+             注意这个依赖有个"硬失败"的副作用：它一旦在 classpath 上，
+             ConfigServerConfigDataMissingEnvironmentPostProcessor 就会要求每个应用
+             必须有 spring.config.import 配置，否则启动直接报
+             "No spring.config.import property has been defined" 并退出。
+             所以这个依赖和 10 个服务 application.yml 里的 spring.config.import
+             必须在同一个提交里落地，不能分两步。
+             这个硬失败是好事——以后新加服务忘了配就会立刻炸，而不是静默地读不到
+             配置。这次迁移里踩了太多"不报错但功能不生效"的坑，宁愿它响一点。
+             另外没有用旧的 bootstrap 上下文（Boot 2.4+ 的标准做法是
+             spring.config.import 这个 Config Data API），所以
+             spring-cloud-starter-bootstrap 已经删掉了。 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-config</artifactId>
+        </dependency>
+
         <!-- 服务发现从 Nacos 换成 Consul（HashiCorp，国际主流）。
              @EnableDiscoveryClient / @FeignClient("mall-xxx") / 网关的 lb:// 路由
              写法都不用改——Consul 同样提供 DiscoveryClient 和 ReactiveDiscoveryClient

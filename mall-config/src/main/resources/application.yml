@@ -1,0 +1,34 @@
+server:
+  port: 8888
+spring:
+  application:
+    name: mall-config
+  profiles:
+    # native = 从本地文件系统读配置，而不是从 git 仓库读。
+    #
+    # 为什么不用 git 后端（Spring Cloud Config 最常见的用法）：
+    # 1. 配置文件本来就在 mall-deploy 仓库里，通过 Helm 渲染成 ConfigMap 挂进来——
+    #    这样它自动继承了现有的 ArgoCD GitOps 流程（改配置 = 提交 mall-deploy =
+    #    ArgoCD 同步），不需要在集群里存 Gitee 的凭证。
+    # 2. mall-deploy 的 master 分支被 CI 反复写入（每次后端构建都会自动改镜像 tag
+    #    并 push），人工的配置提交跟 CI 的自动提交会撞车。让 Config Server 自己去
+    #    clone 这个分支只会把这个冲突面放大。
+    # 以后真要换成 git 后端，只改这里的 profile 和几行配置，客户端一行都不用动。
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          # 必须带 file: 前缀。不带的话 Spring 会当成 classpath 路径去找，
+          # 找不到也不报错，只是返回空的属性源——静默失效。
+          search-locations: file:${CONFIG_REPO_PATH:/config-repo}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true

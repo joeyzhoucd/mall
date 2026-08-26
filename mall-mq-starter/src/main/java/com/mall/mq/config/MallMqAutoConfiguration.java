@@ -9,7 +9,7 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -24,7 +24,9 @@ public class MallMqAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public MessageConverter messageConverter() {
-        return new Jackson2JsonMessageConverter();
+        // 同样的规律：类名不带 2 的才是 Jackson 3 实现。MQ 消息的序列化如果还用带 2 的，
+        // 发消息时会因为 Jackson 2 不在 classpath 上而失败。
+        return new JacksonJsonMessageConverter();
     }
 
     @Bean
