@@ -15,10 +15,17 @@ spring:
   # 再加一层"先查注册中心"只是多一个启动顺序依赖，而 Service 名本身就是稳定入口。
   config:
     import: optional:configserver:${CONFIG_SERVER_URI:http://localhost:8888}
-  redis:
-    # 只给 RequestRateLimiter 限流用，跟其他服务复用同一个 Redis 实例，不是单独一份数据。
-    host: ${REDIS_HOST:192.168.77.100}
-    port: ${REDIS_PORT:6379}
+  # Redis 连接参数的属性前缀必须是 spring.data.redis.*，不能写 spring.redis.*。
+  # 后者从 Boot 3.0 起就【不再绑定】了（元数据里标的是 deprecation level=error，
+  # 留着只为了让迁移工具能提示你它没了），写了不报错、也没有警告，Boot 的
+  # RedisConnectionFactory 会直接回落到 localhost:6379。
+  # 这个坑比编译错误难查得多：pod 是绿的（默认 readiness 分组只看 readinessState，
+  # 不含 redis 健康指示器），要等到真正读写 Session / 缓存 / 限流计数时才报连不上。
+  data:
+    redis:
+      # 只给 RequestRateLimiter 限流用，跟其他服务复用同一个 Redis 实例，不是单独一份数据。
+      host: ${REDIS_HOST:192.168.77.100}
+      port: ${REDIS_PORT:6379}
   cloud:
     gateway:
       routes:

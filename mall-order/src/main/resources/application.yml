@@ -1,10 +1,5 @@
 server:
   port: 9000
-  servlet:
-    encoding:
-      charset: UTF-8
-      enabled: true
-      force: true
 spring:
   application:
     name: mall-order
@@ -20,14 +15,30 @@ spring:
   # 再加一层"先查注册中心"只是多一个启动顺序依赖，而 Service 名本身就是稳定入口。
   config:
     import: optional:configserver:${CONFIG_SERVER_URI:http://localhost:8888}
+  # 请求/响应编码。属性前缀从 server.servlet.encoding.* 改成了
+  # spring.servlet.encoding.*（Boot 3.0 起，deprecation level=error）。
+  # 同样是静默失效：写旧前缀不报错，但 force/charset 完全不生效，
+  # 表单提交的中文会按容器默认编码解析，直接变乱码。
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
   datasource:
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
     url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_oms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
     driver-class-name: com.mysql.cj.jdbc.Driver
-  redis:
-    host: ${REDIS_HOST:192.168.77.100}
-    port: ${REDIS_PORT:6379}
+  # Redis 连接参数的属性前缀必须是 spring.data.redis.*，不能写 spring.redis.*。
+  # 后者从 Boot 3.0 起就【不再绑定】了（元数据里标的是 deprecation level=error，
+  # 留着只为了让迁移工具能提示你它没了），写了不报错、也没有警告，Boot 的
+  # RedisConnectionFactory 会直接回落到 localhost:6379。
+  # 这个坑比编译错误难查得多：pod 是绿的（默认 readiness 分组只看 readinessState，
+  # 不含 redis 健康指示器），要等到真正读写 Session / 缓存 / 限流计数时才报连不上。
+  data:
+    redis:
+      host: ${REDIS_HOST:192.168.77.100}
+      port: ${REDIS_PORT:6379}
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
