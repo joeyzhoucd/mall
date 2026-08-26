@@ -15,4 +15,29 @@
     </resultMap>
 
 
+    <!-- 状态机的 CAS 推进。lock_status = #{from} 这个条件就是并发闸门：
+         多个执行流同时来推进同一条明细时，只有一个能影响到 1 行，其余影响 0 行。
+         调用方必须【按返回值决定是否继续】，不能忽略返回值。 -->
+    <update id="casLockStatus">
+        UPDATE wms_ware_order_task_detail
+           SET lock_status = #{to}
+         WHERE id = #{id}
+           AND lock_status = #{from}
+    </update>
+
+
+    <!-- 只更新 retry_count 一列，绝不整行覆盖 —— 整行覆盖会把内存里过期的
+         lock_status 一起写回去，把别人已经推进的状态改回 LOCKED。 -->
+    <update id="incrementRetryIfLocked">
+        UPDATE wms_ware_order_task_detail
+           SET retry_count = retry_count + 1
+         WHERE id = #{id}
+           AND lock_status = 1
+    </update>
+
+    <update id="resetRetryCount">
+        UPDATE wms_ware_order_task_detail
+           SET retry_count = 0
+         WHERE id = #{id}
+    </update>
 </mapper>

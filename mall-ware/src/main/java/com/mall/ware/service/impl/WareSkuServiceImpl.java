@@ -40,6 +40,15 @@ import java.util.Map;
 public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> implements WareSkuService {
 
     @Autowired
+    private com.mall.ware.dao.WareSkuDao wareSkuDao;
+
+    @Autowired
+    private com.mall.ware.dao.WareOrderTaskDetailDao wareOrderTaskDetailDao;
+
+    @Autowired
+    private com.mall.ware.service.StockAtomicOps stockAtomicOps;
+
+    @Autowired
     private WareOrderTaskService wareOrderTaskService;
 
     @Autowired
@@ -111,9 +120,8 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             entity.setStockLocked(0);
             this.save(entity);
         } else {
-            int newStock = (exist.getStock() == null ? 0 : exist.getStock()) + (skuNum == null ? 0 : skuNum);
-            exist.setStock(newStock);
-            this.updateById(exist);
+            // 相对增量，避免两个收货单同时入库同一个 sku 时丢更新。
+            wareSkuDao.addStockById(exist.getId(), skuNum == null ? 0 : skuNum);
         }
     }
 
@@ -133,23 +141,34 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             if (item == null || item.getSkuId() == null || item.getCount() == null) {
                 continue;
             }
+            // 原来这里是「查出所有仓库 → 在内存里判断 stock - locked >= count → 选中后写回」。
+            // 那是典型的 check-then-act 超卖：判断和写入之间没有任何保护，两个并发下单
+            // 可以同时通过同一份可用库存的检查，各自把 stock_locked 写成自己算出来的值，
+            // 结果锁定量小于实际卖出量，也就是超卖。而且这个问题不需要多副本就会出现。
+            //
+            // 现在改成：候选仓库仍然要查（需要知道有哪些行、按什么顺序尝试），但
+            // 【判断交给数据库】—— lockStock 把 stock - stock_locked >= count 写进 WHERE，
+            // 加法写成相对表达式，一条语句一把行锁。影响 0 行就说明这个仓库不够，
+            // 换下一个继续试；全部试完都不够才算失败。
+            // 注意查询只用来枚举候选，真正的裁决权在 UPDATE 的影响行数上——
+            // 如果拿查询结果去决定「哪些仓库值得试」，就又退回 check-then-act 了。
             List<WareSkuEntity> wareSkus = this.list(new QueryWrapper<WareSkuEntity>().eq("sku_id", item.getSkuId()));
             WareSkuEntity matched = null;
-            for (WareSkuEntity wareSku : wareSkus) {
-                int stock = wareSku.getStock() == null ? 0 : wareSku.getStock();
-                int locked = wareSku.getStockLocked() == null ? 0 : wareSku.getStockLocked();
-                if (stock - locked >= item.getCount()) {
-                    matched = wareSku;
-                    break;
+            if (wareSkus != null) {
+                for (WareSkuEntity wareSku : wareSkus) {
+                    if (wareSku == null || wareSku.getId() == null) {
+                        continue;
+                    }
+                    if (wareSkuDao.lockStock(wareSku.getId(), item.getCount()) == 1) {
+                        matched = wareSku;
+                        break;
+                    }
                 }
             }
             if (matched == null) {
                 rollbackLockedItems(lockedDetails, lockedWares);
                 return false;
             }
-            int locked = matched.getStockLocked() == null ? 0 : matched.getStockLocked();
-            matched.setStockLocked(locked + item.getCount());
-            this.updateById(matched);
 
             WareOrderTaskDetailEntity detailEntity = new WareOrderTaskDetailEntity();
             detailEntity.setSkuId(item.getSkuId());
@@ -169,24 +188,18 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             if (lockedSku == null || lockedSku.getWareSkuId() == null || lockedSku.getCount() == null) {
                 continue;
             }
-            WareSkuEntity current = this.getById(lockedSku.getWareSkuId());
-            if (current == null) {
-                continue;
-            }
-            int locked = current.getStockLocked() == null ? 0 : current.getStockLocked();
-            int newLocked = locked - lockedSku.getCount();
-            if (newLocked < 0) {
-                newLocked = 0;
-            }
-            current.setStockLocked(newLocked);
-            this.updateById(current);
+            // 回滚时我们确切知道刚才锁的是哪一行（lockedWares 里记了 ware_sku 主键），
+            // 所以按主键做原子释放。条件 stock_locked >= count 保证不会减成负数。
+            wareSkuDao.releaseLockedById(lockedSku.getWareSkuId(), lockedSku.getCount());
         }
         for (WareOrderTaskDetailEntity detail : lockedDetails) {
             if (detail == null || detail.getId() == null) {
                 continue;
             }
-            detail.setLockStatus(StockLockStatus.UNLOCKED);
-            wareOrderTaskDetailService.updateById(detail);
+            // 这里其实可以证明是单一所有者（明细刚由本线程在同一个事务里创建，
+            // 外界还看不到这笔订单），但仍然用 CAS：让「推进明细状态」在整个模块里
+            // 只有一种写法，避免以后有人照着这行复制出一个真的有并发的整行写回。
+            wareOrderTaskDetailDao.casLockStatus(detail.getId(), StockLockStatus.LOCKED, StockLockStatus.UNLOCKED);
         }
     }
 
@@ -344,9 +357,12 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
         if (StockLockStatus.FAILED != detailEntity.getLockStatus()) {
             return false;
         }
-        detailEntity.setRetryCount(0);
-        detailEntity.setLockStatus(StockLockStatus.LOCKED);
-        wareOrderTaskDetailService.updateById(detailEntity);
+        // 后台手动重试：把 FAILED 改回 LOCKED 也用 CAS，避免两个运维同时点重试、
+        // 或者点重试的同时重试任务正在处理这条明细。抢不到就直接返回 false。
+        if (wareOrderTaskDetailDao.casLockStatus(detailEntity.getId(), StockLockStatus.FAILED, StockLockStatus.LOCKED) == 0) {
+            return false;
+        }
+        wareOrderTaskDetailDao.resetRetryCount(detailEntity.getId());
 
         WareOrderTaskEntity taskEntity = wareOrderTaskService.getById(detailEntity.getTaskId());
         if (taskEntity == null || taskEntity.getOrderSn() == null) {
@@ -407,15 +423,32 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
         }
     }
 
+    /**
+     * 累加重试次数，达到上限则把明细标为 FAILED 并发一条失败消息。
+     * <p>
+     * 三处都改成了原子操作，原因见 WareOrderTaskDetailDao 上的注释。最关键的是
+     * 不能再用 updateById 整行写回 —— 那会把内存里过期的 lock_status 一起写回去，
+     * 把别的执行流已经推进到 UNLOCKED/DEDUCTED 的明细复活成 LOCKED，
+     * 于是重试任务再处理一遍，库存被重复释放/扣减。
+     * <p>
+     * 失败消息由「赢下 LOCKED→FAILED 这次 CAS」的执行流发送，所以恰好发一次。
+     */
     private int increaseRetry(WareOrderTaskDetailEntity detailEntity) {
-        int current = detailEntity.getRetryCount() == null ? 0 : detailEntity.getRetryCount();
-        int next = current + 1;
-        detailEntity.setRetryCount(next);
-        if (next >= StockConstants.RETRY_LIMIT) {
-            detailEntity.setLockStatus(StockLockStatus.FAILED);
-            sendStockFailMessage(detailEntity);
+        Long id = detailEntity.getId();
+        if (id == null) {
+            return Integer.MAX_VALUE;
         }
-        wareOrderTaskDetailService.updateById(detailEntity);
+        if (wareOrderTaskDetailDao.incrementRetryIfLocked(id) == 0) {
+            // 明细已经不是 LOCKED，说明别人处理完了，本次不该再累加也不该再往下走
+            return Integer.MAX_VALUE;
+        }
+        WareOrderTaskDetailEntity fresh = wareOrderTaskDetailDao.selectById(id);
+        int next = (fresh == null || fresh.getRetryCount() == null) ? 0 : fresh.getRetryCount();
+        if (next >= StockConstants.RETRY_LIMIT) {
+            if (wareOrderTaskDetailDao.casLockStatus(id, StockLockStatus.LOCKED, StockLockStatus.FAILED) == 1) {
+                sendStockFailMessage(fresh);
+            }
+        }
         return next;
     }
 
@@ -430,43 +463,27 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
         );
     }
 
+    /**
+     * 释放锁定的库存。
+     * <p>
+     * 原来的写法有两个并发问题，都不需要多副本就会出现（RabbitMQ 监听线程本身并发）：
+     * 一是取 wareSkus.get(0) 之后在内存里读-改-写再整行覆盖，两个不同订单同时释放会丢更新；
+     * 二是调用方那句 lockStatus != LOCKED 就返回的判断和这里的写入之间没有保护，
+     * 两个执行流可以同时通过，同一笔明细被处理两次。
+     * <p>
+     * 现在整个操作交给 StockAtomicOps：先 CAS 推进明细状态抢处理权，再做原子条件更新，
+     * 两步在一个事务里。返回 false 表示这条明细已经被别人处理过，本次调用什么都不该做。
+     */
     private void unlockStockByDetail(StockReleaseItemTo itemTo, WareOrderTaskDetailEntity detailEntity) {
-        List<WareSkuEntity> wareSkus = this.list(new QueryWrapper<WareSkuEntity>().eq("sku_id", itemTo.getSkuId()));
-        if (wareSkus == null || wareSkus.isEmpty()) {
-            return;
-        }
-        WareSkuEntity target = wareSkus.get(0);
-        int locked = target.getStockLocked() == null ? 0 : target.getStockLocked();
-        int newLocked = locked - itemTo.getCount();
-        if (newLocked < 0) {
-            newLocked = 0;
-        }
-        target.setStockLocked(newLocked);
-        this.updateById(target);
-        detailEntity.setLockStatus(StockLockStatus.UNLOCKED);
-        wareOrderTaskDetailService.updateById(detailEntity);
+        stockAtomicOps.unlock(detailEntity.getId(), itemTo.getSkuId(), itemTo.getCount());
     }
 
+    /**
+     * 扣减库存（订单已支付）。问题和修法同 {@link #unlockStockByDetail}，
+     * 但这里的后果更严重：原写法在两个执行流的读写交错时（A 读 100 写 98，
+     * B 读 98 写 96）会把真实库存扣两次，也就是凭空少掉一份货。
+     */
     private void deductStockByDetail(StockReleaseItemTo itemTo, WareOrderTaskDetailEntity detailEntity) {
-        List<WareSkuEntity> wareSkus = this.list(new QueryWrapper<WareSkuEntity>().eq("sku_id", itemTo.getSkuId()));
-        if (wareSkus == null || wareSkus.isEmpty()) {
-            return;
-        }
-        WareSkuEntity target = wareSkus.get(0);
-        int locked = target.getStockLocked() == null ? 0 : target.getStockLocked();
-        int stock = target.getStock() == null ? 0 : target.getStock();
-        int newLocked = locked - itemTo.getCount();
-        int newStock = stock - itemTo.getCount();
-        if (newLocked < 0) {
-            newLocked = 0;
-        }
-        if (newStock < 0) {
-            newStock = 0;
-        }
-        target.setStockLocked(newLocked);
-        target.setStock(newStock);
-        this.updateById(target);
-        detailEntity.setLockStatus(StockLockStatus.DEDUCTED);
-        wareOrderTaskDetailService.updateById(detailEntity);
+        stockAtomicOps.deduct(detailEntity.getId(), itemTo.getSkuId(), itemTo.getCount());
     }
 }

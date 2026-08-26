@@ -13,4 +13,52 @@
         <result property="stockLocked" column="stock_locked"/>
     </resultMap>
 
+    <!-- 下面四条都是原子条件更新，判断条件在 WHERE 里、加减是相对表达式。
+         关键点：绝不用 SET stock_locked = #{已经在内存里算好的值}，那等于把
+         "读到的旧值"当成事实写回去，两个并发请求就会互相覆盖。 -->
+
+    <!-- 锁库存。stock - stock_locked 是可用库存，条件不满足则影响 0 行。 -->
+    <update id="lockStock">
+        UPDATE wms_ware_sku
+           SET stock_locked = stock_locked + #{count}
+         WHERE id = #{id}
+           AND stock - stock_locked &gt;= #{count}
+    </update>
+
+    <!-- 按主键释放锁定，用于锁定过程中途失败的回滚。 -->
+    <update id="releaseLockedById">
+        UPDATE wms_ware_sku
+           SET stock_locked = stock_locked - #{count}
+         WHERE id = #{id}
+           AND stock_locked &gt;= #{count}
+    </update>
+
+    <!-- 按 sku 释放锁定。ORDER BY id 保证多行时选取顺序确定，LIMIT 1 保证只释放一份。 -->
+    <update id="releaseLockedBySku">
+        UPDATE wms_ware_sku
+           SET stock_locked = stock_locked - #{count}
+         WHERE sku_id = #{skuId}
+           AND stock_locked &gt;= #{count}
+         ORDER BY id
+         LIMIT 1
+    </update>
+
+    <!-- 扣减：真实库存和锁定量同时减，两个条件都必须满足。 -->
+    <update id="deductStockBySku">
+        UPDATE wms_ware_sku
+           SET stock = stock - #{count},
+               stock_locked = stock_locked - #{count}
+         WHERE sku_id = #{skuId}
+           AND stock_locked &gt;= #{count}
+           AND stock &gt;= #{count}
+         ORDER BY id
+         LIMIT 1
+    </update>
+
+    <!-- 采购入库的相对增量。 -->
+    <update id="addStockById">
+        UPDATE wms_ware_sku
+           SET stock = stock + #{count}
+         WHERE id = #{id}
+    </update>
 </mapper>
