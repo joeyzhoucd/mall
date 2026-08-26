@@ -31,8 +31,10 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>21</java.version>
         <mall.version>0.0.1-SNAPSHOT</mall.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <!-- 这里原来还有 maven.compiler.source/target=21。它们【不起作用】
+             （被 settings.xml 的 jdk-1.8 profile 覆盖成 1.8，见下面 compiler 插件的说明），
+             留着只会让人以为语言级别是在这里控制的，所以删掉。
+             真正生效的是 maven-compiler-plugin 里字面量的 <release>21</release>。 -->
         <!-- Boot 4.1 是当前受支持的版本线（3.5 已于 2026-06-30 结束开源支持）。
              Boot 4 基于 Spring Framework 7，要求 Java 17+，这里用 Java 21（当前生产
              环境主流 LTS，虚拟线程从 21 起可用）。 -->
@@ -108,8 +110,27 @@
                 <version>3.8.1</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
-                    <source>${maven.compiler.source}</source>
-                    <target>${maven.compiler.target}</target>
+                    <!-- 用字面量 21 的 <release>，而不是 <source>/<target> 加属性引用。
+                         两个原因：
+
+                         1) 属性引用会被 settings.xml 里的 profile 覆盖，而且覆到就静默生效。
+                            本机 Maven 安装目录的 conf/settings.xml 里有个 id=jdk-1.8 的 profile，
+                            带 <activeByDefault>true</activeByDefault>（跟 JDK 版本无关，一直生效），
+                            里面把 maven.compiler.source/target 设成 1.8。settings.xml 的 profile
+                            属性优先级高于 pom 属性，所以本 pom 里写 21 也没用 ——
+                            实测 help:evaluate 求出来是 1.8，编译器报的是 source 8。
+                            后果是【本地按 Java 8 语言级别编译，CI（GitHub Actions 用默认 settings）
+                            按 21 编译】，同一份代码两边的语言级别不一样：本地写不了 record、
+                            var、switch 表达式，而 CI 能过；反过来别人在 CI 上加的新语法，
+                            本地构建会突然编不过。字面量不受 settings.xml 影响。
+                            没有去改那个 settings.xml：它是这台机器的全局配置，会影响其他项目，
+                            修在自己的 pom 里才是自包含的做法。
+
+                         2) release 参数比 source/target 更严格也更正确：它同时限定语言级别和
+                            【可用的 JDK API 集合】。而 source/target 只管语法，API 仍然是当前 JDK 的
+                            全集，于是可能编出「本地 JDK 能编、目标运行时没这个 API」的产物。
+                            既然要求 Java 21，就用 release 一次说清。 -->
+                    <release>21</release>
                     <!-- -parameters：把方法参数名写进 class 文件。这是必须的，不是可选优化。
                          Spring 在"一个注入点有多个候选 bean"时按【参数名】匹配 bean 名。
                          Spring Framework 6.1 之前，参数名拿不到还能退回去读字节码里的
@@ -130,6 +151,31 @@
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <!-- 必须显式 pin 版本。本项目不继承 spring-boot-starter-parent（只 import 了
+                     spring-boot-dependencies 这个 BOM），而【通过 import 引入的 BOM 只带
+                     dependencyManagement，不带 pluginManagement 也不带 properties】——
+                     Boot 4.1.1 的 BOM 里其实写了 maven-surefire-plugin.version=3.5.6，
+                     但那在它的 pluginManagement 里，import 拿不到。
+                     于是 surefire 回落到 Maven 3.8.4 自带的默认值 2.12.4（2012 年的版本）。
+
+                     后果非常隐蔽：surefire 的 JUnit Platform 支持是 2.22.0 才加的，
+                     2.12.4 【认不出任何 JUnit 5 测试】。它不会报错，只是一个测试都不执行，
+                     然后 mvn 照常打印 BUILD SUCCESS。也就是说在 pin 版本之前，
+                     这个项目写多少 JUnit 5 测试都等于没写，而且看不出来。
+                     （之前一直用 -DskipTests 构建，所以从没暴露。）
+                     版本对齐 Boot 4.1.1 BOM 声明的 3.5.6。 -->
+                <version>3.5.6</version>
+                <configuration>
+                    <!-- 默认跳过打了 @Tag("integration") 的测试：那些需要真实的 MySQL/Redis/
+                         RabbitMQ/Consul/Elasticsearch，本机没有 Docker Desktop，跑不起来。
+                         用 -Pintegration 才会带上它们（后续会改造成 Testcontainers 在 CI 里跑）。
+                         这样默认的 mvn test 只跑不依赖外部环境的测试，秒级完成、随时可跑。 -->
+                    <excludedGroups>integration</excludedGroups>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring.boot.version}</version>
@@ -141,4 +187,25 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- mvn test -Pintegration：把集成测试也跑上。
+             这些测试需要真实的中间件，目前只在 CI 里有意义（本机没有 Docker Desktop，
+             见项目文档）。后续会把它们改成用 Testcontainers 自带环境。 -->
+        <profile>
+            <id>integration</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <!-- 清空默认的排除，让 integration 标签的测试也跑 -->
+                            <excludedGroups></excludedGroups>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

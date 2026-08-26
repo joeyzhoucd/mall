@@ -20,16 +20,13 @@ spring:
     password: ${MYSQL_PASSWORD:root}
     url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_ums?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
     driver-class-name: com.mysql.cj.jdbc.Driver
-  # Redis 连接参数的属性前缀必须是 spring.data.redis.*，不能写 spring.redis.*。
-  # 后者从 Boot 3.0 起就【不再绑定】了（元数据里标的是 deprecation level=error，
-  # 留着只为了让迁移工具能提示你它没了），写了不报错、也没有警告，Boot 的
-  # RedisConnectionFactory 会直接回落到 localhost:6379。
-  # 这个坑比编译错误难查得多：pod 是绿的（默认 readiness 分组只看 readinessState，
-  # 不含 redis 健康指示器），要等到真正读写 Session / 缓存 / 限流计数时才报连不上。
-  data:
-    redis:
-      host: ${REDIS_HOST:192.168.77.100}
-      port: ${REDIS_PORT:6379}
+  # 这里原来有一整段 Redis 连接配置。删掉了：mall-member 的 classpath 上【没有任何
+  # Redis 相关依赖】（jar 里没有 spring-boot-data-redis / spring-data-redis / lettuce），
+  # 代码里也完全没有用到 RedisTemplate / 缓存 / Session。那段配置从原项目复制过来之后
+  # 一直是死的，只是看起来像在配 Redis。
+  # 这是 ConfigMetadataTest 第一次运行就抓出来的：属性名 spring.data.redis.* 本身是对的，
+  # 但在这个模块的 classpath 上没有任何依赖定义它，所以判定为 UNKNOWN。
+  # 也就是说这个检查同时能发现两类问题：属性名写错了，以及属性名没错但这个模块用不上它。
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
