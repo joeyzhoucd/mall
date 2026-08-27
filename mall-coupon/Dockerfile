@@ -24,6 +24,12 @@ RUN mvn -pl mall-coupon -am -DskipTests package -q
 # 「更新镜像 tag 到 mall-deploy」那一步，于是整个部署停摆 —— 表现却只是
 # 「CI 跑了 40 分钟没有任何产出」，完全不指向某个配置属性被移除了。
 #
+# 【timeout 240 是兜底】退出机制万一又失效（配置属性被上游移除这种事已经发生过），
+# 构建会在 4 分钟内明确失败而不是吊满 job 的 25 分钟超时：超时后拿不到归档，
+# 下面的 test -f 就会 exit 1。实测正常的训练运行约 100 秒（含写归档），4 分钟很宽裕。
+# 注意 timeout 发 SIGTERM 时【归档不会生成】（实测过），所以它只能当兜底、
+# 不能当正常的结束方式 —— 正常结束必须靠进程自己退出。
+#
 # 【训练运行失败是可以接受的】构建环境里没有 Redis / MySQL / RabbitMQ，所以依赖
 # 它们的服务会在 refresh 完成前就报错退出（例如 Spring Session 的
 # springSessionRepositoryFilter 建不起来）。这没关系：-XX:ArchiveClassesAtExit 在
@@ -45,7 +51,7 @@ WORKDIR /app
 COPY --from=build /workspace/mall-backend/mall-coupon/target/*.jar /app/app.jar
 RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
  && cd /app/extracted \
- && (java -XX:ArchiveClassesAtExit=/app/app.jsa \
+ && (timeout 240 java -XX:ArchiveClassesAtExit=/app/app.jsa \
       -cp "app.jar:lib/*" com.mall.coupon.MallCouponApplication \
       --mall.cds.training-exit=true \
       --spring.cloud.consul.enabled=false \

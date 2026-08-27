@@ -11,6 +11,19 @@ on:
 
 # packages: write 是推镜像到 ghcr.io 必须的权限;GITHUB_TOKEN 是仓库自带的,
 # 不用额外去生成 PAT、不用存 secret。
+# 【并发组】新的 push 取消同一分支上还在跑的旧运行。
+#
+# 加这个是因为真出过事：2026-08-27 引入 CDS 训练运行时，训练运行因为一个失效的
+# 配置属性而永不退出，构建就一直挂着。而没有并发组，后续三次推送各起了一个新运行 ——
+# 于是【三个运行同时挂着】，最老的那个挂了 90 分钟还在占 runner。
+# GitHub 的 job 默认超时是 6 小时，所以它们本来会一直占到 6 小时。
+#
+# 对这个仓库来说取消旧运行永远是对的：只有最新提交的镜像有意义，
+# 旧提交的镜像构建出来也不会被部署（update-deploy 只写最新的 tag）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
@@ -31,6 +44,9 @@ jobs:
   # （本次 Boot 4 迁移因此踩了 5 个坑，包括网关整站 404 和链路追踪零 span）。
   test:
     runs-on: ubuntu-latest
+    # 超时必须显式写。GitHub 的默认是【6 小时】，对这个仓库毫无意义 ——
+    # 一次正常的单元测试是分钟级，卡住 20 分钟就说明出问题了，早失败早知道。
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,6 +80,13 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    # 一个矩阵项 = 一个服务的 docker build。正常大约 5-8 分钟（含 CDS 训练运行），
+    # 25 分钟还没完就是卡住了 —— 卡住的典型原因是 CDS 训练运行没能退出
+    # （见各服务 Dockerfile 里关于 mall.cds.training-exit 的注释）。
+    # 没有这个超时的话默认要挂 6 小时，而且 fail-fast: false 意味着其余矩阵项
+    # 会正常完成、只有卡住的那个吊着，最终 update-deploy 因为 needs: build 一直等 ——
+    # 表现就是「CI 跑了很久没有任何产出」，完全不指向某一个服务。
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       # 各服务独立构建,互不影响——某一个服务的 Dockerfile 写错了,
@@ -123,6 +146,8 @@ jobs:
   update-deploy:
     needs: build
     runs-on: ubuntu-latest
+    # 只是 clone + 改 values.yaml + push，分钟级。
+    timeout-minutes: 10
     steps:
       - name: Clone mall-deploy from Gitee
         run: git clone https://joeyzhoucd:${{ secrets.GITEE_TOKEN }}@gitee.com/joeyzhoucd/mall-deploy.git mall-deploy
