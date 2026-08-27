@@ -31,9 +31,10 @@ RUN mvn -pl mall-coupon -am -DskipTests package -q
 #   - spring.context.exit=onRefresh：refresh 完就退出，不跑 ApplicationRunner
 #     （所以启动预热那几个 runner 不会执行，训练运行不需要真的建连接）
 #
-# 训练运行失败不能让构建失败（|| true）：拿不到归档只是退化成没有 CDS，
-# 而运行时 -XX:SharedArchiveFile 指向不存在的文件时 JVM 默认只是警告并继续
-# （-Xshare:auto）。宁可少一层优化，不要让镜像构建变脆。
+# 训练运行本身失败不直接中断（|| true），但【拿不到归档就让构建失败】（exit 1）。
+# 取舍理由：构建失败是最响的信号。如果这里放过去，产出的镜像会悄悄跑在没有 CDS
+# 的状态下 —— 启动照样成功、只是慢，而慢有太多别的原因，几乎不可能有人想到
+# 是归档没生成。本项目反复吃过这种「静默失效」的亏，宁可让 CI 红一次。
 FROM eclipse-temurin:21-jre-jammy AS cds
 WORKDIR /app
 COPY --from=build /workspace/mall-backend/mall-coupon/target/*.jar /app/app.jar
@@ -49,7 +50,7 @@ RUN java -Djarmode=tools -jar app.jar extract --destination extracted && \
           --server.port=0 \
           > /tmp/cds-train.log 2>&1 || true) && \
     (test -f /app/app.jsa && echo "CDS 归档已生成: $(stat -c%s /app/app.jsa) 字节" \
-      || (echo "!! CDS 归档未生成，将退化为无 CDS 运行。训练日志尾部:" && tail -30 /tmp/cds-train.log))
+      || (echo "!! CDS 归档未生成。训练日志尾部:" && tail -40 /tmp/cds-train.log && exit 1))
 
 FROM eclipse-temurin:21-jre-jammy
 # WORKDIR 必须是 /app/extracted，且下面的 -cp 必须写成相对路径 —— 要和训练阶段
