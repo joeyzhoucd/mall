@@ -45,6 +45,23 @@
             <artifactId>redisson-spring-boot-starter</artifactId>
             <version>${redisson.version}</version>
         </dependency>
+
+        <!-- 自适应并发限流。静态信号量本质上是「冷启动容量」和「热态容量」之间的折中
+             （实测差一个数量级），而这两个值差这么多时任何固定值都是错的。
+             详见 AdaptiveSeckillBulkhead 的类注释。
+
+             为什么用这个库而不是 Resilience4j：Resilience4j 2.x 已经【移除】了
+             AdaptiveBulkhead（jar 里 0 个 adaptive 相关类，实测确认）。
+             Netflix concurrency-limits 是这个方向上的经典实现，Java 8 字节码、
+             唯一的传递依赖是 slf4j-api（本来到处都有），
+             跑在 Java 21 上没有兼容问题。
+             需要知道的是它维护得很轻（0.5.4 是最新版），所以两个实现都保留、
+             可以一键切回静态信号量。 -->
+        <dependency>
+            <groupId>com.netflix.concurrency-limits</groupId>
+            <artifactId>concurrency-limits-core</artifactId>
+            <version>0.5.4</version>
+        </dependency>
     </dependencies>
 
     <build>
