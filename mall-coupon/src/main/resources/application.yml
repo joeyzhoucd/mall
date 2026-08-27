@@ -1,6 +1,20 @@
 server:
   port: 10000
 spring:
+  # 开启虚拟线程：每个 HTTP 请求跑在自己的虚拟线程上，阻塞时从载体线程卸载。
+  # 秒杀链路里有两处不可避免的阻塞 —— 等 RabbitMQ 的 publisher confirm（最多 3 秒）
+  # 和查收货地址的 Feign 调用（超时 5 秒）。在平台线程模型下这两处会占住 Tomcat
+  # 那 200 个线程中的一个，所以之前不得不用「异步 servlet + 有界线程池 + TaskDecorator」
+  # 三层机制绕开；开了虚拟线程之后这三层全部删掉了（见 CouponWebConfig 的注释）。
+  #
+  # 一个必须知道的前提：本项目跑在 Java 21，虚拟线程在 synchronized 块里阻塞时
+  # 会【钉住】载体线程（JDK 24 的 JEP 491 才解决）。数据库驱动、Redis 客户端这类
+  # 库内部是否存在这种情况，静态看代码判断不了，要用运行时手段：
+  #   java -Djdk.tracePinnedThreads=short -jar app.jar
+  # 一旦发生 pinning 就会打出栈。压测时务必看一眼，别默认它一定没问题。
+  threads:
+    virtual:
+      enabled: true
   application:
     name: mall-coupon
   # 从 Config Server 拉配置。用 spring.config.import 而不是旧的 bootstrap.yml——

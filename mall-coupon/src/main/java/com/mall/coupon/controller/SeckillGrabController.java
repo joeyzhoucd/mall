@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.concurrent.Callable;
 
 /**
  * 秒杀抢购面向前台会员的接口，走 seckill.mall.com 域名（见 mall-gateway 的
@@ -30,6 +29,9 @@ import java.util.concurrent.Callable;
 public class SeckillGrabController {
 
     public static final String INTERNAL_TOKEN_HEADER = "X-Seckill-Internal-Token";
+
+    @Autowired
+    private com.mall.coupon.config.SeckillBulkhead bulkhead;
 
     @Autowired
     private SeckillGrabService seckillGrabService;
@@ -60,43 +62,45 @@ public class SeckillGrabController {
     }
 
     /**
-     * 返回 Callable 让 Spring MVC 走异步 servlet 处理：seckillGrabService.grab() 内部
-     * 要等 RabbitMQ publisher confirm（最多 3 秒），真正的等待丢给 CouponWebConfig
-     * 里配的那个有界线程池去做，Tomcat 线程立刻还给容器去服务别的请求，不会被
-     * 抢购高峰一波打满。这里没必要"提前"（这个方法的调用点）就先把 memberId/
-     * username 手动取出来再闭包传进去——CouponWebConfig.seckillAsyncExecutor 挂了
-     * UserContextTaskDecorator，登录态会自动跟着任务"跳"到线程池线程上，Callable
-     * 内部跟同步代码一样直接读 CouponInterceptor.threadLocal 就行。
+     * 抢购。
      * <p>
-     * 注意：下面 requireMemberId()==null 这个提前判断只是让没登录的请求不用真的
-     * 调一次 seckillGrabService（省一次业务逻辑），并不会省掉"提交给线程池"这一步
-     * 本身——方法返回类型是 Callable，不管里面装的是什么，Spring MVC 都会照样把它
-     * 交给异步执行器跑一遍，这个开销跳不过去，纯粹是异步 servlet 处理的机制决定的。
+     * 这个方法原来返回 Callable，走 Spring MVC 的异步 servlet 处理，为的是不让
+     * grab() 内部等 RabbitMQ publisher confirm（最多 3 秒）的那段时间占住一个 Tomcat
+     * 平台线程。阶段 8 开启虚拟线程之后这层机制不再需要：请求本身就跑在虚拟线程上，
+     * 阻塞时会从载体线程卸载，等待不消耗稀缺资源。于是这里可以退回最朴素的同步写法。
+     * <p>
+     * 顺带消掉了旧写法里一个绕不过去的开销：因为返回类型是 Callable，
+     * 即使是「未登录」这种一眼就能判掉的情况，Spring MVC 也照样要把它提交给异步执行器
+     * 跑一遍。现在直接返回即可。
+     * <p>
+     * 外面套的 {@link SeckillBulkhead} 不是顺手加的：原来那个有界线程池同时在隐式
+     * 限制在途并发（超过约 2200 就拒绝），虚拟线程把这个天花板拿掉了，必须显式补回来。
+     * 详见 SeckillBulkhead 的类注释。
      */
     @PostMapping("/grab/{relationId}")
-    public Callable<R> grab(@PathVariable("relationId") Long relationId) {
-        if (requireMemberId() == null) {
-            return () -> NOT_LOGIN;
+    public R grab(@PathVariable("relationId") Long relationId) {
+        Long memberId = requireMemberId();
+        if (memberId == null) {
+            return NOT_LOGIN;
         }
-        return () -> {
-            SeckillGrabResultVo vo = seckillGrabService.grab(relationId, requireMemberId(), requireUsername());
-            return toResponse(vo);
-        };
+        return bulkhead.call(
+                () -> toResponse(seckillGrabService.grab(relationId, memberId, requireUsername())),
+                () -> BUSY);
     }
 
     /**
      * 抢到但没有默认地址时，确认页选完地址后调用这个把订单真正建起来。
-     * 同样走异步处理，原因见 grab() 上面的注释。
+     * 同样从异步 Callable 退回同步写法，原因见 grab() 的注释。
      */
     @PostMapping("/message/{messageId}/address")
-    public Callable<R> submitAddress(@PathVariable("messageId") Long messageId, @RequestParam("addrId") Long addrId) {
-        if (requireMemberId() == null) {
-            return () -> NOT_LOGIN;
+    public R submitAddress(@PathVariable("messageId") Long messageId, @RequestParam("addrId") Long addrId) {
+        Long memberId = requireMemberId();
+        if (memberId == null) {
+            return NOT_LOGIN;
         }
-        return () -> {
-            SeckillGrabResultVo vo = seckillGrabService.submitAddress(messageId, requireMemberId(), addrId);
-            return toResponse(vo);
-        };
+        return bulkhead.call(
+                () -> toResponse(seckillGrabService.submitAddress(messageId, memberId, addrId)),
+                () -> BUSY);
     }
 
     /**
@@ -130,6 +134,13 @@ public class SeckillGrabController {
     }
 
     private static final R NOT_LOGIN = R.error(401, "请先登录");
+
+    /**
+     * 闸门拒绝时的返回。用 503 而不是 500：这不是服务出错，是主动限流，
+     * 语义上属于「暂时无法处理」。前端据此提示「当前人数过多，请稍后再试」，
+     * 监控上也能和真正的错误区分开 —— 混成 500 会让告警噪声淹没真实故障。
+     */
+    private static final R BUSY = R.error(503, "当前抢购人数过多，请稍后再试");
 
     private boolean requireInternalToken(String token) {
         return StringUtils.hasText(internalToken) && internalToken.equals(token);

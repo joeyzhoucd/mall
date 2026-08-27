@@ -2,14 +2,42 @@ package com.mall.coupon.config;
 
 import com.mall.coupon.interceptor.CouponInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Web 层装配。
+ *
+ * <h3>这里原来有一整套异步 servlet 的机制，阶段 8 换成虚拟线程之后全部删掉了</h3>
+ * 删掉的三样东西和它们当初存在的理由：
+ * <ol>
+ *   <li><b>有界线程池 seckillAsyncExecutor</b>（core 50 / max 200 / queue 2000）——
+ *       秒杀 grab()/submitAddress() 内部要等 RabbitMQ 的 publisher confirm（最多 3 秒），
+ *       当时不想让 Tomcat 那 200 个平台线程被这种等待占满。</li>
+ *   <li><b>Callable 返回值 + configureAsyncSupport</b> —— 让 Spring MVC 走异步 servlet 处理，
+ *       把等待挪到上面那个池子里。</li>
+ *   <li><b>UserContextTaskDecorator</b> —— 因为业务真正执行在池子的线程上而不是请求线程上，
+ *       ThreadLocal 里的登录态需要被显式"搬"过去。</li>
+ * </ol>
+ * 注意这三样是【一条因果链】：为了不阻塞平台线程而引入线程池，为了用上线程池而引入
+ * 异步 servlet，为了跨线程还能读到登录态而引入 TaskDecorator。
+ * 开启虚拟线程（spring.threads.virtual.enabled，见 application.yml）之后，
+ * 链条的第一环就不成立了 —— 每个请求跑在自己的虚拟线程上，阻塞时它会从载体线程上卸载，
+ * 不占用任何稀缺资源。第一环消失，后两环也就没有存在的理由，三个机制一起收敛成
+ * 「直接写同步代码」。
+ * <p>
+ * 这是虚拟线程真正的价值：不是"更快"，而是让"为了不阻塞而做的复杂设计"变得不必要。
+ * 少了一层线程切换，栈跟踪也重新变成完整的一条，排查问题容易得多。
+ *
+ * <h3>但有一件事不能跟着一起删：限流</h3>
+ * 那个有界线程池除了"别占着 Tomcat 线程"之外，还在【隐式承担并发限流】—— 在途超过
+ * 2200 个就拒绝。虚拟线程把这个天花板拿掉了，如果只是删掉线程池而不补上限流，
+ * 瓶颈会下移到数据库连接池，失败模式从"干净地拒绝"退化成"集体卡在获取连接然后一起超时"。
+ * 所以补了一个显式的 {@link SeckillBulkhead}，把原本藏在线程池尺寸里的限流变成
+ * 一个有名字、可单独调整的东西。详见那个类的注释。
+ */
 @Configuration
 public class CouponWebConfig implements WebMvcConfigurer {
 
@@ -20,42 +48,5 @@ public class CouponWebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(@NonNull InterceptorRegistry registry) {
         registry.addInterceptor(couponInterceptor).addPathPatterns("/**");
-    }
-
-    /**
-     * 秒杀抢购/提交地址这两个接口要等 RabbitMQ publisher confirm（最多 3 秒），
-     * 用 Callable 做异步 servlet 处理，让 Tomcat 的请求线程在等待期间能立刻还回
-     * 线程池服务别的请求——不然大库存量的秒杀一开抢，同一时刻的赢家数量本身就
-     * 不小，每个都占一个线程等 3 秒，默认 200 线程的池子扛不住真实的爆发流量。
-     * 单独开一个有界线程池给这部分异步处理用，不跟 Spring 默认的无界
-     * SimpleAsyncTaskExecutor 混在一起（那个是来一个任务开一个线程，爆发流量下
-     * 反而会把机器压垮）。
-     */
-    @Bean
-    public ThreadPoolTaskExecutor seckillAsyncExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(50);
-        executor.setMaxPoolSize(200);
-        executor.setQueueCapacity(2000);
-        executor.setThreadNamePrefix("seckill-async-");
-        // 让登录态（CouponInterceptor 那个 ThreadLocal）跟着任务一起"跳"到线程池
-        // 线程上，业务代码不用关心自己是不是在异步线程里跑，见 UserContextTaskDecorator
-        // 的类注释。已经反编译确认过 Spring 5.3.25 对 execute()/submit(Callable) 都会
-        // 套这层装饰，不是只对 execute() 生效。
-        executor.setTaskDecorator(new UserContextTaskDecorator());
-        executor.initialize();
-        return executor;
-    }
-
-    @Override
-    public void configureAsyncSupport(@NonNull AsyncSupportConfigurer configurer) {
-        configurer.setTaskExecutor(seckillAsyncExecutor());
-        // 这个超时要能扛住 grab() 内部最坏情况下几个阻塞调用叠加的耗时：查地址的
-        // Feign 调用（feign.client.config.default 里配的 5000ms 连接/读超时）+
-        // 等 MQ publisher confirm（最多 3 秒），两个加起来最坏能到 8 秒左右。
-        // 给到 15 秒留足余量——Spring 的默认超时行为是只提前给客户端返回超时响应，
-        // 并不会打断/取消还在跑的 Callable，超时值设太小只会让"服务端其实抢购成功了、
-        // 客户端却被告知失败"的情况更容易出现，不会让请求真的变快。
-        configurer.setDefaultTimeout(15_000);
     }
 }
