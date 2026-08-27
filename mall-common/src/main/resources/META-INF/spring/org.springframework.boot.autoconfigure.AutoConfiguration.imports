@@ -1,2 +1,2 @@
 com.mall.common.config.JacksonAutoConfiguration
-
+com.mall.common.config.MybatisPlusAutoConfiguration
