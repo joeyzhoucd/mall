@@ -108,7 +108,27 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <!-- 版本对齐 Boot 4.1.1 BOM 声明的 3.15.0。原来是 3.8.1（2019 年），
+                     它有一个会静默吞掉编译选项的行为，实际踩到了：
+
+                     3.8.1 里 -parameters 到底加不加，取决于插件的 <target> 是否 >= 1.8，
+                     而它【不看 <release>】。本 pom 为了不被 settings.xml 覆盖，把
+                     <source>/<target> 换成了字面量 <release>21</release>，于是插件的
+                     target 取自己的默认值 1.6，门槛不过，-parameters 被悄悄丢掉。
+                     javac 命令行实测对比（mvn -X）：
+                       有 -parameters：-g -parameters -nowarn （release 21） -encoding UTF-8
+                       无 -parameters：-g -nowarn （release 21） -encoding UTF-8
+
+                     本地长期没暴露纯属巧合：Maven 安装目录 conf/settings.xml 里那个
+                     activeByDefault 的 jdk-1.8 profile 把 maven.compiler.target 设成了 1.8，
+                     恰好让门槛通过。CI 没有那个 profile，于是同一份源码在 CI 编不出参数名，
+                     表现是 mall-order/mall-ware 启动时按名字注入 Queue 失败。
+                     也就是说「把 source/target 换成 release」这个本身正确的改动，
+                     在旧插件上反而关掉了另一个选项 —— 两个改动单看都对，组合起来出问题。
+
+                     BOM 的 pluginManagement 通过 import 是拿不到的（只有真正继承 parent
+                     才继承插件管理），所以这里必须自己写版本号。 -->
+                <version>3.15.0</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
                     <!-- 用字面量 21 的 <release>，而不是 <source>/<target> 加属性引用。
