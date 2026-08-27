@@ -94,6 +94,7 @@ public class SeckillBulkhead {
      *                 观测指标：seckill_bulkhead_available_permits / _capacity / _rejected
      *                 （Micrometer 会剥掉 Gauge 的 _total 后缀）。判据是拒绝率和 p95
      *                 同时可接受：长期零拒绝说明闸门形同虚设，p95 到秒级说明开太大了。
+     */
     public SeckillBulkhead(@Value("${mall.seckill.bulkhead.capacity:32}") int capacity) {
         this.capacity = capacity;
         // 非公平信号量：公平模式要维护等待队列、吞吐明显更低，而这里本来就是
