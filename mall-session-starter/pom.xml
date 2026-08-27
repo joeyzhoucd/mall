@@ -43,6 +43,15 @@
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- 这个模块之前没有任何测试。加测试的直接原因：序列化器少开一个
+             enableDefaultTyping 就会让整个会员登录态静默失效（详见
+             MallSessionAutoConfiguration 的注释），而这种错误在编译期、
+             启动期、健康检查里全都看不出来，只能靠单元测试兜住。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
 
