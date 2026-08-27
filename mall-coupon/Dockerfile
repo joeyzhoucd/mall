@@ -7,70 +7,62 @@ RUN mvn -pl mall-coupon -am -DskipTests package -q
 # ---------------------------------------------------------------------------
 # CDS（Class Data Sharing）训练阶段
 # ---------------------------------------------------------------------------
-# 目的：把「解析 class 文件、构建元数据」这部分启动成本挪到镜像构建期。
-# 做法是在构建时空跑一次应用，把加载过的类导出成共享归档（.jsa），
-# 运行时 JVM 直接 mmap 这份归档，不用再逐个解析。
+# 把「解析 class 文件、构建元数据」的启动成本挪到镜像构建期：构建时空跑一次应用，
+# 导出共享归档（.jsa），运行时 JVM 直接 mmap，不再逐个解析。
 #
-# 【必须用 -cp 而不是 -jar】—— 这是本地实测出来的关键点：
-#   -jar 形式（Spring Boot 启动器）: 归档命中率只有 10%（1310/12700 个类）
-#   -cp  形式（标准 classpath）    : 命中率 95%（12011/12513 个类）
-# 原因是 Boot 的启动器用自己的 LaunchedClassLoader 加载 lib/*.jar，
-# 而 CDS 只能归档标准 app classloader 加载的类 —— 转储时会打一堆
-# "Unsupported location" 警告，但【不影响构建成功】，很容易被划过去。
-# 所以先用 jarmode=tools 解包成「普通 jar + lib 目录」，再用 -cp 直接跑主类。
+# 实测收益（在 mall-coupon 上做的同镜像同应用 A/B，只改启动命令里有无
+# -XX:SharedArchiveFile，各测 3-4 次，两组区间不重叠）：
+#   无 CDS: 30.2 / 28.9 / 28.3 / 29.0 秒   均值 29.1
+#   有 CDS: 23.3 / 25.2 / 25.1 秒          均值 24.5
+# 省约 4.6 秒 / 16%。代价：镜像 171 -> 188 MiB，拉取 4m00s -> 4m16s。
 #
-# 【训练运行要断开所有外部依赖】否则它会卡在各种连接超时上：
-#   - consul/config 关掉，不然注册和拉配置都会失败重试
-#   - Redis 指向 127.0.0.1：连不上时是「立刻拒绝」而不是「10 秒超时」，
-#     这一条是刻意的 —— 指向一个不可达的外网地址会让训练运行多等几十秒
-#   - 链路导出关掉，不然 OTLP 的 RetryInterceptor 会反复重试拖住退出。
-#     注意属性名是 management.tracing.export.enabled ——
-#     直觉会写 management.tracing.enabled，但那个在 Boot 4 里是【error 级废弃】，
-#     也就是压根不会被绑定，写了等于没写，而且不会有任何提示。
-#     命令行参数不在 ConfigMetadataTest 的检查范围内，所以这里只能靠查元数据确认。
-#   - spring.context.exit=onRefresh：refresh 完就退出，不跑 ApplicationRunner
-#     （所以启动预热那几个 runner 不会执行，训练运行不需要真的建连接）
+# 【退出机制】必须用 mall.cds.training-exit=true（mall-common 的 CdsTrainingExit）。
+# 不要用 spring.context.exit=onRefresh —— 那是 Boot 3.2/3.3 的属性，在 Boot 4.1.1 里
+# 已经【不存在】（字节码和配置元数据里都搜不到这个字符串），而且失效完全静默：
+# 配了等于没配，应用照常完整启动然后【永远不退出】，Docker 构建一直卡到超时。
+# 实际后果：12 个服务的镜像构建全部卡住，而 CI 矩阵里一个服务失败就会挡住
+# 「更新镜像 tag 到 mall-deploy」那一步，于是整个部署停摆 —— 表现却只是
+# 「CI 跑了 40 分钟没有任何产出」，完全不指向某个配置属性被移除了。
 #
-# 训练运行本身失败不直接中断（|| true），但【拿不到归档就让构建失败】（exit 1）。
-# 取舍理由：构建失败是最响的信号。如果这里放过去，产出的镜像会悄悄跑在没有 CDS
-# 的状态下 —— 启动照样成功、只是慢，而慢有太多别的原因，几乎不可能有人想到
-# 是归档没生成。本项目反复吃过这种「静默失效」的亏，宁可让 CI 红一次。
+# 【训练运行失败是可以接受的】构建环境里没有 Redis / MySQL / RabbitMQ，所以依赖
+# 它们的服务会在 refresh 完成前就报错退出（例如 Spring Session 的
+# springSessionRepositoryFilter 建不起来）。这没关系：-XX:ArchiveClassesAtExit 在
+# JVM 退出时就写归档，失败前加载的类占了绝大多数 —— 实测 mall-coupon 这样产出
+# 76MB 归档（完整跑完 83MB），而那 4.6 秒的收益正是在这种情况下测出来的。
+# 真正致命的只有「不失败也不退出」，那才是上面那个失效属性造成的。
+#
+# 另外三个容易让这项优化【静默失效】的点，完整推理见 mall-coupon/Dockerfile：
+#   1. 必须用 -cp 而不是 -jar。Boot 启动器用自己的 LaunchedClassLoader，
+#      CDS 归档不了它加载的类 —— 归档命中率 10% 对 95%。
+#   2. 运行时的 -cp 必须和训练时【逐字一致】（含相对/绝对路径），
+#      否则 JVM 判定归档不匹配并静默退回。所以两边都 cd 到 /app/extracted 用相对路径。
+#   3. 加 -Xlog:cds=warning:stdout，让「归档没生效」变成 pod 日志里的可见警告。
+#
+# 关闭链路导出的属性名是 management.tracing.export.enabled ——
+# management.tracing.enabled 在 Boot 4 里同样是 error 级废弃、压根不会被绑定。
 FROM eclipse-temurin:21-jre-jammy AS cds
 WORKDIR /app
 COPY --from=build /workspace/mall-backend/mall-coupon/target/*.jar /app/app.jar
-RUN java -Djarmode=tools -jar app.jar extract --destination extracted && \
-    cd /app/extracted && \
-    (java -XX:ArchiveClassesAtExit=/app/app.jsa \
-          -cp "app.jar:lib/*" com.mall.coupon.MallCouponApplication \
-          --spring.context.exit=onRefresh \
-          --spring.cloud.consul.enabled=false \
-          --spring.cloud.config.enabled=false \
-          --spring.data.redis.host=127.0.0.1 \
-          --management.tracing.export.enabled=false \
-          --server.port=0 \
-          > /tmp/cds-train.log 2>&1 || true) && \
-    (test -f /app/app.jsa && echo "CDS 归档已生成: $(stat -c%s /app/app.jsa) 字节" \
+RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
+ && cd /app/extracted \
+ && (java -XX:ArchiveClassesAtExit=/app/app.jsa \
+      -cp "app.jar:lib/*" com.mall.coupon.MallCouponApplication \
+      --mall.cds.training-exit=true \
+      --spring.cloud.consul.enabled=false \
+      --spring.cloud.config.enabled=false \
+      --spring.data.redis.host=127.0.0.1 \
+      --management.tracing.export.enabled=false \
+      --server.port=0 \
+      > /tmp/cds-train.log 2>&1 || true) \
+ && (test -f /app/app.jsa && echo "CDS 归档已生成: $(stat -c%s /app/app.jsa) 字节" \
       || (echo "!! CDS 归档未生成。训练日志尾部:" && tail -40 /tmp/cds-train.log && exit 1))
 
 FROM eclipse-temurin:21-jre-jammy
-# WORKDIR 必须是 /app/extracted，且下面的 -cp 必须写成相对路径 —— 要和训练阶段
-# 【逐字一致】。CDS 会校验 classpath 字符串：相对 vs 绝对、或者条目顺序不同，
-# 都会让 JVM 判定归档不匹配并【静默】退回不使用共享归档。
-# 这是最容易让这项优化悄悄失效的一处，所以下面还加了 -Xlog:cds=warning。
+# WORKDIR 和下面的 -cp 必须和训练阶段逐字一致，见上面第 2 点。
 WORKDIR /app/extracted
 COPY --from=cds /app/extracted /app/extracted
-# 归档不存在时这条 COPY 会失败，所以上一阶段用 test -f 兜了一层：
-# 真的没生成时构建会在这里报错，比悄悄跑一个没有 CDS 的镜像更好 ——
-# 那样谁都不会发现优化其实没生效。
 COPY --from=cds /app/app.jsa /app/app.jsa
 EXPOSE 10000
-# 运行时的 -cp 必须和训练时【完全一致】，否则 JVM 会判定归档不匹配、
-# 静默退回不使用共享归档（只在 -Xlog:cds 里能看到原因）。
-# -Xlog:cds=warning 让「归档不匹配」在 pod 日志里变成一条可见的警告，
-# 而不是静默退回。没有它的话，这项优化失效时【外部完全看不出来】——
-# 启动照样成功、只是慢，而慢本来就有很多别的原因，根本不会想到是 CDS 没生效。
-# 想进一步确认归档真的在用（会很吵，临时排查才开）：
-#   java -Xlog:class+load=info ... | grep -c "source: shared"
 ENTRYPOINT ["java", \
   "-XX:MaxRAMPercentage=75.0", \
   "-XX:SharedArchiveFile=/app/app.jsa", \

@@ -16,21 +16,46 @@ RUN mvn -pl mall-thirdparty -am -DskipTests package -q
 #   有 CDS: 23.3 / 25.2 / 25.1 秒          均值 24.5
 # 省约 4.6 秒 / 16%。代价：镜像 171 -> 188 MiB，拉取 4m00s -> 4m16s。
 #
-# 三个容易让这项优化【静默失效】的点，完整推理见 mall-coupon/Dockerfile：
+# 【退出机制】必须用 mall.cds.training-exit=true（mall-common 的 CdsTrainingExit）。
+# 不要用 spring.context.exit=onRefresh —— 那是 Boot 3.2/3.3 的属性，在 Boot 4.1.1 里
+# 已经【不存在】（字节码和配置元数据里都搜不到这个字符串），而且失效完全静默：
+# 配了等于没配，应用照常完整启动然后【永远不退出】，Docker 构建一直卡到超时。
+# 实际后果：12 个服务的镜像构建全部卡住，而 CI 矩阵里一个服务失败就会挡住
+# 「更新镜像 tag 到 mall-deploy」那一步，于是整个部署停摆 —— 表现却只是
+# 「CI 跑了 40 分钟没有任何产出」，完全不指向某个配置属性被移除了。
+#
+# 【训练运行失败是可以接受的】构建环境里没有 Redis / MySQL / RabbitMQ，所以依赖
+# 它们的服务会在 refresh 完成前就报错退出（例如 Spring Session 的
+# springSessionRepositoryFilter 建不起来）。这没关系：-XX:ArchiveClassesAtExit 在
+# JVM 退出时就写归档，失败前加载的类占了绝大多数 —— 实测 mall-coupon 这样产出
+# 76MB 归档（完整跑完 83MB），而那 4.6 秒的收益正是在这种情况下测出来的。
+# 真正致命的只有「不失败也不退出」，那才是上面那个失效属性造成的。
+#
+# 另外三个容易让这项优化【静默失效】的点，完整推理见 mall-coupon/Dockerfile：
 #   1. 必须用 -cp 而不是 -jar。Boot 启动器用自己的 LaunchedClassLoader，
 #      CDS 归档不了它加载的类 —— 归档命中率 10% 对 95%。
 #   2. 运行时的 -cp 必须和训练时【逐字一致】（含相对/绝对路径），
 #      否则 JVM 判定归档不匹配并静默退回。所以两边都 cd 到 /app/extracted 用相对路径。
 #   3. 加 -Xlog:cds=warning:stdout，让「归档没生效」变成 pod 日志里的可见警告。
-#      没有它的话失效时外部完全看不出来：启动照样成功、只是慢。
 #
-# 训练运行要断开所有外部依赖，否则会卡在各种连接超时上。注意关闭链路导出的
-# 属性名是 management.tracing.export.enabled —— management.tracing.enabled 在
-# Boot 4 里是 error 级废弃、压根不会被绑定，写了等于没写且无提示。
+# 关闭链路导出的属性名是 management.tracing.export.enabled ——
+# management.tracing.enabled 在 Boot 4 里同样是 error 级废弃、压根不会被绑定。
 FROM eclipse-temurin:21-jre-jammy AS cds
 WORKDIR /app
 COPY --from=build /workspace/mall-backend/mall-thirdparty/target/*.jar /app/app.jar
-RUN java -Djarmode=tools -jar app.jar extract --destination extracted &&     cd /app/extracted &&     (java -XX:ArchiveClassesAtExit=/app/app.jsa           -cp "app.jar:lib/*" com.mall.thirdparty.MallThirdpartyApplication           --spring.context.exit=onRefresh           --spring.cloud.consul.enabled=false           --spring.cloud.config.enabled=false           --spring.data.redis.host=127.0.0.1           --management.tracing.export.enabled=false           --server.port=0           > /tmp/cds-train.log 2>&1 || true) &&     (test -f /app/app.jsa && echo "CDS 归档已生成: $(stat -c%s /app/app.jsa) 字节"       || (echo "!! CDS 归档未生成。训练日志尾部:" && tail -40 /tmp/cds-train.log && exit 1))
+RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
+ && cd /app/extracted \
+ && (java -XX:ArchiveClassesAtExit=/app/app.jsa \
+      -cp "app.jar:lib/*" com.mall.thirdparty.MallThirdpartyApplication \
+      --mall.cds.training-exit=true \
+      --spring.cloud.consul.enabled=false \
+      --spring.cloud.config.enabled=false \
+      --spring.data.redis.host=127.0.0.1 \
+      --management.tracing.export.enabled=false \
+      --server.port=0 \
+      > /tmp/cds-train.log 2>&1 || true) \
+ && (test -f /app/app.jsa && echo "CDS 归档已生成: $(stat -c%s /app/app.jsa) 字节" \
+      || (echo "!! CDS 归档未生成。训练日志尾部:" && tail -40 /tmp/cds-train.log && exit 1))
 
 FROM eclipse-temurin:21-jre-jammy
 # WORKDIR 和下面的 -cp 必须和训练阶段逐字一致，见上面第 2 点。
@@ -38,4 +63,9 @@ WORKDIR /app/extracted
 COPY --from=cds /app/extracted /app/extracted
 COPY --from=cds /app/app.jsa /app/app.jsa
 EXPOSE 13000
-ENTRYPOINT ["java",   "-XX:MaxRAMPercentage=75.0",   "-XX:SharedArchiveFile=/app/app.jsa",   "-Xlog:cds=warning:stdout",   "-cp", "app.jar:lib/*",   "com.mall.thirdparty.MallThirdpartyApplication"]
+ENTRYPOINT ["java", \
+  "-XX:MaxRAMPercentage=75.0", \
+  "-XX:SharedArchiveFile=/app/app.jsa", \
+  "-Xlog:cds=warning:stdout", \
+  "-cp", "app.jar:lib/*", \
+  "com.mall.thirdparty.MallThirdpartyApplication"]

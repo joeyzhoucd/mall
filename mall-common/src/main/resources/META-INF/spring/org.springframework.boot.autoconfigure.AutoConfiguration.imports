@@ -3,3 +3,4 @@ com.mall.common.config.MybatisPlusAutoConfiguration
 com.mall.common.config.EagerConnectionWarmup
 com.mall.common.config.JdbcObservationAutoConfiguration
 com.mall.common.config.RequestPathWarmup
+com.mall.common.config.CdsTrainingExit
