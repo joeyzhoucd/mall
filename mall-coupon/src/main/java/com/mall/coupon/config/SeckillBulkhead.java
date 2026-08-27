@@ -48,7 +48,22 @@ public class SeckillBulkhead {
 
     /**
      * @param capacity 允许同时在途的秒杀请求数。默认 200 是按这套本地集群的下游能力给的
-     *                 起始值（Hikari 默认 10 个连接、Redis 单实例），真实环境必须压测后再定。
+     *                 起始值（Hikari 默认 10 个连接、Redis 单实例）。
+     *                 <p>
+     *                 <b>2026-08-27 压测进展</b>：这个值<b>仍未校准</b>，原因写在这里以免
+     *                 下次又从头查一遍。已经量到的是框架层容量 —— 打一条下游不存在的
+     *                 路径（只走到 DispatcherServlet 和拦截器链），mall-coupon 在 500m CPU
+     *                 下 150 rps 时 p95 = 5ms、285 rps 时 p95 = 1033ms。
+     *                 但那条路径<b>根本没经过这个闸门</b>，也没碰 Redis 和数据库，
+     *                 所以它对 capacity 的取值毫无参考价值。
+     *                 <p>
+     *                 要校准必须压真实抢购路径，而那需要先灌秒杀数据
+     *                 （sms_seckill_promotion / _session / _sku_relation 目前都是 0 行）
+     *                 和测试会员。校准的判据是闸门的拒绝率和 p95 同时可接受：
+     *                 拒绝率为 0 说明闸门形同虚设（瓶颈在别处、它没起作用），
+     *                 p95 高到秒级说明放进来的并发已经超过下游能力、闸门开太大了。
+     *                 观测指标已经埋好：seckill_bulkhead_available_permits /
+     *                 _capacity / _rejected（注意 Micrometer 会剥掉 Gauge 的 _total 后缀）。
      *                 调大它不会让下游变快，只会让排队的位置从这里挪到连接池里。
      */
     public SeckillBulkhead(@Value("${mall.seckill.bulkhead.capacity:200}") int capacity) {
