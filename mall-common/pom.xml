@@ -121,6 +121,38 @@
             <groupId>io.github.openfeign</groupId>
             <artifactId>feign-hc5</artifactId>
         </dependency>
+        <!-- Feign 的链路埋点。缺了它 Feign【既不产生 client span、也不传播 trace 上下文】：
+             Spring Cloud 的 FeignClientsConfiguration$MicrometerConfiguration 上挂着
+             @ConditionalOnClass({MicrometerCapability, MicrometerObservationCapability})，
+             这两个类都在 feign-micrometer 这个包里，不引入条件就不成立，整段配置直接跳过。
+
+             2026-08-27 压测时踩到的实际表现：一条耗时 7.4 秒的 grab 链路在 Tempo 里
+             【只有 1 个 span】，而 mall-member 那边的地址查询是一条【毫不相关的独立 trace】。
+             结果是链路追踪只能告诉你「这个请求慢」，完全无法回答「慢在哪一步」——
+             定位只能退回到「逐个依赖单独量」，那正是有了链路追踪本该不必再做的事。
+             跨服务的 trace 断裂尤其致命：微服务的调用链本来就是它最核心的价值。 -->
+        <dependency>
+            <groupId>io.github.openfeign</groupId>
+            <artifactId>feign-micrometer</artifactId>
+        </dependency>
+
+        <!-- JDBC 的链路埋点。这里【刻意只用核心库，不用它的 Spring Boot starter】：
+             net.ttddyy.observation:datasource-micrometer-spring-boot 到 1.2.1（当前最新）
+             仍然引用 Boot 3 的包名 —— actuate.autoconfigure.observation.ObservationAutoConfiguration、
+             actuate.autoconfigure.tracing.ConditionalOnEnabledTracing、
+             autoconfigure.jdbc.DataSourceAutoConfiguration，这三个在 Boot 4.1.1 里【都不存在】
+             （Boot 4 把它们分别挪到了 micrometer.observation.autoconfigure.* 和 jdbc.autoconfigure.*）。
+             而且失败方式可能是静默的：JVM 会直接丢弃无法解析的注解类型，
+             @ConditionalOnEnabledTracing 就等于没写，条件判断悄悄失效。
+
+             核心库反过来完全不依赖 Spring（用 javap 逐个 class 扫过，零个
+             org/springframework 引用），只要 micrometer-tracing / datasource-proxy / HikariCP。
+             所以自己在 JdbcObservationAutoConfiguration 里包一层，用 Boot 4 的包名。 -->
+        <dependency>
+            <groupId>net.ttddyy.observation</groupId>
+            <artifactId>datasource-micrometer</artifactId>
+            <version>1.2.1</version>
+        </dependency>
 
         <!-- 配置中心客户端（Spring Cloud Config），替代原来的 nacos-config。
              注意这个依赖有个"硬失败"的副作用：它一旦在 classpath 上，
