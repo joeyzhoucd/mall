@@ -30,9 +30,12 @@ import javax.sql.DataSource;
  * <h3>为什么需要它（2026-08-27 压测实测）</h3>
  * 压测里一条耗时 7.4 秒的秒杀抢购链路，在 Tempo 里<b>只有 1 个 span</b>。
  * 链路追踪只能告诉我「这个请求慢」，完全无法回答「慢在哪一步」——
- * 定位只能退回到「把每个依赖单独量一遍」（结论是 mall-member 1–52ms、
- * HikariCP 零超时，所以时间全在自己的 CPU 排队上）。那正是有了链路追踪
- * 本该不必再做的手工活。
+ * 定位只能退回到「把每个依赖单独量一遍」，而那正是有了链路追踪本该不必再做的手工活。
+ * <p>
+ * 更糟的是<b>手工测量得出的结论是错的</b>：当时我看到 mall-member 响应 1–52ms、
+ * HikariCP 零超时，就断定「时间全在自己的 CPU 排队上」。加上这个埋点之后才看到，
+ * 光是「拿数据库连接」每次就要 100ms、一个请求里有两三次（详见下面的链路分解）。
+ * 逐个依赖单独量，量不到「同时发生时的相互影响」。
  *
  * <h3>为什么不用官方的 Spring Boot starter</h3>
  * {@code net.ttddyy.observation:datasource-micrometer-spring-boot} 到 1.2.1（当前最新）
@@ -74,12 +77,59 @@ import javax.sql.DataSource;
  * 采样率（{@code management.tracing.sampling.probability}，当前 0.1）只决定 span 要不要
  * <b>上报</b>，代理层的开销是<b>每次调用都有</b>的，两者不要混淆。
  *
+ * <h3>实测代价：在当前测量精度下【测不出来】</h3>
+ * 2026-08-27 做过 A/B：mall-coupon 限 500m CPU，每组先跑 3 轮 30 rps 预热，再压 30 秒 50 rps。
+ * <pre>
+ *   A1 埋点开 : 抢中 1260, 闸门拒绝 155, p95 664ms
+ *   B  埋点关 : 抢中 1501, 闸门拒绝   0, p95 801ms
+ *   A2 埋点开 : 抢中 1501, 闸门拒绝   0, p95  91ms
+ * </pre>
+ * <b>同一配置两轮之间的差异（A1 的 664ms 对 A2 的 91ms）远大于配置之间的差异</b>，
+ * 主要变量是 JVM 的预热程度。所以「埋点让吞吐降了 16%」这个从 A1/B 单轮对比得出的
+ * 结论是<b>错的</b>，那只是噪声。A2 的 91ms 接近无埋点时的原始基线 76ms，
+ * 说明充分预热后开销很小。
+ * <p>
+ * 这里刻意不写一个具体的开销百分比 —— 没有测出来就不该写。要得到可信数字需要
+ * 更严格的预热协议和更多重复次数。
+ * <p>
+ * 通用教训：<b>在 JIT 主导的系统上，单轮 A/B 对比毫无价值</b>，
+ * 因为预热差异带来的波动能轻易达到一个数量级。
+ *
+ * <h3>它换来了什么（这才是保留它的理由）</h3>
+ * 开启之后，一条 828ms 的抢购链路第一次能看到分解：
+ * <pre>
+ *   mall-coupon  +  0ms  828.8ms  http post /coupon/seckill/grab/{relationId}
+ *   mall-coupon  +294ms  103.2ms  connection      &lt;- 拿数据库连接
+ *   mall-coupon  +294ms  102.0ms  query
+ *   mall-coupon  +397ms   98.7ms  HTTP GET        &lt;- Feign 客户端侧
+ *   mall-member  +399ms    4.3ms  http get /member/memberreceiveaddress/...
+ *   mall-coupon  +497ms  101.3ms  connection      &lt;- 又拿一次
+ *   mall-coupon  +499ms   99.8ms  query
+ * </pre>
+ * 它立刻推翻了一个此前的错误结论：我曾根据
+ * {@code hikaricp_connections_timeout_total} 恒为 0 断定「连接池不是瓶颈」——
+ * 实际上<b>每次拿连接要 100ms，一个请求里有两到三次</b>。零超时只说明没超过
+ * 30 秒的超时阈值，不代表没有争抢。这 200ms+ 在有链路分解之前完全看不见。
+ * <p>
+ * 另外 Feign 客户端侧 98.7ms 而服务端只有 4.3ms，那 94ms 的差额（连接池/负载均衡/
+ * 序列化或排队）同样是之前看不到的。
+ *
+ * <h3>还缺 Redis</h3>
+ * 上面那条链路的前 294ms 没有任何子 span —— Redis 的 Lua 调用在这一段里。
+ * {@code LettuceObservationAutoConfiguration}（Boot 自带）的条件看起来都满足，
+ * 但实际没有产出 span，原因还没查清。这是下一个要补的缺口。
+ *
  * <h3>包一层会不会弄丢 HikariCP 的连接池指标</h3>
- * 不会，但这一点是<b>验证过</b>而不是假设的：{@code ProxyDataSource} 实现了
- * {@code java.sql.Wrapper} 的 {@code unwrap}/{@code isWrapperFor}，而 Boot 的
- * {@code DataSourceUnwrapper} 正是走这条路去找 {@code HikariDataSource} 的。
- * 这个指标不能丢 —— 本次诊断正是靠 {@code hikaricp_connections_timeout_total} 为 0
- * 排除了「数据库连接池是瓶颈」这个方向。部署后要复查它还在。
+ * <b>不会，已在集群里实测确认</b>（Prometheus 里 {@code hikaricp_connections_max} 仍有
+ * 6 个系列）。机制是 {@code ProxyDataSource} 实现了 {@code java.sql.Wrapper} 的
+ * {@code unwrap}/{@code isWrapperFor}，而 Boot 的 {@code DataSourceUnwrapper} 正是走
+ * 这条路去找 {@code HikariDataSource}。
+ * <p>
+ * 这一条有单元测试守着（{@code JdbcObservationAutoConfigurationTest}），而那条测试的
+ * 第一版是个<b>假警报</b>：我按两参的 {@code unwrap(ds, HikariDataSource.class)} 断言，
+ * 它返回 null，看着像代理挡住了解包。反编译 Boot 的 {@code HikariDataSourceMeterBinder}
+ * 才看清它走的是三参重载 {@code unwrap(ds, HikariConfigMXBean.class, HikariDataSource.class)}。
+ * 断言要对着被测系统<b>真正执行的调用</b>，对着形似的 API 断言，通过和失败都说明不了问题。
  */
 @AutoConfiguration(afterName = {
         "org.springframework.boot.micrometer.tracing.autoconfigure.MicrometerTracingAutoConfiguration",
