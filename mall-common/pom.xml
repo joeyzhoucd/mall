@@ -149,6 +149,21 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-consul-discovery</artifactId>
         </dependency>
+        <!-- 下面两个是 optional：EagerConnectionWarmup 需要它们的类型来做启动预热
+             （编译期必须可见），但【不能传递给所有服务】—— mall-search /
+             mall-thirdparty 不连数据库也不用 MQ，硬塞进去只会让它们多背一堆自动配置
+             和连接尝试。optional 之后这些类只在真正用到它们的服务的 classpath 上，
+             其余服务由 @ConditionalOnClass 自动跳过对应的预热。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+            <optional>true</optional>
+        </dependency>
 
         <!-- 这里原来还有：
              * spring-cloud-starter-bootstrap —— 只为激活 9 个 bootstrap.properties 让

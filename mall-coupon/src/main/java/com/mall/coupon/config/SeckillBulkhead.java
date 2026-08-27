@@ -47,26 +47,54 @@ public class SeckillBulkhead {
     private final LongAdder rejected = new LongAdder();
 
     /**
-     * @param capacity 允许同时在途的秒杀请求数。默认 200 是按这套本地集群的下游能力给的
-     *                 起始值（Hikari 默认 10 个连接、Redis 单实例）。
+     * @param capacity 允许同时在途的秒杀请求数。
      *                 <p>
-     *                 <b>2026-08-27 压测进展</b>：这个值<b>仍未校准</b>，原因写在这里以免
-     *                 下次又从头查一遍。已经量到的是框架层容量 —— 打一条下游不存在的
-     *                 路径（只走到 DispatcherServlet 和拦截器链），mall-coupon 在 500m CPU
-     *                 下 150 rps 时 p95 = 5ms、285 rps 时 p95 = 1033ms。
-     *                 但那条路径<b>根本没经过这个闸门</b>，也没碰 Redis 和数据库，
-     *                 所以它对 capacity 的取值毫无参考价值。
+     *                 <b>默认 32 是 2026-08-27 压测校准出来的</b>（此前是拍脑袋的 200）。
+     *                 压测条件：mall-coupon 限 500m CPU / 768Mi，100 个会员 × 30 个活动
+     *                 提供唯一「会员×活动」组合，k6 在集群内直压 /coupon/seckill/grab。
+     *                 脚本见 mall-deploy/loadtest/seckill-grab.js。
+     *
+     *                 <h4>实测出来最重要的一件事：瓶颈不是速率，是冷启动</h4>
+     *                 充分预热后 mall-coupon 在 500m CPU 下轻松吃下 70 rps
+     *                 （2100/2100 全部成功，p95 82ms，闸门零拒绝）。
+     *                 但<b>刚启动的同一个服务，50 rps 就会把自己搞死</b>：
+     *                 p95 约 10 秒、大量 15 秒客户端超时、CPU 100%，
+     *                 最后连存活探针都响应不过来，被 K8s SIGKILL。复现过两次。
      *                 <p>
-     *                 要校准必须压真实抢购路径，而那需要先灌秒杀数据
-     *                 （sms_seckill_promotion / _session / _sku_relation 目前都是 0 行）
-     *                 和测试会员。校准的判据是闸门的拒绝率和 p95 同时可接受：
-     *                 拒绝率为 0 说明闸门形同虚设（瓶颈在别处、它没起作用），
-     *                 p95 高到秒级说明放进来的并发已经超过下游能力、闸门开太大了。
-     *                 观测指标已经埋好：seckill_bulkhead_available_permits /
-     *                 _capacity / _rejected（注意 Micrometer 会剥掉 Gauge 的 _total 后缀）。
+     *                 原因是冷启动时几件事叠在一起：JVM 还在解释执行（JIT 没编译完）、
+     *                 Hikari 连接池 / RabbitMQ 连接 / Redis 连接池 / Feign 的 Consul 与
+     *                 负载均衡缓存<b>全都是第一个请求才惰性初始化</b>，而 500m CPU 上
+     *                 JVM 只看到 1 核、GC 退化成 SerialGC。这些代价在空闲时无所谓，
+     *                 一上量就追不上。
+     *
+     *                 <h4>为什么 200 是个放大器而不是保护</h4>
+     *                 闸门的作用应该是「超过下游能力就立刻拒绝」。200 太大，实际效果是
+     *                 把 200 个冷 JVM 根本喂不动的请求放进来一起排队，CPU 被彻底埋掉。
+     *                 更糟的是<b>客户端超时并不会让服务端停止工作</b>：压测只跑 30 秒，
+     *                 但积压让 pod 在两三分钟后才被探针杀掉 —— 一次 30 秒的流量尖峰
+     *                 变成了几分钟的宕机。
+     *                 <p>
+     *                 32 是按 Little's law 反推的：热态 70 rps × 82ms ≈ 6 个在途请求，
+     *                 留约 5 倍余量。两个方向都实测验证过：
+     *                 <ul>
+     *                   <li>冷态 50 rps：p95 从 9956ms 降到 3213ms，零客户端超时，
+     *                       <b>pod 存活</b>（capacity=200 时同样负载下被 SIGKILL）；</li>
+     *                   <li>热态 70 rps：<b>零拒绝</b>、p95 82ms —— 说明 32 不会误伤
+     *                       系统本来能服务的请求。</li>
+     *                 </ul>
+     *
+     *                 <h4>这个值的局限，改之前先读</h4>
+     *                 冷态和热态的真实容量差了一个数量级，而这是个<b>静态</b>信号量，
+     *                 所以 32 本质上是两者之间的折中。真正对症的做法是自适应并发限流
+     *                 （按观测到的延迟动态调整许可数，如 Netflix concurrency-limits 的
+     *                 AIMD/gradient 算法）。在上那个之前，更划算的是消掉冷启动惩罚本身：
+     *                 启动时就把连接池、MQ、Redis 连接建好，而不是等第一个请求。
+     *                 <p>
      *                 调大它不会让下游变快，只会让排队的位置从这里挪到连接池里。
-     */
-    public SeckillBulkhead(@Value("${mall.seckill.bulkhead.capacity:200}") int capacity) {
+     *                 观测指标：seckill_bulkhead_available_permits / _capacity / _rejected
+     *                 （Micrometer 会剥掉 Gauge 的 _total 后缀）。判据是拒绝率和 p95
+     *                 同时可接受：长期零拒绝说明闸门形同虚设，p95 到秒级说明开太大了。
+    public SeckillBulkhead(@Value("${mall.seckill.bulkhead.capacity:32}") int capacity) {
         this.capacity = capacity;
         // 非公平信号量：公平模式要维护等待队列、吞吐明显更低，而这里本来就是
         // tryAcquire 立即返回、不存在"等待很久拿不到"的饥饿问题，公平性没有意义。
