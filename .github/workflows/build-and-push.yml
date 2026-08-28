@@ -131,28 +131,32 @@ jobs:
       #
       # 为什么需要这一步：作业日志和上传的产物都要仓库 admin 权限才能通过 API 取，
       # 而 check-run 的 annotations 是公开的。没有这一步，一次失败在外部能看到的
-      # 只有一句「Process completed with exit code 1」—— 等于知道挂了但不知道哪挂了，
-      # 每次都要有人打开浏览器去贴日志。
+      # 只有一句「Process completed with exit code 1」—— 知道挂了但不知道哪挂了。
       #
-      # 只打前 30 行：annotation 有长度上限，而且真正有用的是"哪个测试、什么异常"，
-      # 完整堆栈还在上传的产物里。
+      # 【提取什么很关键】第一版直接抓 "Caused by|Exception|Error creating bean"，
+      # 结果注解被 Spring 的 WebMergedContextConfiguration 转储占满了 ——
+      # 那一坨里有完整的 propertySourceProperties 列表，几百个字符，
+      # 把真正的根因挤出了长度上限。所以这里：
+      #   1. 先把那行配置转储过滤掉；
+      #   2. 只取 "Caused by:" 链的【最后几条】—— 根因在链尾，不在链首。
       - name: Surface test failures as annotations
         if: failure()
         run: |
-          echo "::group::集成测试失败摘要"
           for f in $(find . -path '*/surefire-reports/*.txt' 2>/dev/null); do
             if grep -qE "FAILURE!|<<< ERROR!" "$f"; then
               mod=$(echo "$f" | sed -E 's|^\./([^/]+)/.*|\1|')
               cls=$(basename "$f" .txt)
-              # Caused by 那几行通常最说明问题（真正的根因异常）
-              detail=$(grep -E "Tests run:|Caused by:|^[A-Za-z.]+Exception|Could not|Error creating bean" "$f" \
-                       | head -8 | tr '\n' ' | ' | cut -c1-800)
-              echo "::error title=集成测试失败 $mod::$cls -- $detail"
+              stats=$(grep -m1 -E "Tests run:" "$f")
+              # 过滤掉 Spring 的上下文配置转储（那行以 testClass = 开头的巨长内容）
+              root=$(grep -E "Caused by:" "$f" | grep -v "MergedContextConfiguration" \
+                     | tail -3 | tr '\n' ' ~ ' | cut -c1-600)
+              # 没有 Caused by 时退回取第一条异常行
+              if [ -z "$root" ]; then
+                root=$(grep -m2 -E "^[A-Za-z0-9.]+(Exception|Error)" "$f" | tr '\n' ' ~ ' | cut -c1-600)
+              fi
+              echo "::error title=集成测试失败 $mod::$cls | $stats | 根因: $root"
             fi
           done
-          echo "::endgroup::"
-          # 没有任何 surefire 报告时也要说话，否则失败原因在别处（比如依赖解析失败）
-          # 而注解里一片空白，看起来像"没查到东西"。
           n=$(find . -path '*/surefire-reports/*.txt' 2>/dev/null | wc -l)
           if [ "$n" -eq 0 ]; then
             echo "::error::没有产出任何 surefire 报告 —— 失败发生在测试执行之前（依赖解析 / 编译 / 插件配置）"

@@ -3,6 +3,7 @@ package com.mall.testsupport;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.DynamicPropertyRegistrar;
 import com.redis.testcontainers.RedisContainer;
 import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
@@ -72,6 +73,26 @@ public final class Containers {
             // 这个依赖的版本由 Boot 4.1.1 的 BOM 管理，不用自己钉。
             return new RedisContainer(TestImages.REDIS);
         }
+
+        /**
+         * 把容器地址额外写进 spring.data.redis.host / port。
+         *
+         * <p>光有 @ServiceConnection 不够 —— 它提供的是 ConnectionDetails bean，
+         * 由自动配置消费，【不会写进 Environment】。而 mall-coupon 和 mall-product 的
+         * RedissonConfig 是用 @Value("${spring.data.redis.host}") 直接读属性自己建
+         * RedissonClient 的，拿不到容器地址就会去连 application.yml 里的默认值
+         * localhost:6379，而 Redisson 启动时就建连接 —— 上下文直接起不来。
+         *
+         * <p>症状有迷惑性：@ServiceConnection 明明"配了"、容器也确实起来了，
+         * 但应用连的是另一个地址。
+         */
+        @Bean
+        DynamicPropertyRegistrar redisRawProperties(RedisContainer redis) {
+            return (registry) -> {
+                registry.add("spring.data.redis.host", redis::getHost);
+                registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+            };
+        }
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -94,6 +115,26 @@ public final class Containers {
                     .withEnv("xpack.security.enabled", "false")
                     // 默认堆对 CI runner 偏大，容易把 2 核 7G 的机器压到 OOM。
                     .withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m");
+        }
+
+        /**
+         * 把容器地址写进 elasticsearch.host / elasticsearch.port。
+         *
+         * <p>mall-search 的 ElasticSearchConfig 用 @Value("${elasticsearch.host}")
+         * 自己建 RestClient —— 注意那是个【顶级自定义属性】，连 Boot 的
+         * spring.elasticsearch.* 都不是，所以 @ServiceConnection 完全够不着它，
+         * 测试里会去连 application.yml 的默认值 192.168.77.102:9200。
+         *
+         * <p>更根本的做法是让 ElasticSearchConfig 改用 Boot 自动配置的
+         * ElasticsearchClient，那样 @ServiceConnection 就够了。但那个配置类
+         * 专门处理了 Jackson 3 的 transport，改动风险更大，先用这层桥接把测试跑起来。
+         */
+        @Bean
+        DynamicPropertyRegistrar elasticsearchRawProperties(ElasticsearchContainer es) {
+            return (registry) -> {
+                registry.add("elasticsearch.host", es::getHost);
+                registry.add("elasticsearch.port", () -> es.getMappedPort(9200));
+            };
         }
     }
 }

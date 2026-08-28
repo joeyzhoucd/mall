@@ -1,4 +1,4 @@
-package com.mall.mallproduct;
+package com.mall.product;
 
 import com.mall.testsupport.MallIntegrationTest;
 import com.mall.testsupport.Containers;
@@ -14,6 +14,17 @@ import org.springframework.context.annotation.Import;
  * 不是按 classpath 上有什么来猜的 —— 按依赖树猜会得出错误结论，
  * 因为 mall-common 把 mybatis-plus + jdbc starter + MySQL 驱动带给了
  * mall-gateway / mall-auth / mall-cart，而这三个服务并没有 DataSource。
+ *
+ * <h3>为什么这个类在 com.mall.product 而不是 com.mall.mallproduct</h3>
+ * 原来它在 {@code com.mall.mallproduct} —— 那是 {@code com.mall.product} 的<b>兄弟包</b>，
+ * 不是父包。{@code @SpringBootTest} 是从测试所在包<b>逐级向上</b>找
+ * {@code @SpringBootConfiguration} 的，向上只会走到 com.mall 和 com，
+ * 都不直接包含 MallProductApplication，于是报
+ * 「Unable to find a @SpringBootConfiguration by searching packages upwards」。
+ *
+ * <p>也就是说这个测试<b>从来就不可能跑通</b>。它一直没暴露，是因为打了 integration 标签
+ * 之后从没被执行过 —— 一个永远不运行的测试，写错了也没人知道。
+ * 全仓 12 个模块里只有它一个错位（其余主类包和测试包都对得上）。
  *
  * <p>它比看起来值钱：EagerConnectionWarmup 会在启动时真的去开数据库/Redis/MQ 连接，
  * 而那段代码曾经因为 {@code @Bean} 方法签名引用了可能不存在的类型，
