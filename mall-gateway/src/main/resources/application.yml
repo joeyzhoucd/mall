@@ -1,6 +1,22 @@
 server:
   port: 88
 spring:
+  # 网关不开虚拟线程，显式关掉。
+  #
+  # mall-common-default.properties 里把 spring.threads.virtual.enabled 设成了 true
+  # （对所有服务生效），但网关是 WebFlux 响应式栈：并发是 Netty 事件循环 + Reactor
+  # 调度器管的，不存在"一个请求占一个线程"这回事，虚拟线程在这里无从发挥。
+  #
+  # 更要紧的是它会改变【别的东西】：Boot 在这个开关打开时会把 applicationTaskExecutor
+  # 和调度任务换成虚拟线程执行器。网关上任何 @Async / @Scheduled 都会跟着换实现，
+  # 而这不是我们想在这里改的东西 —— 响应式栈里本来就禁止阻塞，改执行器不解决任何问题，
+  # 只是多一个和主链路无关的变量。
+  #
+  # 所以这里写 false 不是"以防万一"，是让这个决定显式可见：
+  # 不写的话，将来有人看网关的行为会以为它和其他服务一样开了虚拟线程。
+  threads:
+    virtual:
+      enabled: false
   # 这一段原来写在文件【根级别】（顶格的 main:），也就是 main.web-application-type——
   # Spring 压根没有这个属性，等于完全没配。正确的是 spring.main.web-application-type。
   # 之所以一直没出问题：mall-gateway 的 pom 把 mall-common 带来的

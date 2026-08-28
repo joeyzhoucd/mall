@@ -20,6 +20,30 @@ spring:
     password: ${MYSQL_PASSWORD:root}
     url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_wms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
     driver-class-name: com.mysql.cj.jdbc.Driver
+    # 连接池。原来一个字都没配，走 Hikari 默认：pool=10、connection-timeout=30s。
+    # pool=10 保持不变（瓶颈在 MySQL 侧：单 pod、cpu=1、max_connections=151，
+    # 6 个连库服务 × 10 = 60，滚动更新双份时 120，已经逼近上限）。
+    # 改的是等待时间：30 秒 -> 3 秒。
+    #
+    # 为什么现在必须显式配：开了虚拟线程之后，Tomcat 那 200 个线程构成的准入闸门
+    # 消失了，请求会一路涌到连接池排队。默认 30 秒意味着过载时几千个请求各等 30 秒
+    # 再一起失败 —— 比不开虚拟线程还差。3 秒是主动降级：快速失败、把队列压住，
+    # 并且刻意小于上游 Feign 的 read-timeout(5000)，让失败在本服务暴露成
+    # 「拿不到连接」而不是上游一个语焉不详的读超时。
+    #
+    # minimum-idle = maximum-pool-size 是固定大小池（HikariCP 官方建议）：
+    # 动态伸缩省下几个空闲连接，代价是流量上来时要在请求路径上现建连接。
+    #
+    # 可调的那一份在 mall-deploy 的 config-repo/application.yml（优先级更高）；
+    # 这里是拉不到配置中心时的兜底。
+    # 不放 mall-common-default.properties：另外 5 个服务没有 jdbc starter，
+    # 那些属性在它们的 classpath 上无效（ConfigMetadataTest 会拦）。
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 10
+      connection-timeout: 3000
+      max-lifetime: 1800000
+      keepalive-time: 300000
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
 mybatis-plus:
