@@ -37,7 +37,8 @@ jobs:
   #
   # 注意：集成测试（打了 @Tag("integration") 的）默认被 surefire 排除，这里【没有】
   # 加 -Pintegration。那些测试目前还需要真实的 MySQL/Redis/RabbitMQ/Consul，
-  # 等改造成 Testcontainers 之后再在这里加一个 -Pintegration 的步骤。
+  # 集成测试在下面单独的 integration-test 作业里跑（Testcontainers 起真实中间件），
+  # 并且 build 作业同时依赖两者 —— 集成测试挂了会挡住发布。
   # 现在跑的是不依赖外部环境的静态检查，其中最重要的是 ConfigMetadataTest ——
   # 它拿各模块自己 classpath 上的配置元数据校验配置文件，专门守住
   # 「属性名变了、写旧名字不报错但完全不生效」这一类静默失效
@@ -77,8 +78,64 @@ jobs:
           path: '**/target/surefire-reports/**'
           retention-days: 7
 
+  # 集成测试单独一个作业，和 test 并行。
+  #
+  # 为什么不塞进 test 作业里：这里要拉 MySQL / Redis / RabbitMQ / Elasticsearch 四个镜像
+  # 并逐个模块起 Spring 上下文，是分钟级的；而 test 作业是秒级的静态检查。
+  # 合在一起的话，一个纯配置笔误也要等几分钟才知道结果。并行跑两边都快。
+  #
+  # build 同时依赖这两个作业 —— 也就是说集成测试是【会挡住发布的】。
+  # 这是有意的：这些测试验证的是「服务能不能连上依赖并把上下文拼起来」，
+  # 挂了就说明镜像发出去也起不来，没有理由放行。
+  integration-test:
+    runs-on: ubuntu-latest
+    # 比 test 作业宽松：要拉四个中间件镜像 + 起 8 个 Spring 上下文。
+    # 但也不能太宽松 —— Testcontainers 连不上 Docker 时会重试到超时，
+    # 30 分钟足够正常跑完，卡住的话早点失败。
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # -Dgroups=integration 让 surefire【只】跑打了 integration 标签的，
+      # 单元测试已经在 test 作业里跑过了，这里再跑一遍纯属浪费。
+      # -Pintegration 负责把根 pom 里默认的 <excludedGroups>integration</excludedGroups> 清空，
+      # 两个都要 —— 只加 -Dgroups 的话仍然会被 excludedGroups 排除掉，
+      # 结果是「一个测试都没跑」而 Maven 照常 BUILD SUCCESS。
+      - name: Run integration tests (Testcontainers)
+        run: mvn -B test -Pintegration -Dgroups=integration
+
+      # 断言【确实跑了】。上面那条命令如果因为标签/profile 配错而一个测试都没匹配上，
+      # Maven 会安安静静地成功 —— 这正是这个项目已经踩过的坑
+      # （surefire 2.12.4 认不出 JUnit 5，写多少测试都等于没写，而且 BUILD SUCCESS）。
+      # 所以用报告数量做一次阳性对照：预期 8 个模块各有 1 个上下文测试。
+      - name: Assert integration tests actually ran
+        run: |
+          n=$(find . -path '*/surefire-reports/*ApplicationTests.txt' | wc -l)
+          echo "跑到的集成测试报告数: $n"
+          if [ "$n" -lt 8 ]; then
+            echo "::error::期望至少 8 个集成测试报告，实际 $n —— 测试很可能被静默跳过了"
+            exit 1
+          fi
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-surefire-reports
+          path: '**/target/surefire-reports/**'
+          retention-days: 7
+
+
   build:
-    needs: test
+    needs: [test, integration-test]
     runs-on: ubuntu-latest
     # 一个矩阵项 = 一个服务的 docker build。正常大约 5-8 分钟（含 CDS 训练运行），
     # 25 分钟还没完就是卡住了 —— 卡住的典型原因是 CDS 训练运行没能退出

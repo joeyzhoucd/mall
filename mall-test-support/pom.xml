@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.mall</groupId>
+        <artifactId>mall</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>mall-test-support</artifactId>
+    <name>mall-test-support</name>
+    <description>集成测试用的容器定义，被各服务以 test 作用域引入</description>
+
+    <!--
+      为什么单独一个模块，而不是放在 mall-common 的 src/test 里：
+      src/test 下的类【不会】随普通依赖传递给其他模块，别的模块要用就得让 mall-common
+      产出 test-jar，那会引入一个只为测试而存在的额外构件和一堆打包配置。
+      单独一个小模块更直白：这里的类是 main 作用域，使用方按 <scope>test</scope> 引入，
+      不会进任何生产镜像。
+
+      注意这个模块【不能】进 verify-fat-jars.sh 的可部署模块清单——它没有主类。
+    -->
+    <dependencies>
+        <!-- @ServiceConnection：容器起来之后自动把连接信息注入 Spring 环境，
+             不用手写 @DynamicPropertySource 一条条映射端口。写错一条属性名就是静默失效，
+             能不手写就不手写。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mysql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-rabbitmq</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-elasticsearch</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+        </dependency>
+        <!-- Redis 官方镜像没有对应的 Testcontainers 模块，用社区的 com.redis:testcontainers-redis。
+             版本由 Boot 4.1.1 的 BOM 管理（testcontainers-redis-module.version=2.2.4），
+             不要自己钉版本 —— 它和 Testcontainers 主版本有耦合，钉错会在运行期报 NoSuchMethod。 -->
+        <dependency>
+            <groupId>com.redis</groupId>
+            <artifactId>testcontainers-redis</artifactId>
+        </dependency>
+    </dependencies>
+</project>

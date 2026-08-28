@@ -62,7 +62,15 @@
             <artifactId>concurrency-limits-core</artifactId>
             <version>0.5.4</version>
         </dependency>
-    </dependencies>
+    
+        <!-- 集成测试的容器定义。test 作用域 —— 它不会进任何生产镜像。 -->
+        <dependency>
+            <groupId>com.mall</groupId>
+            <artifactId>mall-test-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+</dependencies>
 
     <build>
         <plugins>

@@ -24,6 +24,9 @@
         <module>mall-cart</module>
         <module>mall-search</module>
         <module>mall-thirdparty</module>
+        <!-- 集成测试用的容器定义。它没有主类，不是可部署模块，
+             不要加进 .github/scripts/verify-fat-jars.sh 的清单。 -->
+        <module>mall-test-support</module>
     </modules>
 
     <!-- 可根据需要自定义是否启用映射配置 -->
@@ -189,9 +192,12 @@
                      版本对齐 Boot 4.1.1 BOM 声明的 3.5.6。 -->
                 <version>3.5.6</version>
                 <configuration>
-                    <!-- 默认跳过打了 @Tag("integration") 的测试：那些需要真实的 MySQL/Redis/
-                         RabbitMQ/Consul/Elasticsearch，本机没有 Docker Desktop，跑不起来。
-                         用 -Pintegration 才会带上它们（后续会改造成 Testcontainers 在 CI 里跑）。
+                    <!-- 默认跳过打了 @Tag("integration") 的测试。它们用 Testcontainers 起真实的
+                         MySQL/Redis/RabbitMQ/Elasticsearch，需要本机有 Docker —— 本项目的开发机
+                         没有 Docker Desktop，所以默认跑不了。
+                         CI 里有一个独立的 integration-test 作业执行它们
+                         （mvn -B test -Pintegration -Dgroups=integration），
+                         并且 build 作业依赖它 —— 也就是说集成测试挂了会挡住发布。
                          这样默认的 mvn test 只跑不依赖外部环境的测试，秒级完成、随时可跑。 -->
                     <excludedGroups>integration</excludedGroups>
                 </configuration>
@@ -211,8 +217,11 @@
 
     <profiles>
         <!-- mvn test -Pintegration：把集成测试也跑上。
-             这些测试需要真实的中间件，目前只在 CI 里有意义（本机没有 Docker Desktop，
-             见项目文档）。后续会把它们改成用 Testcontainers 自带环境。 -->
+             容器定义在 mall-test-support 模块，各服务按自己【实测】需要的中间件
+             @Import 对应的内部类（依据是运行中 pod 的 /actuator/health 组件明细，
+             不是按 classpath 猜的 —— mall-common 会把 mybatis+MySQL 驱动带给
+             并不需要数据库的 mall-gateway/mall-auth/mall-cart）。
+             需要 Docker，所以主要在 CI 的 integration-test 作业里跑。 -->
         <profile>
             <id>integration</id>
             <build>
