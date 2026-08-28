@@ -59,4 +59,24 @@ public class SearchController {
             return R.ok();
         }
     }
+
+    /**
+     * 从 Elasticsearch 下架（删除）商品文档。
+     *
+     * <p>返回值判断和上架那个方法一样是反的：service 返回的是「有没有失败项」，
+     * 所以 true 要转成 R.error()。名字叫 status 容易读反，别照着字面理解。
+     */
+    @PostMapping("/search/product/down")
+    @ResponseBody
+    public R productDown(@RequestBody List<Long> skuIds) {
+        boolean hasFailures;
+        try {
+            hasFailures = productSaveService.productDown(skuIds);
+        } catch (IOException e) {
+            log.error("SearchController - 商品下架错误: ", e);
+            return R.error();
+        }
+        return hasFailures ? R.error() : R.ok();
+    }
+
 }

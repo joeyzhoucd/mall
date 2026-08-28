@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.springframework.transaction.annotation.Transactional;
 
 
 @Service("skuInfoService")
@@ -193,6 +194,52 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
         }
 
         return skuItemVo;
+    }
+
+
+    @Override
+    @Transactional
+    public void removeSkus(List<Long> skuIds) {
+        if (skuIds == null || skuIds.isEmpty()) {
+            return;
+        }
+        // 先子后父。这三张表之间【没有外键约束】，数据库不会替我们把顺序和完整性兜住，
+        // 漏一张就留下一批指向已删 SKU 的孤儿行；而自增主键被复用时，
+        // 新 SKU 会凭空继承上一个 SKU 的图片和销售属性。
+        skuImagesDao.delete(new QueryWrapper<SkuImagesEntity>().in("sku_id", skuIds));
+        skuSaleAttrValueDao.delete(new QueryWrapper<SkuSaleAttrValueEntity>().in("sku_id", skuIds));
+        this.removeByIds(skuIds);
+    }
+
+    @Override
+    public void updateBasicInfo(SkuInfoEntity sku) {
+        if (sku == null || sku.getSkuId() == null) {
+            throw new IllegalArgumentException("skuId 不能为空");
+        }
+        // 白名单：只把这四个字段抄进一个干净对象再更新，请求体里的其它字段一律不生效。
+        // 理由见 SkuInfoService#updateBasicInfo 的注释（防越权写入，不是防 null 覆盖）。
+        SkuInfoEntity patch = new SkuInfoEntity();
+        patch.setSkuId(sku.getSkuId());
+        patch.setSkuName(sku.getSkuName());
+        patch.setSkuTitle(sku.getSkuTitle());
+        patch.setSkuSubtitle(sku.getSkuSubtitle());
+        patch.setPrice(sku.getPrice());
+        this.updateById(patch);
+    }
+
+    @Override
+    public int batchPublish(List<Long> skuIds, Integer publishStatus) {
+        if (skuIds == null || skuIds.isEmpty() || publishStatus == null) {
+            return 0;
+        }
+        // 只接受 0/1。不校验的话传个 2 会写进去，之后所有「= 1 才算在售」的判断
+        // 都会把它当成下架，而管理员在界面上看到的是「操作成功」。
+        if (publishStatus != 0 && publishStatus != 1) {
+            throw new IllegalArgumentException("publishStatus 只能是 0（下架）或 1（上架），收到: " + publishStatus);
+        }
+        SkuInfoEntity patch = new SkuInfoEntity();
+        patch.setPublishStatus(publishStatus);
+        return this.baseMapper.update(patch, new QueryWrapper<SkuInfoEntity>().in("sku_id", skuIds));
     }
 
 }

@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
+import com.mall.common.utils.PageUtils;
+import org.springframework.web.bind.annotation.RequestParam;
+import java.util.Map;
 
 
 
@@ -30,4 +33,14 @@ public class CouponController {
     public R placeholder() {
         return R.ok().put("message", "This is a placeholder method");
     }
+
+    /**
+     * 优惠券分页列表。后台在给 SKU 绑券时用它填下拉框。
+     */
+    @RequestMapping("/list")
+    public R list(@RequestParam Map<String, Object> params) {
+        PageUtils page = couponService.queryPage(params);
+        return R.ok().put("page", page);
+    }
+
 }

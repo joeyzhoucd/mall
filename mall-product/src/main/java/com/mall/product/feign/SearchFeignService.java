@@ -15,5 +15,12 @@ public interface SearchFeignService {
      */
     @PostMapping("/search/product/up")
     R productUp(@RequestBody List<Object> skuEsModels);
+
+    /**
+     * 从 Elasticsearch 删除这些 sku 的文档（下架 / 删除商品时调用）。
+     */
+    @PostMapping("/search/product/down")
+    R productDown(@RequestBody List<Long> skuIds);
+
 }
 

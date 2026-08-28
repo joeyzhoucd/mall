@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
+import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
 
 @Slf4j
 @Service
@@ -103,5 +104,51 @@ public class ProductSaveServiceImpl implements ProductSaveService {
             log.info("已创建索引: {}", INDEX_NAME);
         }
     }
+
+    /**
+     * 批量删除 sku 文档。
+     *
+     * <h3>「文档不存在」不算失败</h3>
+     * ES 的 bulk delete 对不存在的 id 返回 404 状态，但<b>不会</b>把
+     * {@code bulk.errors()} 置为 true —— 这正是我们要的：下架一个从没上架过的商品
+     * 应该是无害的空操作，而不是报错。调用方（商品删除、下架）可能重试，
+     * 必须保证重复执行不会失败。
+     */
+    @Override
+    public boolean productDown(List<Long> skuIds) throws IOException {
+        if (skuIds == null || skuIds.isEmpty()) {
+            return false;
+        }
+        // 索引可能还不存在（从没上架过任何商品）。不建的话 bulk 会因为
+        // auto-create 而【创建一个没有 mapping 的索引】，之后真正上架时
+        // ik 分词、nested attrs 全部失效，搜索结果肉眼看不出错但明显变差。
+        ensureIndexExists();
+
+        List<BulkOperation> ops = new ArrayList<>();
+        for (Long skuId : skuIds) {
+            DeleteOperation deleteOp = DeleteOperation.of(b -> b
+                .index(INDEX_NAME)
+                .id(String.valueOf(skuId))
+            );
+            ops.add(BulkOperation.of(b -> b.delete(deleteOp)));
+        }
+
+        BulkRequest bulkReq = BulkRequest.of(b -> b
+            .operations(ops)
+            .timeout(new Time.Builder().time("60s").build())
+            .refresh(Refresh.False)
+        );
+
+        BulkResponse bulk = esClient.bulk(bulkReq);
+        boolean hasFailures = bulk.errors();
+
+        if (hasFailures) {
+            log.error("商品下架存在失败项，items={}", bulk.items());
+        } else {
+            log.info("商品下架成功，数量={}", ops.size());
+        }
+        return hasFailures;
+    }
+
 }
 

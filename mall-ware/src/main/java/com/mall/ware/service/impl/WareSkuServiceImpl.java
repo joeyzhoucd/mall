@@ -35,9 +35,19 @@ import com.mall.common.constant.MqConstants;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.mall.ware.entity.WareInfoEntity;
+import com.mall.ware.service.WareInfoService;
+import java.util.stream.Collectors;
 
 @Service("wareSkuService")
 public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> implements WareSkuService {
+
+    /**
+     * 只在 setStock 里用：SKU 还没有任何库存记录时，判断系统里是不是只有一个仓库。
+     * 只有一个才敢替调用方决定建在哪；多个仓时必须由调用方指定。
+     */
+    @Autowired
+    private WareInfoService wareInfoService;
 
     @Autowired
     private com.mall.ware.dao.WareSkuDao wareSkuDao;
@@ -489,4 +499,89 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     private void deductStockByDetail(StockReleaseItemTo itemTo, WareOrderTaskDetailEntity detailEntity) {
         stockAtomicOps.deduct(detailEntity.getId(), itemTo.getSkuId(), detailEntity.getWareId(), itemTo.getCount());
     }
+
+    /**
+     * 后台设置库存。
+     *
+     * <h3>「设置某个 SKU 的库存」这句话本身是有歧义的</h3>
+     * 一个 SKU 可以存在于多个仓库，库存是分仓记的。前端只传了 skuId 和 stock，
+     * 没说是哪个仓。这里<b>不猜</b>：
+     * <ul>
+     *   <li>显式传了 wareId  -> 就用它；</li>
+     *   <li>该 SKU 只有一条仓库记录 -> 用那一条，没有歧义；</li>
+     *   <li>该 SKU 有多条记录 -> <b>报错并列出候选仓</b>。随便挑一个（比如 id 最小的）
+     *       会让管理员以为改的是总库存，实际只改了其中一个仓，
+     *       而其余仓的数字纹丝不动 —— 页面上看不出来，只有发货时才发现对不上；</li>
+     *   <li>该 SKU 没有任何记录 -> 全系统只有一个仓时在那里建，
+     *       多个仓时同样报错要求指定。</li>
+     * </ul>
+     * 这条纪律和 {@code StockAtomicOps} 里坚持带 ware_id 的理由是同一个：
+     * 分仓库存一旦「总数对、分布错」，在单仓环境里永远暴露不出来。
+     *
+     * <h3>不能设成低于已锁定的数量</h3>
+     * stock_locked 是已经被订单占住、还没扣减的量。把 stock 设到它以下，
+     * 可售量（stock - stock_locked）就变成负数，后续下单的库存判断会全部失真。
+     * 这里直接拒绝，而不是悄悄截断到 stock_locked —— 截断的话管理员填的数字
+     * 和实际写入的不一样，且没有任何提示。
+     */
+    @Override
+    @Transactional
+    public Long setStock(Long skuId, Long wareId, Integer stock) {
+        if (skuId == null || stock == null || stock < 0) {
+            throw new IllegalArgumentException("skuId 不能为空，stock 不能为空或负数");
+        }
+
+        List<WareSkuEntity> rows = this.list(new QueryWrapper<WareSkuEntity>().eq("sku_id", skuId));
+
+        Long targetWareId = wareId;
+        if (targetWareId == null) {
+            if (rows.size() == 1) {
+                targetWareId = rows.get(0).getWareId();
+            } else if (rows.size() > 1) {
+                String candidates = rows.stream()
+                        .map(r -> r.getWareId() + "(当前 " + r.getStock() + ")")
+                        .collect(Collectors.joining(", "));
+                throw new IllegalArgumentException(
+                        "SKU " + skuId + " 在多个仓库有库存，必须指定 wareId。候选：" + candidates);
+            } else {
+                List<WareInfoEntity> wares = wareInfoService.list();
+                if (wares.size() == 1) {
+                    targetWareId = wares.get(0).getId();
+                } else {
+                    throw new IllegalArgumentException(
+                            "SKU " + skuId + " 还没有库存记录，且系统里有 " + wares.size()
+                                    + " 个仓库，必须指定 wareId");
+                }
+            }
+        }
+
+        final Long finalWareId = targetWareId;
+        WareSkuEntity existing = rows.stream()
+                .filter(r -> finalWareId.equals(r.getWareId()))
+                .findFirst().orElse(null);
+
+        if (existing == null) {
+            WareSkuEntity created = new WareSkuEntity();
+            created.setSkuId(skuId);
+            created.setWareId(finalWareId);
+            created.setStock(stock);
+            created.setStockLocked(0);
+            this.save(created);
+            return finalWareId;
+        }
+
+        int locked = existing.getStockLocked() == null ? 0 : existing.getStockLocked();
+        if (stock < locked) {
+            throw new IllegalArgumentException(
+                    "库存不能低于已锁定数量：仓库 " + finalWareId + " 当前已锁定 " + locked
+                            + "，要设置的值是 " + stock + "。请先处理这些在途订单。");
+        }
+
+        WareSkuEntity patch = new WareSkuEntity();
+        patch.setId(existing.getId());
+        patch.setStock(stock);
+        this.updateById(patch);
+        return finalWareId;
+    }
+
 }

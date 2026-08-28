@@ -22,10 +22,14 @@ import org.springframework.util.CollectionUtils;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * SPU information service implementation
  */
+@Slf4j
 @Service("spuInfoService")
 public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> implements SpuInfoService {
 
@@ -474,12 +478,17 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         CategoryEntity category = categoryDao.selectById(spuInfo.getCategoryId());
 
         // 4. Query all SKU information
+        // 只索引在售的 SKU。不过滤的话，单独下架某个规格这个动作就【没有任何效果】——
+        // 状态改了、但下一次上架又把它原样写回索引，用户照样搜得到、买得到。
+        // ne(0) 而不是 eq(1)：万一将来引入别的非零状态（预售、待审核），
+        // 默认应该是「仍然可见」，而不是被这行悄悄从索引里剔掉。
         List<SkuInfoEntity> skuInfoList = skuInfoDao.selectList(
-                new QueryWrapper<SkuInfoEntity>().eq("spu_id", spuId)
+                new QueryWrapper<SkuInfoEntity>().eq("spu_id", spuId).ne("publish_status", 0)
         );
 
         if (CollectionUtils.isEmpty(skuInfoList)) {
-            throw new RuntimeException("No SKU found for SPU id: " + spuId);
+            throw new RuntimeException("SPU " + spuId + " 下没有处于在售状态的 SKU，无法上架"
+                    + "（可能是全部 SKU 都被单独下架了，检查 pms_sku_info.publish_status）");
         }
 
         List<Long> skuIds = skuInfoList.stream()
@@ -596,4 +605,99 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
 
         return skuEsModels;
     }
+
+    /**
+     * ES 的删除必须放在<b>数据库事务提交之后</b>。
+     *
+     * <h3>为什么不能直接在事务里调</h3>
+     * ES 是远程服务，{@code @Transactional} 管不到它 —— 回滚只回滚数据库。
+     * 如果在事务中间就把文档删了，而后面某一步失败导致回滚，结果是
+     * <b>商品还在库里、却已经搜不到了</b>：后台一切正常，用户搜不到这个商品，
+     * 而且没有任何报错指向这次删除操作。这种「删了一半」最难查。
+     * <p>
+     * 放在 afterCommit 之后，失败的方向就反过来了：数据库删成功、ES 删失败，
+     * 留下指向已删商品的孤儿文档 —— 用户能搜到但点进去 404。同样是问题，
+     * 但它<b>可见、可重放</b>（重新执行一次下架就修好了），而前一种是静默的数据不一致。
+     * <p>
+     * 严格的做法是本地消息表 / outbox 加重试，这里没有。所以这段只是把
+     * 「两种不一致」里挑了可恢复的那一种，不是把不一致消除了。
+     */
+    private void deleteFromEsAfterCommit(List<Long> skuIds) {
+        if (CollectionUtils.isEmpty(skuIds)) {
+            return;
+        }
+        Runnable task = () -> {
+            try {
+                R result = searchFeignService.productDown(new ArrayList<>(skuIds));
+                if (result == null || result.getCode() != 0) {
+                    // 不抛异常：事务已经提交，抛出去也回滚不了任何东西，
+                    // 只会把一个「已完成」的操作在调用方看来变成失败。
+                    log.error("从 ES 删除商品文档失败，遗留孤儿文档 skuIds={}，msg={}",
+                            skuIds, result != null ? result.getMsg() : "调用无返回");
+                }
+            } catch (Exception e) {
+                log.error("从 ES 删除商品文档异常，遗留孤儿文档 skuIds=" + skuIds, e);
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+        } else {
+            // 没有事务上下文（比如被直接调用）时立即执行，否则这个清理会被静默丢掉。
+            task.run();
+        }
+    }
+
+    @Override
+    @Transactional
+    public void removeSpus(List<Long> spuIds) {
+        if (CollectionUtils.isEmpty(spuIds)) {
+            return;
+        }
+
+        // 先把 skuId 查出来。删完 pms_sku_info 之后就再也查不到它们了，
+        // 而后面删图片、销售属性、ES 文档都要按 sku_id 来。
+        List<Long> skuIds = skuInfoDao.selectList(
+                        new QueryWrapper<SkuInfoEntity>().in("spu_id", spuIds))
+                .stream().map(SkuInfoEntity::getSkuId).collect(Collectors.toList());
+
+        if (!CollectionUtils.isEmpty(skuIds)) {
+            skuImagesDao.delete(new QueryWrapper<SkuImagesEntity>().in("sku_id", skuIds));
+            skuSaleAttrValueDao.delete(new QueryWrapper<SkuSaleAttrValueEntity>().in("sku_id", skuIds));
+            skuInfoDao.delete(new QueryWrapper<SkuInfoEntity>().in("sku_id", skuIds));
+        }
+
+        spuInfoDescDao.delete(new QueryWrapper<SpuInfoDescEntity>().in("spu_id", spuIds));
+        productAttrValueDao.delete(new QueryWrapper<ProductAttrValueEntity>().in("spu_id", spuIds));
+        spuImagesService.remove(new QueryWrapper<SpuImagesEntity>().in("spu_id", spuIds));
+        this.removeByIds(spuIds);
+
+        deleteFromEsAfterCommit(skuIds);
+    }
+
+    @Override
+    @Transactional
+    public void downSpu(Long spuId) {
+        SpuInfoEntity spuInfo = this.getById(spuId);
+        if (spuInfo == null) {
+            throw new RuntimeException("SPU not found with id: " + spuId);
+        }
+
+        spuInfo.setPublishStatus(0);
+        spuInfo.setUpdateTime(new Date());
+        this.updateById(spuInfo);
+
+        List<Long> skuIds = skuInfoDao.selectList(
+                        new QueryWrapper<SkuInfoEntity>().eq("spu_id", spuId))
+                .stream().map(SkuInfoEntity::getSkuId).collect(Collectors.toList());
+
+        // 库和索引两件事都要做：只改库不删索引，商品照样搜得到；
+        // 只删索引不改库，下一次上架或全量同步又会把它放回去。
+        deleteFromEsAfterCommit(skuIds);
+    }
+
 }

@@ -110,4 +110,42 @@ public class WareSkuController {
         boolean ok = wareSkuService.manualRetryFailed(detailId);
         return ok ? R.ok() : R.error(ErrorCode.REQUEST_FAILED);
     }
+
+    /**
+     * 后台设置某个 SKU 的库存。
+     *
+     * <p>请求体 {@code {"skuId":"1","stock":"100"}}，可选 {@code "wareId":"1"}。
+     * 前端把数字都转成了字符串发过来，所以统一用 String 解析，
+     * 不能直接声明成 Long/Integer 字段去接 —— Jackson 对 "100" -> Integer 是可以的，
+     * 但一旦前端某处改成发数字或空串，两种写法的失败方式完全不同，
+     * 这里显式解析并给出明确报错。
+     *
+     * <p>歧义（一个 SKU 多个仓）由 service 层拒绝而不是替调用方猜，
+     * 报错信息里会列出候选仓库，所以这里把 IllegalArgumentException 的消息原样回传。
+     */
+    @PostMapping("/updateStock")
+    public R updateStock(@RequestBody Map<String, Object> body) {
+        try {
+            Object skuIdObj = body.get("skuId");
+            Object stockObj = body.get("stock");
+            if (skuIdObj == null || stockObj == null) {
+                return R.error("参数不完整：需要 skuId 和 stock");
+            }
+            Long skuId = Long.valueOf(String.valueOf(skuIdObj).trim());
+            Integer stock = Integer.valueOf(String.valueOf(stockObj).trim());
+            Object wareIdObj = body.get("wareId");
+            Long wareId = (wareIdObj == null || String.valueOf(wareIdObj).isBlank())
+                    ? null : Long.valueOf(String.valueOf(wareIdObj).trim());
+
+            Long usedWareId = wareSkuService.setStock(skuId, wareId, stock);
+            return R.ok().put("wareId", usedWareId);
+        } catch (NumberFormatException e) {
+            return R.error("skuId / stock / wareId 必须是数字");
+        } catch (IllegalArgumentException e) {
+            return R.error(e.getMessage());
+        } catch (Exception e) {
+            return R.error("库存更新失败: " + e.getMessage());
+        }
+    }
+
 }
