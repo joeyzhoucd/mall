@@ -55,11 +55,38 @@ public class WareSkuController {
     }
 
     /**
-     * Update warehouse SKU
+     * 修改库存记录的<b>非数量</b>字段。
+     *
+     * <h3>为什么不再是「整个实体丢给 updateById」</h3>
+     * 这个方法是 renren 生成器生成的，原来直接 {@code updateById(wareSku)} ——
+     * 也就是任何调用方都能把 {@code stock} 和 {@code stock_locked} 写成任意值。
+     * <p>
+     * {@code stock_locked} 是【被订单占住、还没扣减】的数量，由
+     * {@link com.mall.ware.service.StockAtomicOps} 里那组带 CAS 的 SQL 维护，
+     * 每一次增减都和一条订单明细的状态迁移严格对应。直接写它会把这本账毁掉：
+     * 可售量（stock - stock_locked）立刻失真，而且<b>不会有任何报错</b> ——
+     * 症状要等到某个订单发不出货、或者库存莫名其妙多出来的时候才出现，
+     * 那时已经无从追溯是谁写的。
+     * <p>
+     * {@code stock} 也不在这里改：改库存有专门的 {@code POST /updateStock}，
+     * 它会校验「不能低于已锁定数量」，并在一个 SKU 存在于多个仓时拒绝而不是随便挑一个。
+     * <p>
+     * 所以这里只留 {@code skuName} 这类描述性字段。传了数量字段直接报错，
+     * 而不是静默忽略 —— 静默忽略会让调用方以为改成功了。
      */
-    @RequestMapping("/update")
-    public R update(@RequestBody WareSkuEntity wareSku){
-		wareSkuService.updateById(wareSku);
+    @PostMapping("/update")
+    public R update(@RequestBody WareSkuEntity wareSku) {
+        if (wareSku == null || wareSku.getId() == null) {
+            return R.error("id 不能为空");
+        }
+        if (wareSku.getStock() != null || wareSku.getStockLocked() != null) {
+            return R.error("这个接口不能改库存数量。改可售库存用 POST /ware/waresku/updateStock；"
+                    + "stock_locked 由订单流程的 CAS 逻辑维护，任何情况下都不允许直接写。");
+        }
+        WareSkuEntity patch = new WareSkuEntity();
+        patch.setId(wareSku.getId());
+        patch.setSkuName(wareSku.getSkuName());
+        wareSkuService.updateById(patch);
         return R.ok();
     }
 
