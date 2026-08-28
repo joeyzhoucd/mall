@@ -1,6 +1,35 @@
 server:
   port: 15000
 spring:
+  # 【排除 Redisson 的自动配置，让 Lettuce 接管 Spring Data Redis】
+  #
+  # 起因：秒杀链路的 Tempo 链路里【一个 Redis span 都没有】，而同集群的 mall-auth
+  # 有（它的登录链路能看到 hmset / pexpireat / exists 三条命令）。差别就在这里 ——
+  # mall-auth 没引 redisson，走的是 Lettuce。
+  #
+  # 根因：redisson-spring-boot-starter 的 RedissonAutoConfigurationV4 提供了
+  # redissonConnectionFactory，它成了唯一的 RedisConnectionFactory，于是
+  # StringRedisTemplate（包括秒杀的 Lua 脚本）全部走 Redisson，压根不经过 Lettuce。
+  # Boot 的 LettuceObservationAutoConfiguration 条件全部通过、customizer 也真的
+  # 创建了 —— 但它定制的那个 ClientResources 没有任何消费者。
+  # 这是很典型的「配置匹配 != 配置生效」：条件报告说 matched 是实话，bean 确实在，
+  # 只是没人用它。光看条件报告会得出「配置是对的」这个错误结论。
+  #
+  # 排除之后的分工回到常规做法：
+  #   Spring Data Redis（RedisTemplate / Spring Session / 发布订阅）-> Lettuce
+  #   Redisson 只保留它真正不可替代的部分 —— RLock 分布式锁
+  # RedissonClient 由本模块的 RedissonConfig 自己创建，不依赖 starter，所以排除安全。
+  #
+  # 改之前逐条核实过的安全前提（这三条只要有一条不成立就会出事）：
+  #   1. 全部代码注入的都是 StringRedisTemplate，它的序列化器恒为 StringRedisSerializer，
+  #      与底层连接工厂无关 —— 所以换驱动不会让 Redis 里已有的明文数据读不出来。
+  #      （如果哪天有人注入 RedisTemplate<Object,Object>，Boot 默认是 JDK 二进制序列化，
+  #      换驱动就会造成新旧数据格式不一致，那时这个排除必须重新评估。）
+  #   2. 没有任何代码使用 RedissonReactiveClient / RedissonRxClient（V4 一并提供）。
+  #   3. RedissonAutoConfigurationV2 本来就不匹配（它要 Boot 3 的 RedisAutoConfiguration），
+  #      所以只排 V4 就够，不会有另一个悄悄顶上。
+  autoconfigure:
+    exclude: org.redisson.spring.starter.RedissonAutoConfigurationV4
   application:
     name: mall-product
   # 从 Config Server 拉配置。用 spring.config.import 而不是旧的 bootstrap.yml——
