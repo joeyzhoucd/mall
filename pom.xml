@@ -54,6 +54,10 @@
         <!-- lombok / mysql-connector-j / httpclient5 / junit 这几个的版本都由
              spring-boot-dependencies 统一管理，不在这里再钉一遍——原来钉死的
              lombok 1.18.24 不支持 Java 21，这类版本漂移交给 BOM 更省心。 -->
+        <!-- surefire 排除哪些标签。走一个属性而不是把 integration 直接写死在插件配置里 ——
+             原因见下面 integration profile 的说明：Maven 的插件配置合并规则决定了
+             【空元素覆盖不掉父配置】，必须靠属性替换才能真正清空。 -->
+        <mall.surefire.excludedGroups>integration</mall.surefire.excludedGroups>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -199,7 +203,7 @@
                          （mvn -B test -Pintegration -Dgroups=integration），
                          并且 build 作业依赖它 —— 也就是说集成测试挂了会挡住发布。
                          这样默认的 mvn test 只跑不依赖外部环境的测试，秒级完成、随时可跑。 -->
-                    <excludedGroups>integration</excludedGroups>
+                    <excludedGroups>${mall.surefire.excludedGroups}</excludedGroups>
                 </configuration>
             </plugin>
             <plugin>
@@ -221,21 +225,23 @@
              @Import 对应的内部类（依据是运行中 pod 的 /actuator/health 组件明细，
              不是按 classpath 猜的 —— mall-common 会把 mybatis+MySQL 驱动带给
              并不需要数据库的 mall-gateway/mall-auth/mall-cart）。
-             需要 Docker，所以主要在 CI 的 integration-test 作业里跑。 -->
+             需要 Docker，所以主要在 CI 的 integration-test 作业里跑。
+
+             【为什么是改属性，而不是在这里写 <excludedGroups></excludedGroups>】
+             第一版就是那么写的，结果是【一个集成测试都没跑，而 mvn 报 BUILD SUCCESS】。
+             Maven 合并插件配置时（Xpp3Dom.mergeXpp3Dom），如果 dominant 一侧的元素
+             既没有值也没有子元素，就会退回用 recessive 一侧的值 ——
+             也就是说空元素等于"没写"，父层的 integration 原样保留。
+             改成属性替换：属性值为空时 excludedGroups 就是空字符串，是一个"有值"的覆盖。
+
+             这个坑是被 CI 里那条「断言测试确实跑了」的检查抓出来的。没有那条检查的话，
+             这个作业会一直绿着，而它一个测试都没执行 —— 和这个项目之前踩过的
+             surefire 2.12.4 认不出 JUnit 5 是完全同一类问题。 -->
         <profile>
             <id>integration</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <!-- 清空默认的排除，让 integration 标签的测试也跑 -->
-                            <excludedGroups></excludedGroups>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
+            <properties>
+                <mall.surefire.excludedGroups></mall.surefire.excludedGroups>
+            </properties>
         </profile>
     </profiles>
 </project>

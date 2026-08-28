@@ -110,7 +110,9 @@ jobs:
       # 两个都要 —— 只加 -Dgroups 的话仍然会被 excludedGroups 排除掉，
       # 结果是「一个测试都没跑」而 Maven 照常 BUILD SUCCESS。
       - name: Run integration tests (Testcontainers)
-        run: mvn -B test -Pintegration -Dgroups=integration
+        # -fae（--fail-at-end）：一次看到所有失败的模块，而不是在第一个就停。
+        # 失败仍然会让这一步非零退出、作业失败，只是诊断信息更全。
+        run: mvn -B test -Pintegration -Dgroups=integration -fae
 
       # 断言【确实跑了】。上面那条命令如果因为标签/profile 配错而一个测试都没匹配上，
       # Maven 会安安静静地成功 —— 这正是这个项目已经踩过的坑
