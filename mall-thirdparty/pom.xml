@@ -35,10 +35,17 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- 对象存储走 S3 API。
+             选它不是因为要上 AWS，而是因为 S3 的 API 事实上已经是对象存储的通用协议 ——
+             MinIO、Cloudflare R2、腾讯云 COS，以及阿里云 OSS 自己都提供 S3 兼容端点。
+             同一份代码在本地（MinIO）、阿里云、AWS 上都不用改，只改 endpoint 和 region。
+             原来用的 aliyun-sdk-oss 把代码绑死在一家云上，是本次去阿里化要拆的
+             最后一个依赖（全仓 grep com.alibaba / aliyun 只剩它）。
+             只引 s3 这一个模块，不引整个 aws-sdk —— 后者会把几百个服务的客户端都拉进来。
+             版本由根 pom 的 software.amazon.awssdk:bom 管理。 -->
         <dependency>
-            <groupId>com.aliyun.oss</groupId>
-            <artifactId>aliyun-sdk-oss</artifactId>
-            <version>3.18.3</version>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
         </dependency>
     
         <!-- 集成测试的容器定义。test 作用域 —— 它不会进任何生产镜像。 -->

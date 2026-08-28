@@ -58,6 +58,7 @@
              原因见下面 integration profile 的说明：Maven 的插件配置合并规则决定了
              【空元素覆盖不掉父配置】，必须靠属性替换才能真正清空。 -->
         <mall.surefire.excludedGroups>integration</mall.surefire.excludedGroups>
+        <aws.sdk.version>2.54.6</aws.sdk.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -72,6 +73,20 @@
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring.cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- AWS SDK v2：用来访问对象存储。
+                 这里选它不是因为要上 AWS，而是因为 S3 的 API 事实上已经是对象存储的
+                 通用协议 —— MinIO、Cloudflare R2、腾讯云 COS、以及阿里云 OSS 自己
+                 都提供 S3 兼容端点。换成它之后，同一份代码在本地（MinIO）、
+                 阿里云、AWS 上都不用改，只改配置里的 endpoint 和 region。
+                 而 aliyun-sdk-oss 把代码绑死在一家云上，这是本次去阿里化要拆掉的
+                 最后一个依赖（全仓 grep com.alibaba/aliyun 只剩它）。 -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
