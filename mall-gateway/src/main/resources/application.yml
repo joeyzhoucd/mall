@@ -48,8 +48,11 @@ spring:
   data:
     redis:
       # 只给 RequestRateLimiter 限流用，跟其他服务复用同一个 Redis 实例，不是单独一份数据。
-      host: ${REDIS_HOST:192.168.77.100}
-      port: ${REDIS_PORT:6379}
+      # 一主二从+哨兵上线后不再直连固定 host/port（master 会随故障转移变化），
+      # 改成把 3 个哨兵地址都给客户端，由它自己去问哨兵"现在谁是 master"。
+      sentinel:
+        master: ${REDIS_SENTINEL_MASTER:mymaster}
+        nodes: ${REDIS_SENTINEL_NODES:redis-sentinel-0.redis-sentinel:26379,redis-sentinel-1.redis-sentinel:26379,redis-sentinel-2.redis-sentinel:26379}
   cloud:
     gateway:
       # 路由配置的属性前缀是 spring.cloud.gateway.server.webflux.routes，

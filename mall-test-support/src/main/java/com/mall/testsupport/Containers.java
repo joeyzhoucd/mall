@@ -85,6 +85,14 @@ public final class Containers {
          *
          * <p>症状有迷惑性：@ServiceConnection 明明"配了"、容器也确实起来了，
          * 但应用连的是另一个地址。
+         *
+         * <p>Redis 一主二从+哨兵上线后：这里只写 host/port，不写
+         * spring.data.redis.sentinel.*，RedissonConfig 靠 sentinel.nodes
+         * 是否非空来判断走哨兵模式还是单机模式——这个测试上下文里没人设置
+         * sentinel.nodes，会自动落到单机模式连这一个测试容器，不用跟着改。
+         * 但如果哪天生产环境的 application.yml 也把 sentinel.nodes 设成了
+         * profile 无关的默认值（而不是纯靠环境变量注入），这里就会失效，
+         * 到时候排查方向从这条注释开始。
          */
         @Bean
         DynamicPropertyRegistrar redisRawProperties(RedisContainer redis) {
@@ -106,8 +114,27 @@ public final class Containers {
 
     @TestConfiguration(proxyBeanMethods = false)
     public static class Elasticsearch {
+        /**
+         * 这里【故意】不加 @ServiceConnection。
+         *
+         * <p>加了会直接失败：
+         * {@code ConnectionDetailsNotFoundException: No ConnectionDetails found for source
+         * '@ServiceConnection source for Bean 'elasticsearchContainer''}。
+         * 原因是 {@code @ServiceConnection} 需要 classpath 上有能消费它的
+         * ConnectionDetails 工厂，而那个工厂来自 Boot 的 Elasticsearch 自动配置 ——
+         * <b>mall-search 压根没有引 Boot 的 ES starter</b>，它直接用裸的
+         * elasticsearch-java 自己建 RestClient（为了自己控制 Jackson 3 的 transport）。
+         *
+         * <p>也就是说对这个服务来说 {@code @ServiceConnection} 无从发挥：
+         * 既没有自动配置会读 ConnectionDetails，也没有工厂能产出它。
+         * 容器地址只能通过下面的 DynamicPropertyRegistrar 写进
+         * {@code elasticsearch.host} / {@code elasticsearch.port} —— 那才是
+         * ElasticSearchConfig 真正读的属性。
+         *
+         * <p>容器本身仍然会被启动：Boot 的 Testcontainers 支持会启动所有
+         * {@code Startable} 类型的 bean，和有没有 {@code @ServiceConnection} 无关。
+         */
         @Bean
-        @ServiceConnection
         ElasticsearchContainer elasticsearchContainer() {
             return new ElasticsearchContainer(TestImages.ELASTICSEARCH)
                     // 单节点、关安全，否则要配证书和账号，对「上下文能不能起来」毫无价值。

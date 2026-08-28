@@ -61,8 +61,10 @@ spring:
   # 不含 redis 健康指示器），要等到真正读写 Session / 缓存 / 限流计数时才报连不上。
   data:
     redis:
-      host: ${REDIS_HOST:192.168.77.100}
-      port: ${REDIS_PORT:6379}
+      # 一主二从+哨兵：不再直连固定 host/port，改成把哨兵地址给客户端去问 master 是谁。
+      sentinel:
+        master: ${REDIS_SENTINEL_MASTER:mymaster}
+        nodes: ${REDIS_SENTINEL_NODES:redis-sentinel-0.redis-sentinel:26379,redis-sentinel-1.redis-sentinel:26379,redis-sentinel-2.redis-sentinel:26379}
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
