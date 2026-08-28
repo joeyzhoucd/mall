@@ -86,19 +86,28 @@ public final class Containers {
          * <p>症状有迷惑性：@ServiceConnection 明明"配了"、容器也确实起来了，
          * 但应用连的是另一个地址。
          *
-         * <p>Redis 一主二从+哨兵上线后：这里只写 host/port，不写
-         * spring.data.redis.sentinel.*，RedissonConfig 靠 sentinel.nodes
-         * 是否非空来判断走哨兵模式还是单机模式——这个测试上下文里没人设置
-         * sentinel.nodes，会自动落到单机模式连这一个测试容器，不用跟着改。
-         * 但如果哪天生产环境的 application.yml 也把 sentinel.nodes 设成了
-         * profile 无关的默认值（而不是纯靠环境变量注入），这里就会失效，
-         * 到时候排查方向从这条注释开始。
+         * <p><b>哨兵：这条注释预言的情况已经发生了，所以下面显式置空。</b>
+         * 原来的判断是「测试上下文里没人设 sentinel.nodes，RedissonConfig 会自动
+         * 落到单机模式」。但各服务的 application.yml 写的是
+         * {@code nodes: ${REDIS_SENTINEL_NODES:redis-sentinel-0.redis-sentinel:26379,...}}
+         * —— 带默认值的占位符，也就是<b>即使环境变量没设，属性也永远非空</b>，
+         * 于是 {@code StringUtils.hasText(sentinelNodes)} 恒为真，测试里的 Redisson
+         * 会去连集群里那三个哨兵。CI 实测报的是：
+         * {@code SENTINEL SENTINELS command returns empty result or connection
+         * can't be established to some of them}。
+         *
+         * <p>这里起的是一个<b>单独的 Redis 容器</b>，没有哨兵也不该有，
+         * 所以显式把 sentinel.nodes / master 置空，让分支落回单机。
+         * 动态属性的优先级高于 application.yml，置空是有效的覆盖。
          */
         @Bean
         DynamicPropertyRegistrar redisRawProperties(RedisContainer redis) {
             return (registry) -> {
                 registry.add("spring.data.redis.host", redis::getHost);
                 registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+                // 见上面注释：yml 里的 sentinel.nodes 带默认值，永远非空，必须显式置空。
+                registry.add("spring.data.redis.sentinel.nodes", () -> "");
+                registry.add("spring.data.redis.sentinel.master", () -> "");
             };
         }
     }
