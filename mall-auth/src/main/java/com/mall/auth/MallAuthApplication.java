@@ -5,11 +5,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
-import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 
 @EnableFeignClients
 @EnableDiscoveryClient
-@SpringBootApplication(exclude = DataSourceAutoConfiguration.class, scanBasePackages = { "com.mall.auth",
+@SpringBootApplication(scanBasePackages = { "com.mall.auth",
         "com.mall.common" })
 public class MallAuthApplication {
 

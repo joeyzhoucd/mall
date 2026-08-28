@@ -117,13 +117,13 @@ jobs:
       # 断言【确实跑了】。上面那条命令如果因为标签/profile 配错而一个测试都没匹配上，
       # Maven 会安安静静地成功 —— 这正是这个项目已经踩过的坑
       # （surefire 2.12.4 认不出 JUnit 5，写多少测试都等于没写，而且 BUILD SUCCESS）。
-      # 所以用报告数量做一次阳性对照：预期 8 个模块各有 1 个上下文测试。
+      # 所以用报告数量做一次阳性对照：预期 11 个模块各有 1 个上下文测试。
       - name: Assert integration tests actually ran
         run: |
           n=$(find . -path '*/surefire-reports/*ApplicationTests.txt' | wc -l)
           echo "跑到的集成测试报告数: $n"
-          if [ "$n" -lt 8 ]; then
-            echo "::error::期望至少 8 个集成测试报告，实际 $n —— 测试很可能被静默跳过了"
+          if [ "$n" -lt 11 ]; then
+            echo "::error::期望至少 11 个集成测试报告，实际 $n —— 测试很可能被静默跳过了"
             exit 1
           fi
 

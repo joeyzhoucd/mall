@@ -22,6 +22,26 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-starter-web</artifactId>
                 </exclusion>
+                  <!-- 这个服务不连关系型数据库，把 mall-common 带来的持久化那一套也排掉。
+                       原来是靠 @SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
+                       绕过去的 —— 那只是让 Boot 别去建 DataSource，jar 里那 20 多 MiB 的
+                       MyBatis-Plus + JDBC + MySQL 驱动照样在、启动时照样要被扫描。
+                       对一个正在优化冷启动的项目来说，带着一整套用不到的持久化框架是纯负担。
+                       artifact 名随 Boot 4 迁移变过（mybatis-plus-boot-starter →
+                       mybatis-plus-spring-boot4-starter，mysql:mysql-connector-java →
+                       com.mysql:mysql-connector-j），写旧名字不报错但排除会【静默失效】。 -->
+                  <exclusion>
+                      <groupId>com.baomidou</groupId>
+                      <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+                  </exclusion>
+                  <exclusion>
+                      <groupId>com.baomidou</groupId>
+                      <artifactId>mybatis-plus-jsqlparser</artifactId>
+                  </exclusion>
+                  <exclusion>
+                      <groupId>com.mysql</groupId>
+                      <artifactId>mysql-connector-j</artifactId>
+                  </exclusion>
             </exclusions>
         </dependency>
         <!-- Spring Cloud 2025.1（= Gateway 5.0）把网关的坐标按"响应式 / MVC"两种
