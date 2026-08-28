@@ -176,6 +176,9 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             detailEntity.setSkuNum(item.getCount());
             detailEntity.setTaskId(taskEntity.getId());
             detailEntity.setLockStatus(StockLockStatus.LOCKED);
+            // 记下真正锁成功的那个仓库。这个信息在这里本来就有（matched 就是抢锁
+            // 成功的那一行），此前只是没有存下来，导致释放/扣减时只能靠猜。
+            detailEntity.setWareId(matched.getWareId());
             wareOrderTaskDetailService.save(detailEntity);
             lockedDetails.add(detailEntity);
             lockedWares.add(new LockedSku(matched.getId(), item.getCount()));
@@ -475,7 +478,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
      * 两步在一个事务里。返回 false 表示这条明细已经被别人处理过，本次调用什么都不该做。
      */
     private void unlockStockByDetail(StockReleaseItemTo itemTo, WareOrderTaskDetailEntity detailEntity) {
-        stockAtomicOps.unlock(detailEntity.getId(), itemTo.getSkuId(), itemTo.getCount());
+        stockAtomicOps.unlock(detailEntity.getId(), itemTo.getSkuId(), detailEntity.getWareId(), itemTo.getCount());
     }
 
     /**
@@ -484,6 +487,6 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
      * B 读 98 写 96）会把真实库存扣两次，也就是凭空少掉一份货。
      */
     private void deductStockByDetail(StockReleaseItemTo itemTo, WareOrderTaskDetailEntity detailEntity) {
-        stockAtomicOps.deduct(detailEntity.getId(), itemTo.getSkuId(), itemTo.getCount());
+        stockAtomicOps.deduct(detailEntity.getId(), itemTo.getSkuId(), detailEntity.getWareId(), itemTo.getCount());
     }
 }

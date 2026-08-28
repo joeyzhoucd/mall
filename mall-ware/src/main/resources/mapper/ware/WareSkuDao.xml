@@ -43,6 +43,17 @@
          LIMIT 1
     </update>
 
+    <!-- 有 ware_id 之后的正确路径：(sku_id, ware_id) 唯一确定一行，
+         不需要 ORDER BY ... LIMIT 1 去猜是哪个仓库。
+         上面那条按 sku 的只保留给迁移前、ware_id 为 null 的历史明细。 -->
+    <update id="releaseLockedBySkuAndWare">
+        UPDATE wms_ware_sku
+           SET stock_locked = stock_locked - #{count}
+         WHERE sku_id = #{skuId}
+           AND ware_id = #{wareId}
+           AND stock_locked &gt;= #{count}
+    </update>
+
     <!-- 扣减：真实库存和锁定量同时减，两个条件都必须满足。 -->
     <update id="deductStockBySku">
         UPDATE wms_ware_sku
@@ -53,6 +64,17 @@
            AND stock &gt;= #{count}
          ORDER BY id
          LIMIT 1
+    </update>
+
+    <!-- 同上：按 sku + 仓库精确扣减。 -->
+    <update id="deductStockBySkuAndWare">
+        UPDATE wms_ware_sku
+           SET stock = stock - #{count},
+               stock_locked = stock_locked - #{count}
+         WHERE sku_id = #{skuId}
+           AND ware_id = #{wareId}
+           AND stock_locked &gt;= #{count}
+           AND stock &gt;= #{count}
     </update>
 
     <!-- 采购入库的相对增量。 -->

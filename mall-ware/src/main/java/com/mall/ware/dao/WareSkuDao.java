@@ -52,10 +52,21 @@ public interface WareSkuDao extends BaseMapper<WareSkuEntity> {
     int releaseLockedBySku(@Param("skuId") Long skuId, @Param("count") Integer count);
 
     /**
+     * 按 sku + 仓库释放。这是有 ware_id 之后的<b>正确</b>路径：
+     * (sku_id, ware_id) 唯一确定一行，不需要 ORDER BY ... LIMIT 1 去猜。
+     */
+    int releaseLockedBySkuAndWare(@Param("skuId") Long skuId, @Param("wareId") Long wareId,
+                                  @Param("count") Integer count);
+
+    /**
      * 扣减库存（订单已支付）：真实库存和锁定量同时减。两个条件都写进 WHERE，
      * 任一不满足就影响 0 行，不会把库存扣成负数。
      */
     int deductStockBySku(@Param("skuId") Long skuId, @Param("count") Integer count);
+
+    /** 按 sku + 仓库扣减。理由同 releaseLockedBySkuAndWare。 */
+    int deductStockBySkuAndWare(@Param("skuId") Long skuId, @Param("wareId") Long wareId,
+                                @Param("count") Integer count);
 
     /**
      * 采购入库：给已存在的库存行加数量。并发压力远低于下单链路（是后台收货动作），

@@ -43,7 +43,7 @@ public class StockAtomicOps {
      *         调用方不要再做任何后续动作（比如别再发一次消息、别再记一次日志）
      */
     @Transactional(rollbackFor = Exception.class)
-    public boolean unlock(Long detailId, Long skuId, Integer count) {
+    public boolean unlock(Long detailId, Long skuId, Long wareId, Integer count) {
         if (detailId == null || skuId == null || count == null || count <= 0) {
             return false;
         }
@@ -51,8 +51,29 @@ public class StockAtomicOps {
             // 没抢到处理权：状态已经不是 LOCKED，说明另一个执行流已经处理完了
             return false;
         }
-        wareSkuDao.releaseLockedBySku(skuId, count);
+        releaseByWareOrFallback(skuId, wareId, count);
         return true;
+    }
+
+    /**
+     * 有 wareId 就精确释放，没有就退回按 sku 任选一行的旧行为。
+     * <p>
+     * 为什么要保留旧路径：{@code ware_id} 是后加的列，<b>迁移之前创建的明细行没有这个值</b>。
+     * 如果这里直接要求 wareId 非空，那些还在流转中的历史订单会释放不掉库存 ——
+     * 一次 schema 变更把在途数据卡死，比多留一条兼容分支糟糕得多。
+     * <p>
+     * 旧路径的缺陷仍然存在（多仓库时可能从错误的仓库释放，sku 总量对但各仓分布漂移），
+     * 所以它只是过渡。等确认库里没有 ware_id 为空的 LOCKED 明细之后，这个分支可以删掉：
+     * <pre>
+     * SELECT COUNT(*) FROM wms_ware_order_task_detail WHERE ware_id IS NULL AND lock_status = 1;
+     * </pre>
+     */
+    private void releaseByWareOrFallback(Long skuId, Long wareId, Integer count) {
+        if (wareId != null) {
+            wareSkuDao.releaseLockedBySkuAndWare(skuId, wareId, count);
+        } else {
+            wareSkuDao.releaseLockedBySku(skuId, count);
+        }
     }
 
     /**
@@ -61,14 +82,19 @@ public class StockAtomicOps {
      * @return true = 本次调用真正执行了扣减；false = 已被别人处理过
      */
     @Transactional(rollbackFor = Exception.class)
-    public boolean deduct(Long detailId, Long skuId, Integer count) {
+    public boolean deduct(Long detailId, Long skuId, Long wareId, Integer count) {
         if (detailId == null || skuId == null || count == null || count <= 0) {
             return false;
         }
         if (wareOrderTaskDetailDao.casLockStatus(detailId, StockLockStatus.LOCKED, StockLockStatus.DEDUCTED) == 0) {
             return false;
         }
-        wareSkuDao.deductStockBySku(skuId, count);
+        if (wareId != null) {
+            wareSkuDao.deductStockBySkuAndWare(skuId, wareId, count);
+        } else {
+            // 理由见 releaseByWareOrFallback
+            wareSkuDao.deductStockBySku(skuId, count);
+        }
         return true;
     }
 }
