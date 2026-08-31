@@ -75,6 +75,17 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- 定时任务调度。选 Quartz 而不是 @Scheduled + ShedLock：
+             后台要能【动态】增删任务、改 cron、暂停/恢复、立即执行一次，
+             @Scheduled 是编译期固定的注解，做不到这些。
+             而 Quartz 的 JDBC 存储天然是集群安全的 —— mall-admin 现在 1 个副本，
+             但扩到多副本时同一个任务不会被两个实例同时触发。
+             这一条是 @Scheduled 那条路必须自己用分布式锁补的。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-quartz</artifactId>
+        </dependency>
 </dependencies>
 
     <build>

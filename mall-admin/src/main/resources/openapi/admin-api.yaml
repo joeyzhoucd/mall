@@ -856,6 +856,252 @@ paths:
                           allowedExtensions: { type: array, items: { type: string } }
                           credentialsConfigured: { type: boolean }
 
+
+  # ---------------------------------------------------------------------------
+  # 定时任务
+  #
+  # 用 Quartz 而不是 @Scheduled + ShedLock：后台要能动态增删任务、改 cron、
+  # 暂停/恢复、立即执行一次，@Scheduled 是编译期固定的注解，一个都做不到。
+  # Quartz 的 JDBC 存储还天然是集群安全的 —— mall-admin 扩到多副本时
+  # 同一个任务不会被两个实例同时触发。
+  #
+  # 一处对 renren 原实现的安全修正：原版是「填一个 bean 名，到点反射调它的 run 方法」，
+  # 也就是任何能创建定时任务的人都能调用容器里任意 bean 的方法。
+  # 现在只有标了 @ScheduledTask 的类才可能被调用，方法签名固定为 run(String)。
+  # 保存时和执行时各查一遍 —— 执行时那一遍才是真闸门（任务行是数据，可绕过接口写进库）。
+  # ---------------------------------------------------------------------------
+  /sys/schedule/list:
+    get:
+      tags: [定时任务]
+      summary: 定时任务分页列表
+      operationId: scheduleList
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: beanName
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      page:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - type: object
+                            properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/ScheduleJob' }
+
+  /sys/schedule/info/{jobId}:
+    get:
+      tags: [定时任务]
+      summary: 定时任务详情
+      operationId: scheduleInfo
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      schedule: { $ref: '#/components/schemas/ScheduleJob' }
+
+  /sys/schedule/save:
+    post:
+      tags: [定时任务]
+      summary: 新增定时任务
+      description: |
+        beanName 必须是标了 @ScheduledTask 的 Spring bean，否则直接拒绝并说明原因。
+        jobId 由数据库生成，请求里传了会被忽略（否则可以覆盖已有任务）。
+        cron 表达式不合法时会在这里报错，不会出现「保存成功但从来不触发」的情况。
+      operationId: scheduleSave
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScheduleJob' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/schedule/update:
+    post:
+      tags: [定时任务]
+      summary: 修改定时任务
+      description: |
+        改完会把调度器里的触发器删掉重建 —— Quartz 的 rescheduleJob 换不了
+        JobDataMap 里的内容，而 params 就存在那里，不重建的话会出现
+        「cron 改了但 params 还是旧的」这种半更新状态。
+      operationId: scheduleUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScheduleJob' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/schedule/delete:
+    post:
+      tags: [定时任务]
+      summary: 批量删除定时任务
+      description: |
+        先删调度器里的触发器再删库。反过来的话触发器删失败时任务行已经没了，
+        那个触发器就成了孤儿：到点还会触发，而且没人知道它对应哪条配置。
+      operationId: scheduleDelete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/schedule/run:
+    post:
+      tags: [定时任务]
+      summary: 立即执行一次
+      description: 不影响原来的 cron 计划。找不到的 id 会被跳过而不是让整批失败。
+      operationId: scheduleRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/schedule/pause:
+    post:
+      tags: [定时任务]
+      summary: 批量暂停
+      operationId: schedulePause
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/schedule/resume:
+    post:
+      tags: [定时任务]
+      summary: 批量恢复
+      operationId: scheduleResume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /sys/scheduleLog/list:
+    get:
+      tags: [定时任务]
+      summary: 执行日志分页列表
+      description: |
+        路径是驼峰的 scheduleLog，不是 schedule-log —— 前端 job/schedule-log.vue
+        调的就是这个。只读，没有删除接口：执行日志是排查「任务为什么没跑/跑错」的
+        唯一线索，手动删除等于允许抹掉证据。
+      operationId: scheduleLogList
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: jobId
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 分页结果，按 logId 倒序
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      page:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - type: object
+                            properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/ScheduleJobLog' }
+
+  /sys/scheduleLog/info/{logId}:
+    get:
+      tags: [定时任务]
+      summary: 执行日志详情
+      operationId: scheduleLogInfo
+      parameters:
+        - name: logId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      log: { $ref: '#/components/schemas/ScheduleJobLog' }
+
 components:
 
   securitySchemes:
@@ -1074,6 +1320,34 @@ components:
         createDate:
           type: string
           description: 服务端生成。字段名是 createDate（前端列表的列名），不是 createTime
+    ScheduleJob:
+      type: object
+      required: [beanName, cronExpression]
+      properties:
+        jobId: { type: integer, format: int64, description: 数据库生成，请求里传了会被忽略 }
+        beanName:
+          type: string
+          description: |
+            Spring bean 名。只能是标了 @ScheduledTask 的 bean，且必须有
+            public void run(String) 方法。不加这个白名单的话，能创建定时任务
+            就等于能调用容器里任意 bean 的方法。
+        params: { type: string, nullable: true, description: 传给 run(String) 的参数，就一个字符串 }
+        cronExpression: { type: string, description: "如 0 0 12 * * ?（Quartz 六段式，秒在最前）" }
+        status: { type: integer, description: 0 正常，1 暂停。新增时固定为 0，改状态走 pause/resume }
+        remark: { type: string, nullable: true }
+        createTime: { type: string, nullable: true, description: 服务端生成 }
+
+    ScheduleJobLog:
+      type: object
+      properties:
+        logId: { type: integer, format: int64 }
+        jobId: { type: integer, format: int64 }
+        beanName: { type: string }
+        params: { type: string, nullable: true }
+        status: { type: integer, description: 0 成功，1 失败 }
+        error: { type: string, nullable: true, description: 失败时的异常信息，写入前截断到 1900 字符 }
+        times: { type: integer, description: 耗时（毫秒）。字段名沿用旧表 }
+        createTime: { type: string }
     SysConfig:
       type: object
       required: [paramKey, paramValue]

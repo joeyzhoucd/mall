@@ -60,6 +60,39 @@ spring:
       charset: UTF-8
       enabled: true
       force: true
+  # ---------- 定时任务（Quartz）----------
+  quartz:
+    job-store-type: jdbc
+    # 【必须是 never】。QRTZ_* 那 11 张表【已经存在】—— 它们是旧 renren 后台留下的，
+    # 里面还有历史触发状态（QRTZ_SCHEDULER_STATE 2 行、QRTZ_TRIGGERS 1 行，
+    # schedule_job_log 有 244 条日志，最后一条是 2026-08-25 testTask 的执行记录）。
+    # 设成 always 会在每次启动时重建表结构 —— 那会把这些历史一起清掉；
+    # 设成 embedded 更糟，直接切成内存存储，重启就丢任务、多副本还会各跑一份。
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.scheduler.instanceName: MallAdminScheduler
+      # AUTO = 用主机名+时间戳生成实例 id。集群模式下每个实例必须不同，
+      # 写死一个值会让两个副本互相认为对方是"自己的旧实例"并去接管彼此的任务。
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.jobStore.class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+      org.quartz.jobStore.tablePrefix: QRTZ_
+      # 【集群模式】mall-admin 现在只有 1 个副本，但这个开关必须现在就打开：
+      # 关着的话 Quartz 假设自己是唯一实例，扩到 2 副本时【同一个任务会被触发两次】。
+      # 而那种问题在单副本环境里永远测不出来，等扩容才发现，且表现为"任务莫名跑了两遍"。
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 15000
+      # 超过 cron 时间点才被触发算"错过"。默认策略会把错过的都补跑一遍 ——
+      # 一次滚动更新（pod 重启 20 多秒）之后，所有分钟级任务会一起补跑，
+      # 形成一个尖峰。withMisfireHandlingInstructionDoNothing 是在 ScheduleUtils
+      # 里按触发器设的，这里只调阈值。
+      org.quartz.jobStore.misfireThreshold: 60000
+      org.quartz.threadPool.class: org.quartz.simpl.SimpleThreadPool
+      # 20 个足够：这里的任务是"到点调一个 bean 方法"，不是计算密集型。
+      # 调大反而会让多个慢任务同时压数据库。
+      org.quartz.threadPool.threadCount: 20
+      org.quartz.threadPool.threadPriority: 5
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
