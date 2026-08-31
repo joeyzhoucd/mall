@@ -5,6 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * 后台管理服务。
@@ -17,6 +18,10 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 // 让 AdminProperties 这个 record 形式的 @ConfigurationProperties 被扫描到。
 // record 的构造器绑定 Boot 原生支持，不需要额外的 @EnableConfigurationProperties。
 @ConfigurationPropertiesScan
+// 后台文件管理要让 mall-thirdparty 删对象。存储凭据只放在 mall-thirdparty 一处，
+// 不在这里再配一份 —— 同一份凭据出现在两个服务里，轮换时一定会漏掉一个，
+// 而漏掉的那个不会立刻报错，会在下一次真正用到时才失败。
+@EnableFeignClients(basePackages = "com.mall.admin.feign")
 @EnableDiscoveryClient
 @MapperScan("com.mall.admin.dao")
 @SpringBootApplication

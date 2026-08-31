@@ -8,6 +8,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import java.util.LinkedHashMap;
+import java.util.List;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
@@ -69,6 +77,9 @@ public class ObjectStorageController {
 
     @Autowired
     private S3Presigner presigner;
+
+    @Autowired
+    private S3Client s3Client;
 
     /**
      * @param filename 原始文件名，只用来取扩展名，不作为对象名的一部分
@@ -149,5 +160,76 @@ public class ObjectStorageController {
 
     private String trimTrailingSlash(String s) {
         return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
+    }
+
+    /**
+     * 按 key 批量删除对象。给后台的文件管理用。
+     *
+     * <p>删除由<b>服务端</b>做，不发预签名的 DELETE 给浏览器 —— 那等于把删除权交出去，
+     * 任何人拿到那个链接都能删对象，而且链接在有效期内无法撤销。
+     *
+     * <p>S3 的 DeleteObjects 对<b>不存在的 key 返回成功</b>（幂等）。这正是想要的：
+     * 调用方可能重试，重复删不该报错。所以「删了几个」这个数字不代表「原本存在几个」，
+     * 不要拿它去推断状态。
+     */
+    @PostMapping("/delete")
+    public R delete(@RequestBody List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            return R.ok().put("deleted", 0);
+        }
+        // 一次最多 1000 个是 S3 的硬限制，超了整个请求会被拒。分批发。
+        // 后台一次删的量远达不到，但这个限制不写出来的话，将来批量清理时会突然失败。
+        int deleted = 0;
+        try {
+            for (int i = 0; i < keys.size(); i += 1000) {
+                List<ObjectIdentifier> batch = keys.subList(i, Math.min(i + 1000, keys.size()))
+                        .stream()
+                        .filter(k -> k != null && !k.isBlank())
+                        .map(k -> ObjectIdentifier.builder().key(k).build())
+                        .toList();
+                if (batch.isEmpty()) {
+                    continue;
+                }
+                s3Client.deleteObjects(DeleteObjectsRequest.builder()
+                        .bucket(properties.getBucket())
+                        .delete(Delete.builder().objects(batch).build())
+                        .build());
+                deleted += batch.size();
+            }
+        } catch (Exception e) {
+            log.error("删除对象失败 keys={}", keys, e);
+            return R.error("删除对象失败: " + e.getMessage());
+        }
+        return R.ok().put("deleted", deleted);
+    }
+
+    /**
+     * 当前生效的存储配置，<b>只回非密部分</b>。
+     *
+     * <p>后台原来的"云存储配置"页是一个能填七牛/阿里云/腾讯云 AccessKey+SecretKey 的表单，
+     * 存进数据库、随时可改。<b>那个设计不实现</b>：把云厂商密钥放进一张 CRUD 表、
+     * 再摆一个编辑框在后台页面上，等于任何拿到后台账号的人都能读走或替换掉存储凭据；
+     * 而且密钥进了数据库就会进备份、进从库、进binlog。
+     * 本项目的密钥走 Sealed Secret 注入环境变量，改配置是一次部署，不是一次点击。
+     *
+     * <p>所以这里只回「现在连的是哪儿」，让运维能在界面上确认配置生效了，
+     * 但读不到也改不了任何凭据。对应地前端那个表单改成了只读展示。
+     */
+    @GetMapping("/config")
+    public R config() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("provider", "S3 兼容对象存储");
+        data.put("endpoint", properties.getEndpoint());
+        data.put("region", properties.getRegion());
+        data.put("bucket", properties.getBucket());
+        data.put("pathStyleAccess", properties.isPathStyleAccess());
+        data.put("publicBaseUrl", properties.getPublicBaseUrl());
+        data.put("presignExpireSeconds", properties.getPresignExpireSeconds());
+        data.put("allowedExtensions", ALLOWED_EXTENSIONS);
+        // 只说明凭据是否已注入，不回任何片段 —— 连前 4 位都不回：
+        // AccessKeyId 的前缀本身就能透露云厂商和账号族。
+        data.put("credentialsConfigured",
+                properties.getAccessKeyId() != null && !properties.getAccessKeyId().isBlank());
+        return R.ok().put("data", data);
     }
 }

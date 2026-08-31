@@ -717,6 +717,145 @@ paths:
                                 type: array
                                 items: { $ref: '#/components/schemas/SysLog' }
 
+
+  # ---------------------------------------------------------------------------
+  # 文件管理
+  #
+  # 和旧 renren 后台的两处不同，都是有意的：
+  #   1) 没有 POST /sys/oss/upload。旧实现让浏览器把文件 POST 给后端、后端再转存，
+  #      每次上传占一个请求线程和一份内存缓冲。本项目统一走预签名直传：
+  #      前端向 mall-thirdparty 的 /thirdparty/oss/presign 要地址，直接 PUT 到对象存储，
+  #      成功后调下面的 /confirm 登记。一套上传路径，不是两套。
+  #   2) 没有 POST /sys/oss/saveConfig。旧实现有个能填七牛/阿里云/腾讯云
+  #      AccessKey+SecretKey 的表单、存进数据库。那等于任何拿到后台账号的人都能读走或
+  #      替换存储凭据，而且密钥进库就会进备份/从库/binlog。凭据走 Sealed Secret
+  #      注入环境变量 —— 改配置是一次部署，不是一次点击。
+  #      /config 保留但只读，只回「现在连的是哪儿」。
+  # ---------------------------------------------------------------------------
+  /sys/oss/list:
+    get:
+      tags: [文件管理]
+      summary: 上传文件分页列表
+      operationId: ossList
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 分页结果，按上传时间倒序
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      page:
+                        allOf:
+                          - $ref: '#/components/schemas/Page'
+                          - type: object
+                            properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/SysOss' }
+
+  /sys/oss/confirm:
+    post:
+      tags: [文件管理]
+      summary: 登记一次已完成的直传
+      description: |
+        前端把文件 PUT 到对象存储成功之后调这个接口。因为是浏览器直传，
+        后端不知道某次上传成没成功，只能靠这个回调登记。
+
+        objectKey 必填，删除时要用它，且【不能从 url 反推】——
+        url 可能带 CDN 前缀，反推出来的 key 会指向不存在的对象，删除就成了静默的空操作。
+
+        对同一个 objectKey 重复调用不报错，返回已有记录：前端在网络抖动时会重试，
+        如果重试被当成错误，用户看到「上传失败」而文件其实已经传上去了。
+        id 和 createDate 由服务端定，请求里传了也会被忽略。
+      operationId: ossConfirm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SysOss' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      oss: { $ref: '#/components/schemas/SysOss' }
+
+  /sys/oss/delete:
+    post:
+      tags: [文件管理]
+      summary: 批量删除文件
+      description: |
+        先让 mall-thirdparty 删对象，再删记录。顺序是刻意的：
+        反过来的话对象删失败时记录已经没了，再也没人知道那个 key，
+        桶里留下永远清不掉的孤儿文件（还在继续计费）。
+        当前顺序下失败会留一条指向已删对象的记录，用户点开 404，再删一次就好
+        （S3 的删除是幂等的）—— 可见、可重放。
+      operationId: ossDelete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      deleted: { type: integer, description: 实际删除的记录数 }
+
+  /sys/oss/config:
+    get:
+      tags: [文件管理]
+      summary: 当前存储配置（只读，不含凭据）
+      description: |
+        只回「现在连的是哪儿」，不回任何凭据 —— 连 AccessKeyId 的前几位都不回，
+        那个前缀本身就能透露云厂商和账号族。
+        credentialsConfigured 只说明凭据是否已注入。
+        没有对应的写接口，见本节顶部说明。
+      operationId: ossConfig
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      config:
+                        type: object
+                        nullable: true
+                        description: 取不到时为 null，页面显示「未知」而不是整页报错
+                        properties:
+                          provider: { type: string }
+                          endpoint: { type: string }
+                          region: { type: string }
+                          bucket: { type: string }
+                          pathStyleAccess: { type: boolean }
+                          publicBaseUrl: { type: string, nullable: true }
+                          presignExpireSeconds: { type: integer, format: int64 }
+                          allowedExtensions: { type: array, items: { type: string } }
+                          credentialsConfigured: { type: boolean }
+
 components:
 
   securitySchemes:
@@ -918,6 +1057,23 @@ components:
               type: array
               items: { $ref: '#/components/schemas/SysMenuNode' }
 
+    SysOss:
+      type: object
+      required: [url, objectKey]
+      properties:
+        id: { type: integer, format: int64, description: 服务端生成，请求里传了会被忽略 }
+        url:
+          type: string
+          description: 对外可访问地址，可能带 CDN 前缀，不一定等于上传端点
+        objectKey:
+          type: string
+          description: 对象存储里的 key，删除时用它。不能从 url 反推
+        fileSize: { type: integer, format: int64, nullable: true, description: 字节数，由前端上报，仅供展示 }
+        contentType: { type: string, nullable: true }
+        createBy: { type: string, nullable: true, description: 服务端从登录态取，请求里传了会被忽略 }
+        createDate:
+          type: string
+          description: 服务端生成。字段名是 createDate（前端列表的列名），不是 createTime
     SysConfig:
       type: object
       required: [paramKey, paramValue]
