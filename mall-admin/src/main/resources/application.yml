@@ -11,7 +11,23 @@ spring:
   datasource:
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
-    url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_admin?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
+    # 【不要写回 useSSL=false】实测过：这个参数是生效的（等价 sslMode=DISABLED），
+    # 而服务端本来就支持 TLS 1.3 —— 主库和从库都是 have_ssl=YES、tls_version=TLSv1.2,TLSv1.3、
+    # 带自签服务端证书。也就是说那行参数主动关掉了一个免费的加密，
+    # 让凭据和每一行数据在集群内明文传输。
+    #
+    # 顺带解决一个常见的 MySQL 8 隐患：caching_sha2_password 在服务端认证缓存为空时
+    # 需要客户端取 RSA 公钥，而驱动默认 allowPublicKeyRetrieval=false 会拒绝。
+    # 正确解法【不是】把它打开 —— 那会保持明文、还允许在未加密信道上取公钥，
+    # 正是驱动那个默认值要防的中间人攻击。走 TLS 之后密码可以安全传输，压根不需要取公钥。
+    #
+    # 为什么是 REQUIRED 不是 PREFERRED：PREFERRED 在服务端不支持 TLS 时会【静默退回明文】，
+    # 那正是这个项目反复踩的那类「配了等于没配」。REQUIRED 连不上就明确失败。
+    # 留 MYSQL_SSL_MODE 这个口子是给上云用的：阿里云 RDS / AWS RDS 的证书链不同，
+    # 真遇到问题时改环境变量即可，不用重新构建镜像。
+    # 更进一步是 VERIFY_CA / VERIFY_IDENTITY（校验证书），那需要把 CA 分发到各服务，
+    # 是另一件事，还没做。
+    url: jdbc:mysql://${MYSQL_HOST:192.168.77.100}:${MYSQL_PORT:3306}/mall_admin?useUnicode=true&characterEncoding=UTF-8&sslMode=${MYSQL_SSL_MODE:REQUIRED}&serverTimezone=Asia/Shanghai
     driver-class-name: com.mysql.cj.jdbc.Driver
     # 连接池。原来一个字都没配，走 Hikari 默认：pool=10、connection-timeout=30s。
     # pool=10 保持不变（瓶颈在 MySQL 侧：单 pod、cpu=1、max_connections=151，
