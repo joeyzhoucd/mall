@@ -1,6 +1,7 @@
 package com.mall.admin;
 
 import com.mall.admin.schedule.ScheduledTask;
+import com.mall.admin.task.ScheduleJobLogCleanupTask;
 import com.mall.admin.task.TestTask;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,7 +65,9 @@ class ScheduledTaskWhitelistTest {
                 .as("一个 @ScheduledTask 都没扫到，说明扫描逻辑坏了（包名或过滤器），"
                         + "而不是真的没有任务")
                 .isNotEmpty()
-                .contains(TestTask.class);
+                // 列举【已知的】任务而不是断言个数：加新任务时不用改这条，
+                // 但任何一个已知任务被扫描漏掉（改了包名、注解被摘掉）会立刻暴露。
+                .contains(TestTask.class, ScheduleJobLogCleanupTask.class);
     }
 
     @Test

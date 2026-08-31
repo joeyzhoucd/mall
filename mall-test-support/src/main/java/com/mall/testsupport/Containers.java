@@ -51,9 +51,22 @@ public final class Containers {
         @ServiceConnection
         MySQLContainer mysqlContainer() {
             return new MySQLContainer(TestImages.MYSQL)
-                    // 库名随便取一个：这些测试只验证上下文能起来，不查表。
-                    // 真要跑 SQL 的话得先灌 DDL，而 DDL 在仓库根的 db/ 目录下，
-                    // 那个目录【不在任何 git 仓库里】，CI 拿不到 —— 见 README 的说明。
+                    // 库名随便取一个：这个容器起的是【空库】，不灌任何表。
+                    //
+                    // 【这条假设对 mall-admin 不成立，它有自己的容器】
+                    // 原来这里写的是「这些测试只验证上下文能起来，不查表」。
+                    // 加上定时任务之后 mall-admin 在【启动时】就要查 schedule_job
+                    // （ScheduleJobService 的 @PostConstruct 把数据库里的任务装进调度器），
+                    // 空库会让上下文起不来 —— CI 实测报
+                    //   Table 'mall_test.schedule_job' doesn't exist
+                    // 所以 mall-admin 自己定义了带 withInitScript 的容器
+                    // （AdminContainers.MysqlWithSchema）。没有把它的表塞进这里，
+                    // 是因为那等于让另外 10 个模块也去建它们用不到的表。
+                    //
+                    // 【如果又有模块需要表】：照 mall-admin 那样在自己模块里定义容器，
+                    // 别改这个共享的。真要给这里灌 DDL 的话还有个现实障碍：
+                    // 完整 DDL 在仓库根的 db/ 目录下，而那个目录【不在任何 git 仓库里】，
+                    // CI 拿不到。
                     .withDatabaseName("mall_test")
                     .withUsername("mall")
                     .withPassword("mall");
