@@ -209,6 +209,18 @@
                spring-boot-starter-validation 提供 jakarta.validation，不用单独声明。
              * commons-lang 2.6 / httpcore 4.x —— 见根 pom 的说明。
              * junit 4 —— Boot 4 的测试栈是 JUnit 5，由 spring-boot-starter-test 提供。 -->
-    </dependencies>
+            <!-- springdoc：mall-common 只提供「装了才生效」的配置类（MallOpenApiAutoConfiguration），
+             optional 表示【不传递】—— 哪个服务要 API 文档，自己显式引一遍。
+             刻意不做成传递依赖：上周刚清理掉 mall-common 把 MyBatis+MySQL 驱动
+             撒给 gateway/auth/cart 的问题，不该转头又用同样的方式撒一个新的。
+             注意加 optional 依赖必须同步更新 AutoConfigurationSignatureTest 里的
+             OPTIONAL_ARTIFACT_TO_PACKAGE，否则那条签名检查覆盖不到新的这个。 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+            <optional>true</optional>
+        </dependency>
+</dependencies>
 
 </project>

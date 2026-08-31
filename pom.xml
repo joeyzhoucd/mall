@@ -59,6 +59,10 @@
              【空元素覆盖不掉父配置】，必须靠属性替换才能真正清空。 -->
         <mall.surefire.excludedGroups>integration</mall.surefire.excludedGroups>
         <aws.sdk.version>2.54.6</aws.sdk.version>
+        <!-- springdoc 的大版本和 Boot 大版本绑定：2.x 是给 Boot 3 的，Boot 4 要用 3.x。
+             3.1.0 的 parent 是 spring-boot-starter-parent 4.1.0，和本项目的 4.1.1 同线。
+             写 2.x 不会在解析期报错，会在运行期以各种奇怪的方式炸（自动配置类找不到）。 -->
+        <springdoc.version>3.1.0</springdoc.version>
     </properties>
     <dependencyManagement>
         <dependencies>

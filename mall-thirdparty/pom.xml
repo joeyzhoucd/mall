@@ -55,6 +55,16 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- API 文档。mall-common 把 springdoc 声明成 optional（不传递），
+             所以要用的服务自己引一遍 —— 这是有意的，避免像以前 MyBatis 那样
+             撒给不需要的服务。标题等信息由 mall-common 的 MallOpenApiAutoConfiguration 提供。
+             文档地址：/v3/api-docs 和 /swagger-ui.html，都不在网关路由里，只在集群内可达。 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
 </dependencies>
 
     <build>

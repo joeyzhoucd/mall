@@ -60,7 +60,11 @@ class AutoConfigurationSignatureTest {
      */
     private static final Map<String, String> OPTIONAL_ARTIFACT_TO_PACKAGE = Map.of(
             "spring-boot-starter-amqp", "org.springframework.amqp.",
-            "spring-boot-starter-data-redis", "org.springframework.data.redis.");
+            "spring-boot-starter-data-redis", "org.springframework.data.redis.",
+            // 包名前缀是 io.swagger.v3. 而不是 org.springdoc. —— @Bean 的返回类型是
+            // io.swagger.v3.oas.models.OpenAPI（来自 springdoc 传递引入的 swagger-models）。
+            // 要检查的是【方法签名里出现的类型】，不是依赖的 groupId。
+            "springdoc-openapi-starter-webmvc-ui", "io.swagger.v3.");
 
     @Test
     @DisplayName("每个自动配置的外层类方法签名都不引用 optional 依赖的类型")
