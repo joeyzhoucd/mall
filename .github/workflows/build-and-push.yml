@@ -7,6 +7,27 @@ name: Build and push service images
 on:
   push:
     branches: [master]
+    # 纯文档改动不触发构建。
+    #
+    # 【判定规则】看的是「本次推送改动的文件是否【全部】命中忽略列表」——
+    # 一次提交同时改了文档和代码，照样正常构建，不会被跳过。
+    #
+    # 【为什么值得加】没有它的时候，改一行 README 会引发：
+    # 24 分钟全量构建（含集成测试）+ update-deploy 把镜像 tag 改成新 commit
+    # + ArgoCD 同步 + 12 个服务全部滚动重启。为一次文档改动做这一整套毫无意义。
+    #
+    # 【刻意不忽略 .github/**】workflow 自己改了必须能触发一次构建来验证它，
+    # 否则改坏了要等到下次真实推送才发现。
+    #
+    # 【将来的坑，先记下来】如果以后给 master 加分支保护、把这个 workflow 设成
+    # 必需的状态检查，paths-ignore 会让纯文档的 PR 永远等不到这个检查、卡住无法合并。
+    # 那时不能靠 paths-ignore，要改成「workflow 总是运行、但用 job 级 if: 条件跳过实际步骤」。
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.gitattributes'
+      - '.gitignore'
+      - 'LICENSE'
   workflow_dispatch: {}
 
 # packages: write 是推镜像到 ghcr.io 必须的权限;GITHUB_TOKEN 是仓库自带的,
