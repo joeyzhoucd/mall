@@ -309,6 +309,22 @@ OpenTelemetry Collector 做采样决策，这套集群暂时不上。
 | 镜像版本 / 资源 / 保留期 / 域名 | `mall-deploy/charts/mall/values.yaml`（本地覆盖在 `values-local.yaml`） |
 
 流程：**改文件 → commit → push 到 Gitee → ArgoCD 同步 → pod 因 checksum 注解重启**。
+不想等它自己轮询的话，推完手动催一下：
+
+```bash
+kubectl annotate application -n argocd mall-local argocd.argoproj.io/refresh=hard --overwrite
+```
+
+### 改不同仓库的后果不一样，别搞混
+
+| 改哪里 | 推到哪 | 会发生什么 |
+| --- | --- | --- |
+| `mall-deploy/charts/**` | Gitee（`origin`） | ArgoCD 同步，**不经过 CI**。改配置/规则/面板走这条 |
+| `mall-backend` 代码 | Gitee + **GitHub** | GitHub Actions 全量构建（含集成测试，约 24 分钟）→ 推镜像 → `update-deploy` 回写镜像 tag 到 mall-deploy → ArgoCD 滚动 12 个服务 |
+| `mall-backend/docs/**`、任何 `*.md` | 随便 | **不触发构建**（workflow 里配了 `paths-ignore`）。同一次提交里若还有代码改动，则照常构建 |
+
+注意 GitHub 是**手动镜像**（不是自动同步），所以「推 Gitee」和「推 GitHub」是两个动作。
+只想让配置生效、不想触发构建时，只推 Gitee。
 
 ### 两条不那么显然的工程约定
 
