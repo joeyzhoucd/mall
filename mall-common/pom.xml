@@ -110,6 +110,31 @@
             </exclusions>
         </dependency>
 
+        <!-- 熔断。挂在 Feign 上，由 spring.cloud.openfeign.circuitbreaker.enabled 启用。
+             （见 mall-common-default.properties 里那一段，含每个客户端的实例配置。）
+
+             【为什么需要它，以及它和已有的限流/隔离舱不是一回事】
+             网关限流和秒杀隔离舱防的是"自己被打爆"——入口流量超过自身容量时主动拒绝。
+             熔断防的是另一件事："下游挂了，别跟着一起卡死"。
+             没有它的时候，如果 mall-ware 扣库存变慢，mall-order 的 Feign 调用会一直
+             阻塞到超时为止，线程和连接被慢慢耗光，最后 mall-order 自己也不可用了——
+             一个下游的故障就这样扩散成全链路雪崩。隔离舱不能替代它：隔离舱只会被
+             慢慢填满然后开始拒绝，它不知道"这个下游已经不行了，应该立刻失败"。
+
+             【为什么用 Resilience4j 而不是 Sentinel】
+             去阿里化的既定方针，用国际通用方案。Resilience4j 是 Hystrix 停止维护后
+             Spring Cloud CircuitBreaker 的官方推荐实现，走的是标准的
+             org.springframework.cloud.client.circuitbreaker 抽象，
+             以后要换实现也只是换一个 starter。
+
+             【注意这里【没有】 -reactor 版本】
+             mall-gateway 是 WebFlux，但它不用 Feign（全仓 @FeignClient 里没有它），
+             所以不需要响应式版本。多引一个只会让 gateway 的 jar 白胖一圈。 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>
+
         <!-- Feign 的 Apache HttpClient 5 客户端实现，为了连接池。
              原来是靠 httpclient 4.5.13 + feign.httpclient.enabled=true 启用 HC4 池化的
              （200 连接 / 每路由 50）。新版 OpenFeign 已经完全移除 HttpClient 4 支持，
