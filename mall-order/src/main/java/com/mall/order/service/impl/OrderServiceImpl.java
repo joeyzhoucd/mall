@@ -16,6 +16,7 @@ import com.mall.common.to.OrderOperateTo;
 import com.mall.common.to.SeckillOrderTo;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
+import com.mall.common.metrics.BusinessFlow;
 import com.mall.common.utils.R;
 import com.mall.common.utils.RUtils;
 import com.mall.order.constant.OrderConstant;
@@ -62,6 +63,9 @@ import java.util.stream.Collectors;
 
 @Service("orderService")
 public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> implements OrderService {
+
+    @Autowired
+    private com.mall.common.metrics.BusinessMetrics businessMetrics;
 
     @Autowired
     private MemberFeignService memberFeignService;
@@ -143,16 +147,21 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         SubmitOrderResponseVo responseVo = new SubmitOrderResponseVo();
         UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
         if (userInfoTo == null || userInfoTo.getUserId() == null) {
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_UNAUTHENTICATED);
             responseVo.setCode(1);
             return responseVo;
         }
 
         if (!verifyToken(userInfoTo.getUserId(), submitVo.getOrderToken())) {
+            // 和 persist_failed 分开记：API 上都是 code 1，但这个绝大多数是用户双击，
+            // 混进「下单失败率」会让那个指标被无害噪声污染到没法定阈值。
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_DUPLICATE_SUBMIT);
             responseVo.setCode(1);
             return responseVo;
         }
 
         if (submitVo.getAddrId() == null || getAddressById(userInfoTo.getUserId(), submitVo.getAddrId()) == null) {
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_ADDRESS_INVALID);
             responseVo.setCode(4);
             return responseVo;
         }
@@ -161,6 +170,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         if (submitVo.getPayPrice() != null) {
             BigDecimal delta = orderCreateTo.getPayPrice().subtract(submitVo.getPayPrice()).abs();
             if (delta.compareTo(new BigDecimal("0.01")) > 0) {
+                businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_PRICE_CHANGED);
                 responseVo.setCode(2);
                 return responseVo;
             }
@@ -169,6 +179,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         WareSkuLockVo lockVo = buildLockVo(orderCreateTo);
         R lockResp = wareFeignService.orderLockStock(lockVo);
         if (lockResp == null || lockResp.getCode() != 0) {
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_STOCK_LOCK_FAILED);
             responseVo.setCode(3);
             return responseVo;
         }
@@ -180,10 +191,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         } catch (Exception e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             sendStockRelease(orderCreateTo.getOrder().getOrderSn());
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_PERSIST_FAILED);
             responseVo.setCode(1);
             return responseVo;
         }
 
+        businessMetrics.success(BusinessFlow.ORDER_SUBMIT);
         responseVo.setCode(0);
         responseVo.setOrder(orderCreateTo.getOrder());
         return responseVo;

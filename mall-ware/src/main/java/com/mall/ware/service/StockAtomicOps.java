@@ -1,6 +1,8 @@
 package com.mall.ware.service;
 
 import com.mall.common.constant.StockLockStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.mall.ware.dao.WareOrderTaskDetailDao;
 import com.mall.ware.dao.WareSkuDao;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class StockAtomicOps {
 
+    private static final Logger log = LoggerFactory.getLogger(StockAtomicOps.class);
+
     @Autowired
     private WareSkuDao wareSkuDao;
 
@@ -45,6 +49,11 @@ public class StockAtomicOps {
     @Transactional(rollbackFor = Exception.class)
     public boolean unlock(Long detailId, Long skuId, Long wareId, Integer count) {
         if (detailId == null || skuId == null || count == null || count <= 0) {
+            // 原来这里静默 return false，和「CAS 没抢到处理权」共用同一个返回值，
+            // 调用方分不开这两件事：后者是并发下的正常结果，前者是上游传了脏数据，
+            // 意味着这笔库存永远不会被释放。必须留下痕迹。
+            log.warn("unlock 参数不合法，已跳过（这笔库存不会被释放）: detailId={} skuId={} count={}",
+                    detailId, skuId, count);
             return false;
         }
         if (wareOrderTaskDetailDao.casLockStatus(detailId, StockLockStatus.LOCKED, StockLockStatus.UNLOCKED) == 0) {
@@ -84,6 +93,8 @@ public class StockAtomicOps {
     @Transactional(rollbackFor = Exception.class)
     public boolean deduct(Long detailId, Long skuId, Long wareId, Integer count) {
         if (detailId == null || skuId == null || count == null || count <= 0) {
+            log.warn("deduct 参数不合法，已跳过（这笔库存不会被扣减）: detailId={} skuId={} count={}",
+                    detailId, skuId, count);
             return false;
         }
         if (wareOrderTaskDetailDao.casLockStatus(detailId, StockLockStatus.LOCKED, StockLockStatus.DEDUCTED) == 0) {

@@ -59,6 +59,9 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     private com.mall.ware.service.StockAtomicOps stockAtomicOps;
 
     @Autowired
+    private com.mall.common.metrics.BusinessMetrics businessMetrics;
+
+    @Autowired
     private WareOrderTaskService wareOrderTaskService;
 
     @Autowired
@@ -488,7 +491,17 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
      * 两步在一个事务里。返回 false 表示这条明细已经被别人处理过，本次调用什么都不该做。
      */
     private void unlockStockByDetail(StockReleaseItemTo itemTo, WareOrderTaskDetailEntity detailEntity) {
-        stockAtomicOps.unlock(detailEntity.getId(), itemTo.getSkuId(), detailEntity.getWareId(), itemTo.getCount());
+        // StockAtomicOps 自己开事务（这条调用链上没有外层 @Transactional，已逐个确认过），
+        // 所以返回值到手时事务已经提交 —— 在这里记指标才是诚实的，理由同
+        // WareSkuController.orderLockStock 里的说明。
+        boolean done = stockAtomicOps.unlock(
+                detailEntity.getId(), itemTo.getSkuId(), detailEntity.getWareId(), itemTo.getCount());
+        if (done) {
+            businessMetrics.success(com.mall.common.metrics.BusinessFlow.STOCK_UNLOCK);
+        } else {
+            businessMetrics.failure(com.mall.common.metrics.BusinessFlow.STOCK_UNLOCK,
+                    com.mall.common.metrics.BusinessFlow.REASON_CAS_LOST);
+        }
     }
 
     /**
@@ -497,7 +510,14 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
      * B 读 98 写 96）会把真实库存扣两次，也就是凭空少掉一份货。
      */
     private void deductStockByDetail(StockReleaseItemTo itemTo, WareOrderTaskDetailEntity detailEntity) {
-        stockAtomicOps.deduct(detailEntity.getId(), itemTo.getSkuId(), detailEntity.getWareId(), itemTo.getCount());
+        boolean done = stockAtomicOps.deduct(
+                detailEntity.getId(), itemTo.getSkuId(), detailEntity.getWareId(), itemTo.getCount());
+        if (done) {
+            businessMetrics.success(com.mall.common.metrics.BusinessFlow.STOCK_DEDUCT);
+        } else {
+            businessMetrics.failure(com.mall.common.metrics.BusinessFlow.STOCK_DEDUCT,
+                    com.mall.common.metrics.BusinessFlow.REASON_CAS_LOST);
+        }
     }
 
     /**

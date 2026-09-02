@@ -2,6 +2,7 @@ package com.mall.coupon.service.impl;
 
 import com.mall.common.constant.ErrorCode;
 import com.mall.common.constant.MqConstants;
+import com.mall.common.metrics.BusinessFlow;
 import com.mall.common.constant.ResponseKeys;
 import com.mall.common.constant.SeckillMessageStatus;
 import com.mall.common.to.SeckillOrderTo;
@@ -41,6 +42,10 @@ import java.util.concurrent.TimeUnit;
 public class SeckillGrabServiceImpl implements SeckillGrabService {
 
     private static final Logger log = LoggerFactory.getLogger(SeckillGrabServiceImpl.class);
+
+    @Autowired
+    private com.mall.common.metrics.BusinessMetrics businessMetrics;
+
     private static final long CONFIRM_WAIT_SECONDS = 3;
     /**
      * 本地"已售罄"标记的兜底有效期。正常情况下 activate() 会通过 Redis Pub/Sub
@@ -140,8 +145,27 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         return true;
     }
 
+    /**
+     * 抢购入口。这里只做业务埋点，真正的逻辑在 {@link #grabInternal}。
+     * <p>
+     * 和下单不同，秒杀的失败原因已经完整地体现在返回值的 failReason（一个枚举）里，
+     * 所以可以在出口一处埋点，而不用去改 6 个 return —— 少 6 个漏埋的机会。
+     * 枚举只有 11 个取值，远低于 BusinessMetrics 的 32 组合上限，不会撑爆基数。
+     */
     @Override
     public SeckillGrabResultVo grab(Long relationId, Long memberId, String username) {
+        SeckillGrabResultVo result = grabInternal(relationId, memberId, username);
+        if (result.isSuccess()) {
+            businessMetrics.success(BusinessFlow.SECKILL_GRAB);
+        } else {
+            ErrorCode reason = result.getFailReason();
+            businessMetrics.failure(BusinessFlow.SECKILL_GRAB,
+                    reason == null ? null : reason.name().toLowerCase(java.util.Locale.ROOT));
+        }
+        return result;
+    }
+
+    private SeckillGrabResultVo grabInternal(Long relationId, Long memberId, String username) {
         SeckillGrabResultVo result = new SeckillGrabResultVo();
 
         Long soldOutUntil = localSoldOutUntil.get(relationId);

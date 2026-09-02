@@ -1,6 +1,7 @@
 package com.mall.ware.controller;
 
 import com.mall.common.constant.ErrorCode;
+import com.mall.common.metrics.BusinessFlow;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.R;
 import com.mall.common.to.StockReleaseTo;
@@ -26,6 +27,9 @@ import java.util.Map;
 public class WareSkuController {
     @Autowired
     private WareSkuService wareSkuService;
+
+    @Autowired
+    private com.mall.common.metrics.BusinessMetrics businessMetrics;
 
     /**
      * Get warehouse SKU list
@@ -104,10 +108,27 @@ public class WareSkuController {
      */
     @PostMapping("/lock/order")
     public R orderLockStock(@RequestBody WareSkuLockVo lockVo) {
-        boolean locked = wareSkuService.orderLockStock(lockVo);
+        // 【为什么业务埋点在控制器而不在 service 里】
+        // orderLockStock 带 @Transactional。计数器不参与事务回滚，在它体内自增时
+        // 事务还没提交，一旦提交阶段失败（高并发下的死锁、连接中断），就会留下
+        // 「指标说锁定成功、库里已回滚」的假数据 —— 而且这种偏差没法事后修，
+        // 已抓取的样本删不掉。Spring 的代理在方法返回后才提交，所以只有在事务
+        // 边界之外（也就是这里）拿到的返回值，才真正等价于「已提交」。
+        boolean locked;
+        try {
+            locked = wareSkuService.orderLockStock(lockVo);
+        } catch (RuntimeException e) {
+            businessMetrics.failure(BusinessFlow.STOCK_LOCK, BusinessFlow.REASON_PERSIST_FAILED);
+            throw e;
+        }
         if (!locked) {
+            // orderLockStock 只在「所有候选仓库都不够」时返回 false，所以这里能确定原因。
+            businessMetrics.failure(BusinessFlow.STOCK_LOCK, BusinessFlow.REASON_INSUFFICIENT);
             return R.error(ErrorCode.STOCK_NOT_ENOUGH);
         }
+        // 注意：locks 为空的请求也会走到这里算一次成功。订单服务不会发空请求，
+        // 真出现了说明上游有 bug —— 宁可让成功率被污染而被人发现，也不要静默丢弃。
+        businessMetrics.success(BusinessFlow.STOCK_LOCK);
         return R.ok();
     }
 
