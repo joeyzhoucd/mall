@@ -147,7 +147,8 @@ scrape_configs:
 
 ### 实际能拿到什么
 
-集群实测 190 个指标名。常用的：
+集群实测 180 个上下的指标名（这个数会变，要准确值自己数：
+`curl -s .../api/v1/label/__name__/values | jq '.data | length'`）。常用的：
 
 | 用途 | 指标 |
 | --- | --- |
@@ -161,15 +162,65 @@ scrape_configs:
 | 日志 | `logback_events_total{level}`，level 取值 `debug error info trace warn` |
 | 配置中心 | `spring_cloud_config_environment_find_seconds_*` |
 | 熔断 | `resilience4j_circuitbreaker_*`（见 §7） |
+| **业务结果** | `mall_business_outcome_total{flow,result,reason}`，见下面「业务指标」一节 |
 
 **没有的东西，别去找**：
 
 - **没有 QPS 指标**。Micrometer 给的是累计次数，QPS 是查询时 `rate()` 算出来的。
 - **没有「错误数」指标**。错误是 `http_server_requests_seconds_count` 上的**标签维度**
   （`status` / `outcome` / `exception`），靠过滤得到。
-- **没有 histogram bucket**，所以**算不了 p95**，只能用 `sum/count` 的平均值。
-  要分位数得先开 `management.metrics.distribution.percentiles-histogram.*`。
-- **没装 kube-state-metrics**，所以 pod 重启只能用 `process_uptime_seconds` 近似发现。
+- **没装 kube-state-metrics / node-exporter**，所以没有节点级 CPU、磁盘、网络，
+  pod 重启只能用 `process_uptime_seconds` 近似发现。
+
+> **2026-09-02 更正**：这里原先写「没有 histogram bucket，算不了 p95」。
+> 现在有了 —— `mall-common-default.properties` 里开了
+> `management.metrics.distribution.percentiles-histogram.http.server.requests=true`，
+> 所以 `http_server_requests_seconds_bucket` 存在，可以
+> `histogram_quantile(0.95, sum by (service, le) (rate(...[5m])))`。
+> **代价是序列数**：默认桶集约 70 个，所以用 `minimum/maximum-expected-value`
+> 把范围收窄到 **5ms–10s**，另加 5 个 SLO 边界（100ms/300ms/500ms/1s/3s）。
+> 超出上界的请求落在 `+Inf` 桶里 —— 不会丢，只是分位数在边界外不精确。
+> **刻意不给 `http.client.requests` 开**：序列数会再翻一倍，而排查跨服务延迟
+> 用 Tempo 更直接。
+
+### 业务指标（2026-09-02 补）
+
+在这之前，整套观测里**一个业务指标都没有**。缺口是具体的：能回答
+「mall-order 的 HTTP 错误率是多少」，**回答不了「过去一小时成功下了多少单」**。
+如果某个分支静默把订单丢了（MQ 发出去了、消费端 catch 掉了），
+pod 是 Ready 的、HTTP 全是 200、ERROR 日志一条没有 —— 所有告警都不响。
+
+`com.mall.common.metrics.BusinessMetrics` 是唯一入口，指标名固定
+`mall.business.outcome` → Prometheus 里 `mall_business_outcome_total`，
+标签只有三个：`flow` / `result`（只有 `success`/`failure`）/ `reason`。
+
+```java
+@Autowired private BusinessMetrics businessMetrics;
+
+businessMetrics.success(BusinessFlow.ORDER_SUBMIT);
+businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_PERSIST_FAILED);
+```
+
+接新埋点时有三件事必须照做，都不是风格问题：
+
+1. **`reason` 只能来自有界集合**（`BusinessFlow` 里的常量，或枚举名）。
+   绝不能传异常消息或任何带 ID 的字符串 —— 那会让序列数无上限增长，
+   而且事故是**渐进的**：上线时一切正常，几天后 Prometheus OOM，
+   已抓取的样本还删不掉。类里有每流 32 组合的护栏，超出归并到 `_overflow`
+   并打 warn，另有一条告警盯着它。
+2. **`reason` 可以比 API 返回码更细，而且往往应该更细。**
+   `submitOrder` 的返回码 1 混了三种原因（未登录 / 令牌校验失败=用户双击 /
+   保存异常）。照抄返回码会让「下单失败率」被双击噪声污染到没法定阈值。
+3. **埋点位置由事务边界决定。** 计数器不参与事务回滚。在 `@Transactional`
+   方法体内自增时事务还没提交，提交阶段失败（高并发下的死锁、连接中断）就会
+   留下「指标说成功、库里已回滚」的假数据。Spring 的代理在方法返回后才提交，
+   所以库存那三条流都埋在**事务边界之外**（`WareSkuController`、
+   `unlockStockByDetail`、`deductStockByDetail`）。
+
+**一个已知局限**：Micrometer 的 Counter 只在第一次 `increment()` 时注册，
+所以**零流量时这个指标整个不存在**（不是 0），面板会显示「No data」而不是 0。
+面板上计数类的格子用了 `or vector(0)` 兜住；比率类刻意不兜 ——
+没流量时报「成功率 0%」或「100%」都是撒谎，显示无数据才是诚实的。
 
 ---
 
@@ -369,11 +420,21 @@ alerting:
         - targets: ['alertmanager:9093']
 ```
 
-### 当前 19 条规则，7 组
+### 分组
 
-`可用性` / `流量与错误` / `韧性` / `资源` / `中间件` / `日志` / `心跳`。
+`可用性` / `流量与错误` / `业务` / `韧性` / `资源` / `中间件` / `配置` / `日志` / `心跳`。
 
-### 三条刻意的设计
+**条数不写在这里**（写死必然过期）。要当前值直接问 Prometheus：
+
+```bash
+curl -s http://localhost:9090/api/v1/rules | jq '[.data.groups[].rules[]] | length'
+```
+
+注意问的是 **Prometheus 实际加载了多少条**，而不是数 yml 文件里有多少条 ——
+两者不一致就说明 ConfigMap 没挂上或进程没重载，而那种失效是安静的。
+同一个接口里每条规则还带 `health` 字段，`ok` 之外的值说明表达式求值出错了。
+
+### 五条刻意的设计
 
 **1. 错误率规则排除 503。** 秒杀降级用 503 表示「暂时无法处理」，不是故障。
 混进 5xx 会让降级噪声淹没真实故障：
@@ -409,6 +470,40 @@ inhibit_rules:
 
 实测验证过：熔断打开时，`熔断器已打开`(critical) 活跃，同一 service 的
 `熔断正在拒绝请求`(warning) 在 Alertmanager 里状态是 `suppressed`。
+
+**4. 比率类规则一律带流量下限。**
+
+10 分钟里 3 个请求挂了 1 个 = 33% 失败率，会触发告警，但这个数字没有意义。
+所以每条比率规则后面都跟一个总量下限：
+
+```yaml
+expr: |
+  (
+    sum(rate(mall_business_outcome_total{flow="order.submit",result="success"}[10m]))
+    / sum(rate(mall_business_outcome_total{flow="order.submit",reason!~"unauthenticated|duplicate_submit"}[10m]))
+    < 0.9
+  )
+  and
+  sum(rate(mall_business_outcome_total{flow="order.submit"}[10m])) > 0.05
+```
+
+顺便注意分母里的 `reason!~`：`unauthenticated` 是没登录的爬虫或过期会话，
+`duplicate_submit` 绝大多数是用户双击。这两件事都不是「生意没做成」，
+算进分母会让这个比例被客户端行为主导，阈值也就没法定 ——
+这也正是埋点时刻意把返回码 1 拆成三个 `reason` 的原因。
+
+**5. 「量归零」类的规则必须带一个「之前有过量」的条件。**
+
+```yaml
+expr: |
+  sum(rate(mall_business_outcome_total{flow="order.submit"}[20m])) == 0
+  and
+  sum(rate(mall_business_outcome_total{flow="order.submit"}[6h])) > 0
+```
+
+没有后半段的话，空闲的本地集群会让它**永远处于触发状态**。
+而一条常亮的告警会训练人忽略所有告警，那比没有这条规则更糟。
+这个写法在真实生产里也是对的：夜间低峰不该报，白天突然归零才该报。
 
 ### 熔断的指标（韧性组用到）
 
