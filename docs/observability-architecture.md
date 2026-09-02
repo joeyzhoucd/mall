@@ -177,11 +177,41 @@ scrape_configs:
 > `management.metrics.distribution.percentiles-histogram.http.server.requests=true`，
 > 所以 `http_server_requests_seconds_bucket` 存在，可以
 > `histogram_quantile(0.95, sum by (service, le) (rate(...[5m])))`。
-> **代价是序列数**：默认桶集约 70 个，所以用 `minimum/maximum-expected-value`
-> 把范围收窄到 **5ms–10s**，另加 5 个 SLO 边界（100ms/300ms/500ms/1s/3s）。
+> **代价是序列数，而且比预期大**：用 `minimum/maximum-expected-value` 把范围
+> 收窄到 **5ms–10s**（另加 5 个 SLO 边界 100ms/300ms/500ms/1s/3s）之后，
+> 上线实测是**每个标签组合 56 条 bucket 序列**。原先估计「默认约 70 个，
+> 收窄以控制序列数」过于乐观 —— 70→56 只减了两成。
+> 真实增长 = 被实际访问过的 `(service, uri, status, method)` 组合数 × 56，
+> 也就是**成本取决于 `uri` 标签的基数**，不是一个固定值。
+> 盯它的办法：`prometheus_tsdb_head_series`（Prometheus 现在会抓自己）。
+> 吃不消时的取舍：关掉 `percentiles-histogram`、只留 `slo` 边界，桶数 56→6，
+> 代价是 p95 会被吸附到最近的 SLO 边界。
 > 超出上界的请求落在 `+Inf` 桶里 —— 不会丢，只是分位数在边界外不精确。
 > **刻意不给 `http.client.requests` 开**：序列数会再翻一倍，而排查跨服务延迟
 > 用 Tempo 更直接。
+
+**用 bucket 算比率时有个会静默出错的地方**：分母必须用 `le="+Inf"` 那条桶，
+**不能用 `_count`**。因为不是每个服务都有 bucket —— `mall-config` 刻意不依赖
+`mall-common`，所以它有 `http_server_requests_seconds_count` 而完全没有 bucket 序列。
+混着用会低估，而且不报错：
+
+```promql
+# 错：分子只有带桶的服务，分母算上了没有桶的服务
+sum(rate(http_server_requests_seconds_bucket{le="0.5"}[5m]))
+  / sum(rate(http_server_requests_seconds_count[5m]))
+
+# 对：两边同一序列集
+sum(rate(http_server_requests_seconds_bucket{le="0.5"}[5m]))
+  / sum(rate(http_server_requests_seconds_bucket{le="+Inf"}[5m]))
+```
+
+实测同一时刻，错的版本给 `0.115`、对的版本给 `1.0` —— 当时所有请求都是 4–8ms，
+正确答案是 100%。**错的那个不会报错，只会返回一个看起来合理的数字。**
+（告警里的 `接口响应变慢` 用 `sum by (service, le)`，只为有桶的服务产出结果，
+不存在混合，所以不受这个影响。）
+
+另外 `histogram_quantile` 会在**最低桶内做线性插值**，所以它可以返回小于
+下界 5ms 的值（实测 p50 = 3.87ms）—— 不是 bug，只是那个区间不精确。
 
 ### 业务指标（2026-09-02 补）
 
