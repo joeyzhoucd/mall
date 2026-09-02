@@ -5,3 +5,4 @@ com.mall.common.config.JdbcObservationAutoConfiguration
 com.mall.common.config.RequestPathWarmup
 com.mall.common.config.CdsTrainingExit
 com.mall.common.config.MallOpenApiAutoConfiguration
+com.mall.common.config.ActuatorObservationFilterAutoConfiguration

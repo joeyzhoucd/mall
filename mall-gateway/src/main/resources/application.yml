@@ -220,3 +220,34 @@ spring:
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
+
+# ---------------------------------------------------------------------------
+# 【网关必须把 actuator 端点收窄回最小集，不能跟着 mall-common 的默认走】
+#
+# mall-common-default.properties 里给所有服务开了诊断端点
+# （env / configprops / beans / mappings / loggers / threaddump），
+# 那对后端服务是安全的 —— 它们的 actuator 从集群外打不到。
+#
+# 但网关不一样：2026-09-01 实测确认，
+#   curl -H "Host: mall.com" http://<ingress-ip>/actuator/prometheus
+# 返回的是【网关自己的】actuator（响应里有 spring_cloud_gateway_routes_count），
+# 而且 auth./cart./seckill./item./search.mall.com 这些域名【全都能打到】。
+#
+# 原因：Spring Boot 的 actuator 端点映射优先级高于 Gateway 的 RoutePredicateHandlerMapping，
+# 所以 /actuator/** 被网关自己截胡，压根不会走路由转发。
+# 好的一面是后端 actuator 因此穿不透；坏的一面是网关自己的全暴露在公网入口上。
+#
+# 所以这里显式收窄。如果哪天把 env 也开在网关上，等于把数据库密码、JWT 密钥、
+# 全部内部地址挂到公网 —— 那是一次真正的泄露，不是理论风险。
+#
+# 【要彻底解决网关这一层，正确做法是】把 actuator 挪到独立的 management port
+# （management.server.port），让 ingress 和 Gateway 路由都够不着它。
+# 之所以这次没做：Spring Cloud Consul 的健康检查 URL 是按【注册的服务端口】拼的，
+# 挪端口会让 12 个服务在 Consul 里全变 critical、网关整个路由不出去，
+# 而这个后果只有在一轮 24 分钟 CI 之后才验证得了。留作单独一项来做。
+management:
+  endpoints:
+    web:
+      exposure:
+        # 只留 K8s 探针、Consul 健康检查和 Prometheus 抓取真正需要的三个
+        include: health,info,prometheus
