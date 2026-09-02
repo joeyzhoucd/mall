@@ -6,3 +6,4 @@ com.mall.common.config.RequestPathWarmup
 com.mall.common.config.CdsTrainingExit
 com.mall.common.config.MallOpenApiAutoConfiguration
 com.mall.common.config.ActuatorObservationFilterAutoConfiguration
+com.mall.common.config.ConfigInsightAutoConfiguration
