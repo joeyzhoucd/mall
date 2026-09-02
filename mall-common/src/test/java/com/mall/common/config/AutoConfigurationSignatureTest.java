@@ -1,5 +1,8 @@
 package com.mall.common.config;
 
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.context.annotation.Bean;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -122,6 +125,90 @@ class AutoConfigurationSignatureTest {
                         + " 新增 optional 依赖时要在清单里补上它的包名前缀，"
                         + "否则签名检查不会覆盖新的那一个 —— 覆盖面悄悄缩小的测试比没有测试更危险。")
                 .containsExactlyInAnyOrderElementsOf(OPTIONAL_ARTIFACT_TO_PACKAGE.keySet());
+    }
+
+    /**
+     * {@code @Bean} 上的 {@code @ConditionalOnBean} 必须配一个类级的 after/afterName。
+     *
+     * <h3>这条规则同样是花了一轮 CI 换来的（2026-09-02）</h3>
+     * {@code BusinessMetricsAutoConfiguration} 一开始写成
+     * {@code @Bean @ConditionalOnBean(MeterRegistry.class)}，看起来完全合理。
+     * 结果 mall-order / mall-coupon / mall-ware 三个服务的 Spring 上下文<b>全都起不来</b>。
+     * <p>
+     * 原因：自动配置上的 {@code @ConditionalOnBean} 是在<b>该自动配置类被处理的那一刻</b>
+     * 求值的，而自动配置的先后由排序决定；没有 before/after 声明时按全限定类名排序，
+     * {@code com.mall.*} 排在 {@code org.springframework.*} 前面。于是条件求值时
+     * Boot 的 metrics 自动配置还没跑，{@code MeterRegistry} 还不存在，bean 不创建 ——
+     * 而那三个服务里是<b>必需</b>的字段注入。
+     * <p>
+     * 这个错误对写代码的人同样是不可见的：单元测试全绿、{@code helm template} 全绿、
+     * {@code kubectl apply --dry-run} 全绿，只有真正启上下文的集成测试会挂。
+     * 如果没有那一步集成测试，三个服务会在部署后才 CrashLoopBackOff。
+     * <p>
+     * 两种正确写法，任选其一：
+     * <ul>
+     *   <li>在类上声明 {@code @AutoConfiguration(after/afterName = ...)}，点名那个提供
+     *       目标 bean 的自动配置 —— {@link JdbcObservationAutoConfiguration} 就是这么做的；</li>
+     *   <li>干脆不用 {@code @ConditionalOnBean}：把参数改成
+     *       {@code ObjectProvider<T>}，它在<b>bean 创建时</b>才解析，与排序无关。
+     *       如果调用方是必需注入，这个才是唯一安全的选择，因为它能保证 bean 总是产出。</li>
+     * </ul>
+     */
+    @Test
+    @DisplayName("@Bean 上用了 @ConditionalOnBean 的自动配置必须声明 after/afterName")
+    void conditionalOnBeanRequiresExplicitOrdering() throws Exception {
+        List<Class<?>> autoConfigurations = loadRegisteredAutoConfigurations();
+        assertThat(autoConfigurations)
+                .as("没有读到任何自动配置类 —— 这个测试就什么都没检查，先修它")
+                .isNotEmpty();
+
+        List<String> violations = new ArrayList<>();
+        int inspected = 0;
+        for (Class<?> type : autoConfigurations) {
+            // 外层类 + 嵌套类都要看：@ConditionalOnBean 放在嵌套类的 @Bean 上，
+            // 求值时机依然由【外层自动配置类】的排序决定。
+            List<Class<?>> candidates = new ArrayList<>();
+            candidates.add(type);
+            candidates.addAll(List.of(type.getDeclaredClasses()));
+
+            boolean usesConditionalOnBean = false;
+            for (Class<?> candidate : candidates) {
+                for (Method method : candidate.getDeclaredMethods()) {
+                    if (method.isAnnotationPresent(Bean.class)
+                            && method.isAnnotationPresent(ConditionalOnBean.class)) {
+                        usesConditionalOnBean = true;
+                    }
+                }
+            }
+            if (!usesConditionalOnBean) {
+                continue;
+            }
+            inspected++;
+
+            AutoConfiguration annotation = type.getAnnotation(AutoConfiguration.class);
+            boolean ordered = annotation != null
+                    && (annotation.after().length > 0 || annotation.afterName().length > 0);
+            if (!ordered) {
+                violations.add(type.getSimpleName());
+            }
+        }
+
+        // 一个都没扫到就说明检测手段失效了（注解被换、嵌套类结构变了），
+        // 而"没有违规"和"什么都没检查"在结果上长得一模一样 —— 这正是要防的那种失效。
+        assertThat(inspected)
+                .as("没有找到任何用 @ConditionalOnBean 的 @Bean。项目里至少有一处"
+                        + "（JdbcObservationAutoConfiguration 的 tracing handler）。"
+                        + "扫到 0 个说明这个检查已经失效，而失效的表现和'全部合规'一样。")
+                .isPositive();
+
+        assertThat(violations)
+                .as("这些自动配置在 @Bean 上用了 @ConditionalOnBean 却没声明类级 after/afterName。"
+                        + " @ConditionalOnBean 在自动配置被处理的那一刻求值，排序在没有声明时按"
+                        + "全限定类名走（com.mall.* 早于 org.springframework.*），"
+                        + "所以条件很可能看不到目标 bean，@Bean 被静默跳过。"
+                        + " 要么点名 after/afterName，要么把参数改成 ObjectProvider<T>"
+                        + "（bean 创建时才解析，与排序无关；调用方是必需注入时只能选这个）。")
+                .isEmpty();
     }
 
     private List<Class<?>> loadRegisteredAutoConfigurations() throws Exception {
