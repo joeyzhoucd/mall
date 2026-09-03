@@ -137,9 +137,19 @@
     }
 
     function loadAddresses() {
-        fetch('/api/member/memberreceiveaddress/' + memberId + '/list')
+        // 路径里【没有】 memberId —— 身份由服务端会话决定。
+        // 原来这里是 /api/member/memberreceiveaddress/{memberId}/list，
+        // memberId 由页面传给后端，改个数字就能读到任意会员的姓名/电话/详细地址，
+        // 而那批服务当时完全没有鉴权（实测无凭证 HTTP 200）。
+        // 现在走 mall-coupon 的代理接口，它从会话取 memberId。
+        fetch('/coupon/seckill/address/mine')
             .then(function (r) { return r.json(); })
             .then(function (data) {
+                if (data && data.code === 401) {
+                    document.getElementById('addressList').innerHTML =
+                        '<div style="color:#c00;">请先登录后再选择收货地址</div>';
+                    return;
+                }
                 var list = (data && data.address) || [];
                 var container = document.getElementById('addressList');
                 container.innerHTML = '';
@@ -162,8 +172,9 @@
     }
 
     function addAddress() {
+        // 请求体里【不再带 memberId】。后端会用会话里的值覆盖它，
+        // 所以传了也不算 —— 但这里干脆不传，免得看起来像个有效字段。
         var addressVo = {
-            memberId: memberId,
             name: document.getElementById('addrName').value,
             phone: document.getElementById('addrPhone').value,
             province: document.getElementById('addrProvince').value,
@@ -173,13 +184,19 @@
             postCode: document.getElementById('addrPostCode').value,
             defaultStatus: 0
         };
-        fetch('/api/member/memberreceiveaddress/save', {
+        fetch('/coupon/seckill/address/mine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(addressVo)
         })
             .then(function (r) { return r.json(); })
-            .then(function () { loadAddresses(); });
+            .then(function (data) {
+                if (data && data.code === 401) {
+                    showMsg('请先登录');
+                    return;
+                }
+                loadAddresses();
+            });
     }
 
     function useAddress(addrId) {

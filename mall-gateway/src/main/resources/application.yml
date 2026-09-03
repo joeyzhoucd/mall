@@ -217,6 +217,25 @@ spring:
               uri: lb://mall-product
               predicates:
                 - Host=**.mall.com
+# ---------------------------------------------------------------------------
+# 管理端令牌的验签密钥（AdminAuthFilter 用）
+# ---------------------------------------------------------------------------
+# 属性名和 mall-admin 的 JwtService 完全一致，指向同一份密钥 —— 一边签发一边验签，
+# 不一致的表现是「登录成功，但之后每个 /api 请求都 401」。
+#
+# 【这一行不能省，而且省掉是静默失效】
+# 环境变量叫 JWT_SECRET，Spring 的松散绑定会把它映射到 jwt.secret，
+# 【不是】 mall.admin.jwt.secret。所以必须像这里一样显式写出映射关系，
+# 否则网关会一直用下面那个本地默认值，把所有真实令牌都判为无效 ——
+# 而且不报任何错。mall-admin 那边也是靠同样一行才生效的。
+# 守卫测试：AdminJwtSecretWiringTest。
+#
+# 默认值必须和 mall-admin 的那一串【逐字一致】，这样本地不注入密钥也能跑通。
+mall:
+  admin:
+    jwt:
+      secret: ${JWT_SECRET:local-dev-only-do-not-use-in-any-real-environment}
+
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
