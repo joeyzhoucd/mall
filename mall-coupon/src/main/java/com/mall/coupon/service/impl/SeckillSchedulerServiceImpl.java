@@ -40,6 +40,13 @@ public class SeckillSchedulerServiceImpl implements SeckillSchedulerService {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    // 激活的实际动作复用 GrabService 的那一份实现 —— 它会把库存、限购键、
+    // 商品信息缓存和跨 pod 广播按正确顺序做全。在这里重写一遍必然漏掉其中一步，
+    // 而漏掉广播的表现是「别的 pod 上抢不到」，很难查。
+    // 反向依赖不存在（GrabServiceImpl 不引用 SchedulerService），所以没有循环依赖。
+    @Autowired
+    private com.mall.coupon.service.SeckillGrabService seckillGrabService;
+
     /**
      * {@inheritDoc}
      *
@@ -178,6 +185,42 @@ public class SeckillSchedulerServiceImpl implements SeckillSchedulerService {
     /** 活动是否已经上线：以 Redis 里的库存键为准，不看数据库。 */
     boolean isActivated(Long relationId) {
         return Boolean.TRUE.equals(redisTemplate.hasKey("seckill:stock:" + relationId));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * 这里刻意<b>不做</b>「开始时间还没到就拒绝」的检查。
+     * 秒杀必须在开始前把库存预热进 Redis —— 压测实测过，冷启动那一下
+     * 才是真正的瓶颈（见 mall-deploy 的压测记录）。
+     * 开卖时间由前台按场次时间判断，不靠「什么时候激活」来控制。
+     */
+    @Override
+    public void activate(Long relationId) {
+        if (relationId == null) {
+            throw new IllegalArgumentException("relationId 不能为空");
+        }
+        SeckillSkuRelationEntity relation = seckillSkuRelationService.getById(relationId);
+        if (relation == null) {
+            throw new IllegalArgumentException("秒杀配置不存在：" + relationId);
+        }
+        if (isActivated(relationId)) {
+            // 这段话和 save() 里拒绝改库存时用的是同一个道理，措辞刻意保持一致。
+            throw new IllegalStateException(
+                    "这场秒杀已经上线了，不能再激活一次：激活会把库存重置回 "
+                            + relation.getSeckillCount()
+                            + " 并清空每人限购记录，已经抢中的人可以再抢一次，会直接超卖。"
+                            + "确实要重来一轮请走运维通道。");
+        }
+
+        boolean ok = seckillGrabService.activate(relationId);
+        if (!ok) {
+            // activate 返回 false 只有一种情况：关系不存在或 seckillCount 为空。
+            // 上面已经查过关系存在，所以走到这里说明 seckillCount 是空的。
+            throw new IllegalStateException("激活失败：这条秒杀配置没有设置秒杀总量");
+        }
+        log.info("秒杀激活：relationId={} skuId={} 库存={}",
+                relationId, relation.getSkuId(), relation.getSeckillCount());
     }
 
     private static boolean isNotPositive(BigDecimal v) {

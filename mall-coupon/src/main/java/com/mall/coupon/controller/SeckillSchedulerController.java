@@ -6,6 +6,7 @@ import com.mall.coupon.vo.SeckillSchedulerVo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,6 +61,33 @@ public class SeckillSchedulerController {
             // 参数问题返回业务错误而不是 500：这些都是管理员在界面上填错了，
             // 不是服务故障，不该进 ERROR 日志、也不该污染错误率指标。
             log.info("秒杀配置被拒绝: {}", e.getMessage());
+            return R.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 激活一场秒杀（把库存放进 Redis，正式开卖）。
+     *
+     * <h3>为什么不直接用 {@code POST /coupon/seckill/activate/{relationId}}</h3>
+     * 那个入口要求 {@code X-Seckill-Internal-Token} 头。把内部令牌发到浏览器
+     * 等于公开它，任何拿到的人都能开卖任意一场秒杀。
+     * 这条路挂在 {@code /api/**} 下，鉴权由网关的 AdminAuthFilter 用管理端 JWT 完成，
+     * 令牌不出服务端。两个入口各有各的调用方，不是重复实现。
+     *
+     * <h3>已激活会被拒绝，这是有意的</h3>
+     * 激活做的是<b>重置</b>：库存回满 + 清空每人限购记录。
+     * 对正在进行的秒杀再点一次，已经抢中的人可以再抢一次，直接超卖。
+     * 详见 {@link com.mall.coupon.service.SeckillSchedulerService#activate}。
+     */
+    @PostMapping("/activate/{relationId}")
+    public R activate(@PathVariable("relationId") Long relationId) {
+        try {
+            seckillSchedulerService.activate(relationId);
+            return R.ok().put("relationId", relationId).put("activated", true);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            // 都是管理员操作层面的问题（配置不存在、已经上线过），不是服务故障，
+            // 所以走业务错误而不是 500 —— 不该进 ERROR 日志、也不该污染错误率指标。
+            log.info("秒杀激活被拒绝: relationId={} 原因={}", relationId, e.getMessage());
             return R.error(e.getMessage());
         }
     }
