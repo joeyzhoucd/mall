@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -233,6 +234,53 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
         children.sort(Comparator.comparingInt(o -> (o.getSort() == null ? 0 : o.getSort())));
 
         parent.setChildren(children);
+    }
+
+    /**
+     * 批量更新分类，使用分布式锁，并清除缓存。
+     *
+     * <h3>为什么必须重写这个方法</h3>
+     * listAsTree() 是 @Cacheable 的，所以每一个会改动分类的写操作
+     * 都必须清缓存，否则界面上看到的是旧树。
+     * save / saveBatch / updateById / removeByIds 都已经重写并加了 @CacheEvict，
+     * 唯独 updateBatchById 没有 —— 它一直没被用到，所以这个洞一直没暴露。
+     *
+     * 2026-09-04 把 /product/category/save/drag 从 saveBatch 改成 updateBatchById
+     * 之后它就暴露了，而且暴露的形式最坏：<b>接口返回 success，数据也确实写进了
+     * 数据库，但树接口返回的还是旧值</b>——看起来就像「保存没生效」。
+     * 实测确认过：改 sort 为 42 后，不走缓存的 /product/category/info/{id} 返回 42，
+     * 而 @Cacheable 的 list/tree 仍然返回 100。
+     *
+     * 换句话说：修好一个「报错但不写」的 bug，换来了一个「写了但看不见」的 bug。
+     * 后者更难查，因为它不报错。
+     */
+    @CacheEvict(value = "category", allEntries = true)
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public boolean updateBatchById(Collection<CategoryEntity> entityList) {
+        RLock lock = redissonClient.getLock(LOCK_KEY);
+        try {
+            log.info("[Category] updateBatch 操作准备获取分布式锁: {}", LOCK_KEY);
+            if (lock.tryLock(LOCK_WAIT_TIME, LOCK_LEASE_TIME, TimeUnit.SECONDS)) {
+                log.info("[Category] updateBatch 成功获取锁: {}", LOCK_KEY);
+                try {
+                    boolean result = super.updateBatchById(entityList);
+                    log.info("[Category] updateBatch 完成数据库写入，准备清除缓存");
+                    return result;
+                } finally {
+                    if (lock.isHeldByCurrentThread()) {
+                        log.info("[Category] updateBatch 释放锁: {}", LOCK_KEY);
+                        lock.unlock();
+                    }
+                }
+            } else {
+                log.info("[Category] updateBatch 获取锁失败: {}", LOCK_KEY);
+                throw new RuntimeException("获取分布式锁失败，请稍后重试");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("获取分布式锁被中断", e);
+        }
     }
 
     /**
