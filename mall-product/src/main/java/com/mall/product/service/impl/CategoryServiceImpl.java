@@ -191,6 +191,18 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
             if (lock.tryLock(LOCK_WAIT_TIME, LOCK_LEASE_TIME, TimeUnit.SECONDS)) {
                 log.info("[Category] remove 成功获取锁: {}", LOCK_KEY);
                 try {
+                    // 把关必须在锁【里面】做：在锁外面先查一遍再进来删，
+                    // 「查」和「删」之间没有保护 —— 这中间有人新建一个子分类，
+                    // 检查就白做了，照样会留下看不见的孤儿分类。
+                    List<Long> ids = idList.stream()
+                            .map(id -> Long.valueOf(String.valueOf(id)))
+                            .collect(Collectors.toList());
+                    long orphans = countChildrenOutside(ids);
+                    if (orphans > 0) {
+                        throw new IllegalStateException(
+                                "有 " + orphans + " 个子分类挂在待删除的分类下面，请先处理子分类");
+                    }
+
                     boolean result = super.removeByIds(idList);
                     log.info("[Category] remove 完成数据库写入，准备清除缓存");
                     return result;
@@ -223,5 +235,24 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
         parent.setChildren(children);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * 用 count 而不是把子分类查出来：这里只需要「有没有、有几个」，
+     * 查出实体是白花的 IO，而分类表在真实电商里可以有上万行。
+     *
+     * 不用显式过滤 deleted —— CategoryEntity 上有 @TableLogic，
+     * MyBatis-Plus 会自动给查询加上 deleted = 0。
+     * （这一点值得写出来：看代码的人会以为漏了删除标记的过滤。）
+     */
+    @Override
+    public long countChildrenOutside(List<Long> catIds) {
+        if (CollectionUtils.isEmpty(catIds)) {
+            return 0L;
+        }
+        QueryWrapper<CategoryEntity> wrapper = new QueryWrapper<>();
+        wrapper.in("parent_cid", catIds).notIn("cat_id", catIds);
+        return this.count(wrapper);
+    }
 
 }
