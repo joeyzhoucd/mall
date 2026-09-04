@@ -1,6 +1,6 @@
 # Mall 成熟分布式电商能力路线图
 
-更新日期：2026-09-03
+更新日期：2026-09-04
 
 ## 状态图例
 
@@ -19,9 +19,9 @@
 | 优先级 | 能力 | 当前状态 | 备注 |
 | --- | --- | --- | --- |
 | 1 | 支付 + 支付回调幂等 + 对账 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 `PayMockController`、独立 `mall-payment` 本地模拟服务、订单侧支付网关客户端、支付/退款表实体、签名校验、独立回调事件表、回调幂等保护、主动查单补偿任务和对账文件处理；接口见 `docs/payment-mock.md`。还缺真实通道适配。 |
-| 2 | 订单状态机 + 超时关单 + 库存解锁 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 `NEW/PAYED/CLOSED`、订单关闭监听、支付成功扣库存、关单释放库存；还缺完整状态枚举、状态流转表、非法流转保护、售后/发货/完成状态。 |
-| 3 | 事务消息 / Outbox / 本地消息表 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀链路已有 `SeckillLocalMessage` 本地消息表和 confirm 等待；普通订单、库存、支付链路还没有统一 Outbox。 |
-| 4 | 死信队列 + 消费幂等 + 补偿任务 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单延迟队列、库存失败队列、秒杀对账任务、库存重试；还缺统一 DLQ 监控、消费幂等键、重试策略和人工处理后台。 |
+| 2 | 订单状态机 + 超时关单 + 库存解锁 | <span style="color:#16833a;font-weight:700">已实现</span> | 已有完整订单状态枚举、显式状态流转表、非法流转 CAS 保护、订单关闭监听、支付成功扣库存、关单释放库存，以及发货/收货完成/售后状态推进入口。 |
+| 3 | 事务消息 / Outbox / 本地消息表 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀链路已有 `SeckillLocalMessage` 本地消息表和 confirm 等待；普通订单/支付状态流转已走 `oms_order_outbox_message`，库存失败通知已走 `wms_stock_outbox_message`，订单/库存 MQ 消费已补本地幂等记录；还缺跨服务统一消息治理后台。 |
+| 4 | 死信队列 + 消费幂等 + 补偿任务 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单延迟队列、库存失败队列、消费失败 DLX/DLQ、DLQ 查看/重放/丢弃入口、秒杀对账任务、库存重试和订单/库存消费幂等；还缺统一告警、权限化人工处理后台和更细的重试策略。 |
 | 5 | 多级缓存 + 热点保护 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Redis 缓存、秒杀本地售罄标记、Redis Lua；还缺 Caffeine + Redis 多级缓存、缓存预热、热点 key 监控和标准化防穿透/击穿/雪崩策略。 |
 | 6 | 网关统一鉴权 + 风控限流 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Gateway 管理端 JWT 鉴权、入口限流；还缺前台统一认证、黑白名单、设备/IP/用户维度风控限流。 |
 | 7 | 数据库迁移工具 Flyway/Liquibase | <span style="color:#c62828;font-weight:700">待实现</span> | 当前没有看到 Flyway/Liquibase 迁移目录和依赖。 |
@@ -34,7 +34,7 @@
 | 能力 | 当前状态 | 现状与下一步 |
 | --- | --- | --- |
 | 支付系统：支付宝、微信、银行卡、退款、对账、支付回调幂等 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 `mall-payment` 本地模拟支付宝/微信/信用卡、订单侧支付网关客户端、支付单落库、签名校验、支付/退款实体、独立回调事件表、回调幂等保护、主动查单补偿任务和对账文件处理；下一步补真实通道适配。 |
-| 订单状态机：订单创建、待支付、已支付、待发货、已发货、完成、取消、退款等状态流转 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 当前主要是 `NEW/PAYED/CLOSED`；下一步补完整状态枚举、状态机服务、状态流转校验和历史记录。 |
+| 订单状态机：订单创建、待支付、已支付、待发货、已发货、完成、取消、退款等状态流转 | <span style="color:#16833a;font-weight:700">已实现</span> | 已覆盖 `NEW/PAYED/SENT/RECEIVED/CLOSED/SERVICING/SERVICED`，通过显式流转表和服务层 CAS 更新保护非法流转，并记录订单操作历史。 |
 | 库存中心：可售库存、锁定库存、扣减库存、库存回滚、库存流水 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有锁定、释放、扣减、CAS、失败重试；下一步补库存流水、库存对账、手工补偿和多仓规则。 |
 | 促销中心：优惠券、满减、秒杀、拼团、会员价、活动互斥规则 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有优惠券、满减、会员价、秒杀表和秒杀链路；下一步补统一促销计算、互斥规则、叠加规则和拼团。 |
 | 会员体系：等级、积分、成长值、权益、黑名单 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有会员、等级、积分/成长值历史等基础表；下一步补权益、黑名单、会员价联动和积分账本。 |
@@ -48,9 +48,9 @@
 
 | 能力 | 当前状态 | 现状与下一步 |
 | --- | --- | --- |
-| 分布式事务方案：Seata、事务消息、TCC、Saga、Outbox Pattern | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀局部使用本地消息表 + MQ confirm；普通交易链路还需要统一 Outbox 或事务消息方案。 |
-| 消息最终一致性：本地消息表、MQ confirm、消费幂等、失败重试、死信队列 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有秒杀本地消息表、confirm、订单延迟队列、库存失败队列；下一步统一消息状态表、消费幂等和 DLQ 运营面。 |
-| 幂等体系：支付回调、下单、扣库存、发券、消息消费都需要 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单 token、防重复抢购、状态 CAS、订单号幂等；支付回调、发券、通用消息消费幂等仍需补齐。 |
+| 分布式事务方案：Seata、事务消息、TCC、Saga、Outbox Pattern | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀局部使用本地消息表 + MQ confirm；普通订单、支付状态流转和库存失败通知已接入本地 Outbox；下一步补消费幂等和运营补偿闭环。 |
+| 消息最终一致性：本地消息表、MQ confirm、消费幂等、失败重试、死信队列 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有秒杀本地消息表、订单 Outbox、库存 Outbox、confirm、订单延迟队列、库存失败队列、消费失败 DLQ 和订单/库存消费幂等记录；下一步补统一 DLQ 告警和权限化人工处理后台。 |
+| 幂等体系：支付回调、下单、扣库存、发券、消息消费都需要 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单 token、防重复抢购、状态 CAS、订单号幂等、支付回调幂等和订单/库存 MQ 消费幂等；发券和更多跨服务命令幂等仍需补齐。 |
 | 分布式锁治理：锁超时、锁续期、锁粒度、锁失败降级 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀对账使用 Redisson 锁和 watchdog；还缺全局锁规范、降级策略、指标和锁粒度治理。 |
 | 补偿任务：超时关单、库存解锁、支付状态主动查询、消息重投 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单超时关闭、库存释放/重试、秒杀对账重投和支付主动查单；还缺通用补偿任务平台和人工干预入口。 |
 
@@ -107,7 +107,7 @@
 | --- | --- | --- |
 | 配置灰度/动态刷新：配置审计、灰度、生效记录 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 有 `mall-config` 和公共配置；还缺配置灰度、审计、生效记录和回滚。 |
 | 注册中心高可用：Consul 集群、备份、健康检查治理 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 公共配置已切到 Consul 并治理健康检查；集群 HA、备份和故障演练仍需补。 |
-| MQ 高可用：RabbitMQ 集群、Quorum Queue、死信监控 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 RabbitMQ 队列/交换机/绑定和 confirm；还缺集群、Quorum Queue、DLQ 监控。 |
+| MQ 高可用：RabbitMQ 集群、Quorum Queue、死信监控 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 RabbitMQ 队列/交换机/绑定、confirm、消费失败 DLX/DLQ 和 DLQ 运维接口；还缺集群、Quorum Queue、告警和权限化处理后台。 |
 | Redis 高可用：Sentinel/Cluster、持久化、备份、热 key 监控 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 配置里已有 Redis Sentinel；还缺 Cluster 方案、备份、持久化校验和热 key 监控。 |
 | MySQL 高可用：主从、备份恢复、慢 SQL、审计 | <span style="color:#c62828;font-weight:700">待实现</span> | 没有看到主从、备份恢复、慢 SQL 治理和审计配置。 |
 | CI/CD 完整流水线：构建、测试、镜像扫描、灰度、回滚 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | GitHub Actions 已有构建和镜像推送；还缺镜像扫描、灰度、回滚和环境审批。 |
@@ -129,6 +129,13 @@
 ## 推荐实施节奏
 
 1. 先补交易闭环：支付单、支付回调幂等、订单状态机、超时关单、库存解锁/扣减一致性。
-2. 再补消息闭环：把秒杀本地消息表经验抽成通用 Outbox，覆盖订单、库存、支付。
+2. 再补消息闭环：在现有订单/库存 Outbox 基础上补消费幂等、DLQ 运营面和补偿任务后台。
 3. 然后补可运营能力：DLQ 后台、补偿任务后台、库存/支付/订单对账页。
 4. 最后补平台治理：Flyway、SLO + Runbook、灰度发布、读写分离或分库分表。
+
+## 2026-09-04 消息闭环增量
+
+- `mall-mq-starter` 显式声明消费失败 DLX/DLQ，并提供 `/mq/dlq` 队列概览、取样、重放和丢弃入口。
+- `mall-order` 新增 `oms_mq_consume_message`，订单关单和秒杀建单监听器通过业务幂等键落本地消费记录。
+- `mall-ware` 新增 `wms_stock_outbox_message` 和 `wms_mq_consume_message`，库存失败通知走 Outbox，库存释放/扣减/失败监听器接入消费幂等。
+- 已通过 `mvn -pl mall-mq-starter,mall-order,mall-ware -am test` 验证。

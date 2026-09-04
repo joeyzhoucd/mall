@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS wms_stock_outbox_message (
+  id bigint NOT NULL AUTO_INCREMENT COMMENT 'id',
+  message_key varchar(128) NOT NULL COMMENT 'idempotent message key',
+  business_type varchar(64) NOT NULL COMMENT 'business type',
+  business_key varchar(128) NOT NULL COMMENT 'business key, usually task detail id',
+  exchange_name varchar(128) NOT NULL COMMENT 'rabbit exchange',
+  routing_key varchar(128) NOT NULL COMMENT 'rabbit routing key',
+  payload_type varchar(255) NOT NULL COMMENT 'java payload class',
+  payload text NOT NULL COMMENT 'json payload',
+  status tinyint NOT NULL DEFAULT 0 COMMENT '0 pending, 1 sending, 2 sent, 3 failed, 4 dead',
+  retry_count int NOT NULL DEFAULT 0 COMMENT 'send retry count',
+  next_retry_time datetime DEFAULT NULL COMMENT 'next retry time',
+  last_error varchar(500) DEFAULT NULL COMMENT 'last send error',
+  sent_time datetime DEFAULT NULL COMMENT 'broker confirm time',
+  create_time datetime NOT NULL COMMENT 'create time',
+  update_time datetime NOT NULL COMMENT 'update time',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_stock_outbox_message_key (message_key),
+  KEY idx_stock_outbox_ready (status, next_retry_time, retry_count),
+  KEY idx_stock_outbox_business (business_type, business_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='stock transactional outbox message';

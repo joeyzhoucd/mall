@@ -66,6 +66,15 @@ mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
 mall:
+  ware:
+    outbox:
+      enabled: ${STOCK_OUTBOX_ENABLED:true}
+      initial-delay-ms: ${STOCK_OUTBOX_INITIAL_DELAY_MS:10000}
+      fixed-delay-ms: ${STOCK_OUTBOX_FIXED_DELAY_MS:5000}
+      batch-size: ${STOCK_OUTBOX_BATCH_SIZE:100}
+      max-attempts: ${STOCK_OUTBOX_MAX_ATTEMPTS:10}
+      retry-delay-ms: ${STOCK_OUTBOX_RETRY_DELAY_MS:5000}
+      sending-timeout-ms: ${STOCK_OUTBOX_SENDING_TIMEOUT_MS:60000}
   mq:
     stock:
       enabled: true

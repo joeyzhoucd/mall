@@ -3,6 +3,7 @@ package com.mall.common.constant;
 public enum ErrorCode {
     ORDER_NOT_FOUND(20001, "订单不存在"),
     PAY_SIGN_INVALID(20002, "签名校验失败"),
+    ORDER_STATUS_TRANSITION_ILLEGAL(20003, "illegal order status transition"),
     STOCK_NOT_ENOUGH(21001, "库存不足"),
     SECKILL_SOLD_OUT(22001, "已经卖光了，下次再来"),
     SECKILL_ALREADY_GRABBED(22002, "你已经抢到过了"),

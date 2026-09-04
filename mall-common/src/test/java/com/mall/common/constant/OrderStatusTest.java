@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class OrderStatusTest {
 
@@ -26,6 +27,7 @@ class OrderStatusTest {
         assertFalse(OrderStatus.canTransit(OrderStatus.NEW, OrderStatus.NEW));
         assertFalse(OrderStatus.canTransit(null, OrderStatus.PAYED));
         assertFalse(OrderStatus.canTransit(OrderStatus.NEW, null));
+        assertFalse(OrderStatus.canTransit(99, OrderStatus.PAYED));
     }
 
     @Test
@@ -34,5 +36,29 @@ class OrderStatusTest {
         assertTrue(OrderStatus.isTerminal(OrderStatus.SERVICED));
         assertFalse(OrderStatus.isTerminal(OrderStatus.NEW));
         assertFalse(OrderStatus.isTerminal(null));
+    }
+
+    @Test
+    void exposesCompleteStatusDefinitionsAndTransitionTable() {
+        assertThat(OrderStatus.definitions())
+                .extracting(OrderStatus.Definition::code)
+                .containsExactly(
+                        OrderStatus.NEW,
+                        OrderStatus.PAYED,
+                        OrderStatus.SENT,
+                        OrderStatus.RECEIVED,
+                        OrderStatus.CLOSED,
+                        OrderStatus.SERVICING,
+                        OrderStatus.SERVICED);
+
+        assertThat(OrderStatus.transitionTable())
+                .containsEntry(OrderStatus.NEW, java.util.List.of(OrderStatus.PAYED, OrderStatus.CLOSED))
+                .containsEntry(OrderStatus.PAYED, java.util.List.of(OrderStatus.SENT, OrderStatus.SERVICING))
+                .containsEntry(OrderStatus.CLOSED, java.util.List.of())
+                .containsEntry(OrderStatus.SERVICED, java.util.List.of());
+        assertThat(OrderStatus.valueOfCode(OrderStatus.SENT)).isEqualTo("SENT");
+        assertThat(OrderStatus.valueOfCode(99)).isNull();
+        assertThat(OrderStatus.allowedTargets(OrderStatus.SENT))
+                .containsExactly(OrderStatus.RECEIVED, OrderStatus.SERVICING);
     }
 }

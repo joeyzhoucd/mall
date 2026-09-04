@@ -21,6 +21,7 @@ import com.mall.ware.feign.OrderFeignService;
 import com.mall.ware.service.WareSkuService;
 import com.mall.ware.service.WareOrderTaskDetailService;
 import com.mall.ware.service.WareOrderTaskService;
+import com.mall.ware.service.StockOutboxMessageService;
 import com.mall.ware.vo.OrderItemLockVo;
 import com.mall.ware.vo.StockFailVo;
 import com.mall.ware.vo.WareSkuLockVo;
@@ -29,7 +30,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.mall.common.utils.RUtils;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import com.mall.common.constant.MqConstants;
 
 import java.util.ArrayList;
@@ -71,7 +71,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     private OrderFeignService orderFeignService;
 
     @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private StockOutboxMessageService stockOutboxMessageService;
 
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
@@ -469,10 +469,14 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     }
 
     private void sendStockFailMessage(WareOrderTaskDetailEntity detailEntity) {
-        if (detailEntity == null) {
+        if (detailEntity == null || detailEntity.getId() == null) {
             return;
         }
-        rabbitTemplate.convertAndSend(
+        String detailId = String.valueOf(detailEntity.getId());
+        stockOutboxMessageService.enqueue(
+                "stock.fail." + detailId,
+                "STOCK_FAIL",
+                detailId,
                 MqConstants.STOCK_RELEASE_EXCHANGE,
                 MqConstants.STOCK_FAIL_ROUTING_KEY,
                 detailEntity

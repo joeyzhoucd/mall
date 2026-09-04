@@ -1,6 +1,8 @@
 package com.mall.mq.config;
 
 import com.mall.common.constant.MqConstants;
+import com.mall.mq.controller.MqDlqController;
+import com.mall.mq.service.MqDlqService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
@@ -8,18 +10,23 @@ import org.springframework.amqp.core.Exchange;
 import org.springframework.amqp.core.ExchangeBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties(MallMqProperties.class)
+@Import({MqDlqService.class, MqDlqController.class})
 /**
  * MQ 的交换机、队列、绑定关系。
  *
@@ -65,6 +72,28 @@ public class MallMqAutoConfiguration {
         return factory;
     }
 
+    @Bean
+    @ConditionalOnMissingBean
+    public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
+        return new RabbitAdmin(connectionFactory);
+    }
+
+    @Bean(name = "rabbitListenerContainerFactory")
+    @ConditionalOnMissingBean(name = "rabbitListenerContainerFactory")
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory,
+                                                                              MessageConverter messageConverter) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(messageConverter);
+        factory.setDefaultRequeueRejected(false);
+        return factory;
+    }
+
+    @Bean
+    public Exchange consumerDeadLetterExchange() {
+        return ExchangeBuilder.topicExchange(MqConstants.CONSUMER_DEAD_LETTER_EXCHANGE).durable(true).build();
+    }
+
     @Configuration
     @ConditionalOnProperty(prefix = "mall.mq.order", name = "enabled", havingValue = "true")
     public static class OrderMqConfiguration {
@@ -85,7 +114,15 @@ public class MallMqAutoConfiguration {
 
         @Bean
         public Queue orderReleaseQueue() {
-            return QueueBuilder.durable(MqConstants.ORDER_RELEASE_QUEUE).build();
+            return QueueBuilder.durable(MqConstants.ORDER_RELEASE_QUEUE)
+                    .withArgument("x-dead-letter-exchange", MqConstants.CONSUMER_DEAD_LETTER_EXCHANGE)
+                    .withArgument("x-dead-letter-routing-key", MqConstants.ORDER_RELEASE_DLQ_ROUTING_KEY)
+                    .build();
+        }
+
+        @Bean
+        public Queue orderReleaseDlq() {
+            return QueueBuilder.durable(MqConstants.ORDER_RELEASE_DLQ).build();
         }
 
         @Bean
@@ -101,6 +138,13 @@ public class MallMqAutoConfiguration {
             return BindingBuilder.bind(orderReleaseQueue).to(orderEventExchange)
                     .with(MqConstants.ORDER_RELEASE_ROUTING_KEY).noargs();
         }
+
+        @Bean
+        public Binding orderReleaseDlqBinding(@Qualifier("orderReleaseDlq") Queue orderReleaseDlq,
+                                             @Qualifier("consumerDeadLetterExchange") Exchange consumerDeadLetterExchange) {
+            return BindingBuilder.bind(orderReleaseDlq).to(consumerDeadLetterExchange)
+                    .with(MqConstants.ORDER_RELEASE_DLQ_ROUTING_KEY).noargs();
+        }
     }
 
     @Configuration
@@ -114,17 +158,41 @@ public class MallMqAutoConfiguration {
 
         @Bean
         public Queue stockReleaseQueue() {
-            return QueueBuilder.durable(MqConstants.STOCK_RELEASE_QUEUE).build();
+            return QueueBuilder.durable(MqConstants.STOCK_RELEASE_QUEUE)
+                    .withArgument("x-dead-letter-exchange", MqConstants.CONSUMER_DEAD_LETTER_EXCHANGE)
+                    .withArgument("x-dead-letter-routing-key", MqConstants.STOCK_RELEASE_DLQ_ROUTING_KEY)
+                    .build();
         }
 
         @Bean
         public Queue stockDeductQueue() {
-            return QueueBuilder.durable(MqConstants.STOCK_DEDUCT_QUEUE).build();
+            return QueueBuilder.durable(MqConstants.STOCK_DEDUCT_QUEUE)
+                    .withArgument("x-dead-letter-exchange", MqConstants.CONSUMER_DEAD_LETTER_EXCHANGE)
+                    .withArgument("x-dead-letter-routing-key", MqConstants.STOCK_DEDUCT_DLQ_ROUTING_KEY)
+                    .build();
         }
 
         @Bean
         public Queue stockFailQueue() {
-            return QueueBuilder.durable(MqConstants.STOCK_FAIL_QUEUE).build();
+            return QueueBuilder.durable(MqConstants.STOCK_FAIL_QUEUE)
+                    .withArgument("x-dead-letter-exchange", MqConstants.CONSUMER_DEAD_LETTER_EXCHANGE)
+                    .withArgument("x-dead-letter-routing-key", MqConstants.STOCK_FAIL_DLQ_ROUTING_KEY)
+                    .build();
+        }
+
+        @Bean
+        public Queue stockReleaseDlq() {
+            return QueueBuilder.durable(MqConstants.STOCK_RELEASE_DLQ).build();
+        }
+
+        @Bean
+        public Queue stockDeductDlq() {
+            return QueueBuilder.durable(MqConstants.STOCK_DEDUCT_DLQ).build();
+        }
+
+        @Bean
+        public Queue stockFailDlq() {
+            return QueueBuilder.durable(MqConstants.STOCK_FAIL_DLQ).build();
         }
 
         @Bean
@@ -147,6 +215,27 @@ public class MallMqAutoConfiguration {
             return BindingBuilder.bind(stockFailQueue).to(stockReleaseExchange)
                     .with(MqConstants.STOCK_FAIL_ROUTING_KEY).noargs();
         }
+
+        @Bean
+        public Binding stockReleaseDlqBinding(@Qualifier("stockReleaseDlq") Queue stockReleaseDlq,
+                                             @Qualifier("consumerDeadLetterExchange") Exchange consumerDeadLetterExchange) {
+            return BindingBuilder.bind(stockReleaseDlq).to(consumerDeadLetterExchange)
+                    .with(MqConstants.STOCK_RELEASE_DLQ_ROUTING_KEY).noargs();
+        }
+
+        @Bean
+        public Binding stockDeductDlqBinding(@Qualifier("stockDeductDlq") Queue stockDeductDlq,
+                                            @Qualifier("consumerDeadLetterExchange") Exchange consumerDeadLetterExchange) {
+            return BindingBuilder.bind(stockDeductDlq).to(consumerDeadLetterExchange)
+                    .with(MqConstants.STOCK_DEDUCT_DLQ_ROUTING_KEY).noargs();
+        }
+
+        @Bean
+        public Binding stockFailDlqBinding(@Qualifier("stockFailDlq") Queue stockFailDlq,
+                                          @Qualifier("consumerDeadLetterExchange") Exchange consumerDeadLetterExchange) {
+            return BindingBuilder.bind(stockFailDlq).to(consumerDeadLetterExchange)
+                    .with(MqConstants.STOCK_FAIL_DLQ_ROUTING_KEY).noargs();
+        }
     }
 
     @Configuration
@@ -160,7 +249,15 @@ public class MallMqAutoConfiguration {
 
         @Bean
         public Queue seckillOrderQueue() {
-            return QueueBuilder.durable(MqConstants.SECKILL_ORDER_QUEUE).build();
+            return QueueBuilder.durable(MqConstants.SECKILL_ORDER_QUEUE)
+                    .withArgument("x-dead-letter-exchange", MqConstants.CONSUMER_DEAD_LETTER_EXCHANGE)
+                    .withArgument("x-dead-letter-routing-key", MqConstants.SECKILL_ORDER_DLQ_ROUTING_KEY)
+                    .build();
+        }
+
+        @Bean
+        public Queue seckillOrderDlq() {
+            return QueueBuilder.durable(MqConstants.SECKILL_ORDER_DLQ).build();
         }
 
         @Bean
@@ -169,6 +266,12 @@ public class MallMqAutoConfiguration {
             return BindingBuilder.bind(seckillOrderQueue).to(seckillEventExchange)
                     .with(MqConstants.SECKILL_ORDER_ROUTING_KEY).noargs();
         }
+
+        @Bean
+        public Binding seckillOrderDlqBinding(@Qualifier("seckillOrderDlq") Queue seckillOrderDlq,
+                                             @Qualifier("consumerDeadLetterExchange") Exchange consumerDeadLetterExchange) {
+            return BindingBuilder.bind(seckillOrderDlq).to(consumerDeadLetterExchange)
+                    .with(MqConstants.SECKILL_ORDER_DLQ_ROUTING_KEY).noargs();
+        }
     }
 }
-
