@@ -115,7 +115,18 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
             }
         }
 
-        wrapper.orderByDesc("create_time");
+        // 排序必须落到一个【唯一】列上，否则分页是不稳定的。
+        //
+        // 原来只有 orderByDesc("create_time")。create_time 远不唯一 ——
+        // 2026-09-04 直连服务实测：取 500 条只有 5 个不同的 createTime，
+        // 最挤的一个时间戳上压着 121 行。
+        // 后果不是理论上的：每页 20 条时，第 1 页和第 2 页【有 8 行是重复的】，
+        // 也就是说翻商品列表会看到同一个商品两次，同时另一些商品一次都看不到。
+        //
+        // MySQL 对排序键并列的行不保证跨查询的稳定顺序，
+        // 而 LIMIT/OFFSET 的每一页都是一次独立查询。
+        // 补一个唯一的次序键（id 是主键）之后，全序才确定下来。
+        wrapper.orderByDesc("create_time").orderByDesc("id");
 
         IPage<SpuInfoEntity> page = this.page(new Query<SpuInfoEntity>().getPage(params), wrapper);
         return new PageUtils(page);

@@ -79,6 +79,12 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
             }
         }
 
+        // 分页必须有确定的排序，否则每一页都是一次独立的无序查询，
+        // 行会在页与页之间重复或漏掉 —— 数据少于一页时完全看不出来。
+        // sku_id 是主键，用它才能保证全序确定。
+        // （同类问题在本仓库是系统性的：55 个分页查询里 50 个没有确定排序。）
+        wrapper.orderByDesc("sku_id");
+
         IPage<SkuInfoEntity> page = this.page(new Query<SkuInfoEntity>().getPage(params), wrapper);
         return new PageUtils(page);
     }
