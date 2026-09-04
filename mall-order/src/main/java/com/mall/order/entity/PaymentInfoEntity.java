@@ -23,8 +23,12 @@ public class PaymentInfoEntity implements Serializable {
 	private Long orderId;
 	
 	private String alipayTradeNo;
+
+	private String paymentChannel;
 	
 	private BigDecimal totalAmount;
+
+	private String paymentCurrency;
 	
 	private String subject;
 	

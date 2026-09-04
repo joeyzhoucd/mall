@@ -89,6 +89,33 @@ pay:
     signKey: mall-pay-sign-key
 
 mall:
+  payment:
+    gateway:
+      # 订单服务只认这一层支付网关地址。本地开发指向 mall-payment mock；
+      # 以后切真实支付中台时优先改这个 URL，而不是把支付宝/微信/信用卡 SDK 散进订单服务。
+      base-url: ${PAYMENT_GATEWAY_BASE_URL:http://localhost:9010}
+      notify-url: ${PAYMENT_NOTIFY_URL:http://order.mall.com/order/payments/notify}
+      return-url: ${PAYMENT_RETURN_URL:http://order.mall.com/order/payment.html}
+      sign-key: ${PAYMENT_GATEWAY_SIGN_KEY:mall-payment-local-mock-sign-key}
+    reconciliation:
+      enabled: ${PAYMENT_RECONCILIATION_ENABLED:true}
+      initial-delay-ms: ${PAYMENT_RECONCILIATION_INITIAL_DELAY_MS:30000}
+      fixed-delay-ms: ${PAYMENT_RECONCILIATION_FIXED_DELAY_MS:60000}
+      stale-after-seconds: ${PAYMENT_RECONCILIATION_STALE_AFTER_SECONDS:30}
+      batch-size: ${PAYMENT_RECONCILIATION_BATCH_SIZE:100}
+    statement-reconciliation:
+      enabled: ${PAYMENT_STATEMENT_RECONCILIATION_ENABLED:false}
+      cron: "${PAYMENT_STATEMENT_RECONCILIATION_CRON:0 30 1 * * *}"
+      zone: ${PAYMENT_STATEMENT_RECONCILIATION_ZONE:UTC}
+  order:
+    outbox:
+      enabled: ${ORDER_OUTBOX_ENABLED:true}
+      initial-delay-ms: ${ORDER_OUTBOX_INITIAL_DELAY_MS:10000}
+      fixed-delay-ms: ${ORDER_OUTBOX_FIXED_DELAY_MS:5000}
+      batch-size: ${ORDER_OUTBOX_BATCH_SIZE:100}
+      max-attempts: ${ORDER_OUTBOX_MAX_ATTEMPTS:10}
+      retry-delay-ms: ${ORDER_OUTBOX_RETRY_DELAY_MS:5000}
+      sending-timeout-ms: ${ORDER_OUTBOX_SENDING_TIMEOUT_MS:60000}
   session:
     enabled: true
   mq:

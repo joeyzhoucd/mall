@@ -10,6 +10,8 @@ import com.mall.order.entity.PaymentInfoEntity;
 import com.mall.order.service.PaymentInfoService;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 
@@ -24,6 +26,21 @@ public class PaymentInfoServiceImpl extends ServiceImpl<PaymentInfoDao, PaymentI
         );
 
         return new PageUtils(page);
+    }
+
+    @Override
+    public List<PaymentInfoEntity> listPendingPaymentsForReconciliation(Date createdBefore, int limit) {
+        int boundedLimit = Math.max(1, Math.min(limit, 500));
+        QueryWrapper<PaymentInfoEntity> wrapper = new QueryWrapper<PaymentInfoEntity>()
+                .eq("payment_status", "pending")
+                .isNotNull("payment_channel")
+                .ne("payment_channel", "")
+                .orderByAsc("create_time")
+                .last("LIMIT " + boundedLimit);
+        if (createdBefore != null) {
+            wrapper.le("create_time", createdBefore);
+        }
+        return this.list(wrapper);
     }
 
 }

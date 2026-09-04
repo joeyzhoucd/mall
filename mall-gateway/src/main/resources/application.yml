@@ -147,6 +147,10 @@ spring:
               uri: lb://mall-order
               predicates:
                 - Path=/pay/**
+            - id: payment_mock_route
+              uri: lb://mall-payment
+              predicates:
+                - Path=/payment/**
 
             - id: mall_auth_route
               uri: lb://mall-auth

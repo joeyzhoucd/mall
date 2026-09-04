@@ -4,10 +4,14 @@ import com.baomidou.mybatisplus.spring.service.IService;
 import com.mall.common.utils.PageUtils;
 import com.mall.order.entity.PaymentInfoEntity;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 
 public interface PaymentInfoService extends IService<PaymentInfoEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
+
+    List<PaymentInfoEntity> listPendingPaymentsForReconciliation(Date createdBefore, int limit);
 }

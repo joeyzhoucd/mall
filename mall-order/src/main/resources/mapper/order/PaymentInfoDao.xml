@@ -9,7 +9,9 @@
         <result property="orderSn" column="order_sn"/>
         <result property="orderId" column="order_id"/>
         <result property="alipayTradeNo" column="alipay_trade_no"/>
+        <result property="paymentChannel" column="payment_channel"/>
         <result property="totalAmount" column="total_amount"/>
+        <result property="paymentCurrency" column="payment_currency"/>
         <result property="subject" column="subject"/>
         <result property="paymentStatus" column="payment_status"/>
         <result property="createTime" column="create_time"/>

@@ -25,6 +25,14 @@ public interface OrderService extends IService<OrderEntity> {
 
     void payOrderSuccess(String orderSn);
 
+    boolean shipOrder(String orderSn, String deliveryCompany, String deliverySn);
+
+    boolean receiveOrder(String orderSn);
+
+    boolean startAfterSale(String orderSn, String note);
+
+    boolean finishAfterSale(String orderSn, String note);
+
     OrderEntity getOrderBySn(String orderSn);
 
     void recordOperateHistory(com.mall.common.to.OrderOperateTo operateTo);

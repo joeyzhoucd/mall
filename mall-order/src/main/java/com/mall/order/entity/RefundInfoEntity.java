@@ -18,10 +18,20 @@ public class RefundInfoEntity implements Serializable {
 	private Long id;
 	
 	private Long orderReturnId;
+
+	private String orderSn;
 	
 	private BigDecimal refund;
 	
 	private String refundSn;
+
+	private String paymentChannel;
+
+	private String tradeNo;
+
+	private String refundTradeNo;
+
+	private String currency;
 	
 	private Integer refundStatus;
 	

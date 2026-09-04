@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.mall.order.dao.PaymentReconciliationResultDao">
+
+    <resultMap type="com.mall.order.entity.PaymentReconciliationResultEntity" id="paymentReconciliationResultMap">
+        <result property="id" column="id"/>
+        <result property="reconcileDate" column="reconcile_date"/>
+        <result property="rowType" column="row_type"/>
+        <result property="channel" column="channel"/>
+        <result property="orderSn" column="order_sn"/>
+        <result property="tradeNo" column="trade_no"/>
+        <result property="refundSn" column="refund_sn"/>
+        <result property="gatewayAmount" column="gateway_amount"/>
+        <result property="localAmount" column="local_amount"/>
+        <result property="gatewayStatus" column="gateway_status"/>
+        <result property="localStatus" column="local_status"/>
+        <result property="currency" column="currency"/>
+        <result property="differenceType" column="difference_type"/>
+        <result property="processStatus" column="process_status"/>
+        <result property="rawLine" column="raw_line"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+</mapper>

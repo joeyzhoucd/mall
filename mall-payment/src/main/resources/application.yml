@@ -1,0 +1,22 @@
+server:
+  port: 9010
+
+spring:
+  application:
+    name: mall-payment
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URI:http://localhost:8888}
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+mall:
+  payment:
+    mock:
+      sign-key: ${PAYMENT_MOCK_SIGN_KEY:mall-payment-local-mock-sign-key}
+      alipay-app-id: ${PAYMENT_MOCK_ALIPAY_APP_ID:2026090300000000}
+      wechat-app-id: ${PAYMENT_MOCK_WECHAT_APP_ID:wx0000000000000000}
+      wechat-mch-id: ${PAYMENT_MOCK_WECHAT_MCH_ID:1900000000}
+      gateway-base-url: ${PAYMENT_MOCK_BASE_URL:http://localhost:9010}

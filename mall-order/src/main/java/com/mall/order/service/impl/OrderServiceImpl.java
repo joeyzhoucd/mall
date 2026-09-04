@@ -1,6 +1,7 @@
 package com.mall.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import tools.jackson.core.type.TypeReference;
@@ -30,6 +31,7 @@ import com.mall.order.feign.WareFeignService;
 import com.mall.order.interceptor.OrderInterceptor;
 import com.mall.order.service.OrderItemService;
 import com.mall.order.service.OrderOperateHistoryService;
+import com.mall.order.service.OrderOutboxMessageService;
 import com.mall.order.service.OrderService;
 import com.mall.order.to.OrderCreateTo;
 import com.mall.order.to.UserInfoTo;
@@ -41,7 +43,6 @@ import com.mall.order.vo.OrderSubmitVo;
 import com.mall.order.vo.SubmitOrderResponseVo;
 import com.mall.order.vo.WareSkuLockVo;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -58,6 +59,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 
@@ -86,7 +88,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
     private OrderOperateHistoryService orderOperateHistoryService;
 
     @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private OrderOutboxMessageService orderOutboxMessageService;
 
     @Autowired
     private CouponFeignService couponFeignService;
@@ -203,42 +205,57 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
     }
 
     @Override
+    @Transactional
     public void closeOrder(String orderSn) {
         if (StringUtils.isBlank(orderSn)) {
             return;
         }
-        OrderEntity orderEntity = this.getOne(new QueryWrapper<OrderEntity>().eq("order_sn", orderSn));
-        if (orderEntity == null || orderEntity.getStatus() == null) {
-            return;
-        }
-        if (orderEntity.getStatus() == OrderStatus.NEW) {
-            OrderEntity update = new OrderEntity();
-            update.setId(orderEntity.getId());
-            update.setStatus(OrderStatus.CLOSED);
-            update.setModifyTime(new Date());
-            this.updateById(update);
+        if (transitOrderStatus(orderSn, OrderStatus.NEW, OrderStatus.CLOSED, null,
+                "order timeout closed")) {
             sendStockRelease(orderSn);
         }
     }
 
     @Override
+    @Transactional
     public void payOrderSuccess(String orderSn) {
         if (StringUtils.isBlank(orderSn)) {
             return;
         }
-        OrderEntity orderEntity = this.getOne(new QueryWrapper<OrderEntity>().eq("order_sn", orderSn));
-        if (orderEntity == null || orderEntity.getStatus() == null) {
-            return;
-        }
-        if (orderEntity.getStatus() == OrderStatus.NEW) {
-            OrderEntity update = new OrderEntity();
-            update.setId(orderEntity.getId());
-            update.setStatus(OrderStatus.PAYED);
-            update.setPaymentTime(new Date());
-            update.setModifyTime(new Date());
-            this.updateById(update);
+        if (transitOrderStatus(orderSn, OrderStatus.NEW, OrderStatus.PAYED,
+                order -> order.setPaymentTime(new Date()), "payment success")) {
             sendStockDeduct(orderSn);
         }
+    }
+
+    @Override
+    public boolean shipOrder(String orderSn, String deliveryCompany, String deliverySn) {
+        return transitOrderStatus(orderSn, OrderStatus.PAYED, OrderStatus.SENT, order -> {
+            order.setDeliveryCompany(deliveryCompany);
+            order.setDeliverySn(deliverySn);
+            order.setDeliveryTime(new Date());
+        }, "order shipped");
+    }
+
+    @Override
+    public boolean receiveOrder(String orderSn) {
+        return transitOrderStatus(orderSn, OrderStatus.SENT, OrderStatus.RECEIVED,
+                order -> order.setReceiveTime(new Date()), "order received");
+    }
+
+    @Override
+    public boolean startAfterSale(String orderSn, String note) {
+        return transitOrderStatus(orderSn,
+                List.of(OrderStatus.PAYED, OrderStatus.SENT, OrderStatus.RECEIVED),
+                OrderStatus.SERVICING,
+                null,
+                StringUtils.defaultIfBlank(note, "after-sale started"));
+    }
+
+    @Override
+    public boolean finishAfterSale(String orderSn, String note) {
+        return transitOrderStatus(orderSn, OrderStatus.SERVICING, OrderStatus.SERVICED,
+                null, StringUtils.defaultIfBlank(note, "after-sale completed"));
     }
 
     @Override
@@ -265,6 +282,51 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         history.setNote(operateTo.getNote());
         history.setCreateTime(new Date());
         orderOperateHistoryService.save(history);
+    }
+
+    private boolean transitOrderStatus(String orderSn,
+                                       Integer fromStatus,
+                                       Integer toStatus,
+                                       Consumer<OrderEntity> customizer,
+                                       String note) {
+        if (fromStatus == null) {
+            return false;
+        }
+        return transitOrderStatus(orderSn, Collections.singletonList(fromStatus), toStatus, customizer, note);
+    }
+
+    private boolean transitOrderStatus(String orderSn,
+                                       List<Integer> fromStatuses,
+                                       Integer toStatus,
+                                       Consumer<OrderEntity> customizer,
+                                       String note) {
+        if (StringUtils.isBlank(orderSn) || fromStatuses == null || fromStatuses.isEmpty() || toStatus == null) {
+            return false;
+        }
+        List<Integer> legalFromStatuses = fromStatuses.stream()
+                .filter(fromStatus -> OrderStatus.canTransit(fromStatus, toStatus))
+                .collect(Collectors.toList());
+        if (legalFromStatuses.isEmpty()) {
+            return false;
+        }
+        OrderEntity update = new OrderEntity();
+        update.setStatus(toStatus);
+        update.setModifyTime(new Date());
+        if (customizer != null) {
+            customizer.accept(update);
+        }
+        boolean updated = this.update(update, new UpdateWrapper<OrderEntity>()
+                .eq("order_sn", orderSn)
+                .in("status", legalFromStatuses));
+        if (updated) {
+            OrderOperateTo operateTo = new OrderOperateTo();
+            operateTo.setOrderSn(orderSn);
+            operateTo.setStatus(toStatus);
+            operateTo.setOperateMan("system");
+            operateTo.setNote(note);
+            recordOperateHistory(operateTo);
+        }
+        return updated;
     }
 
     @Transactional
@@ -524,7 +586,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         }
         OrderCloseTo closeTo = new OrderCloseTo();
         closeTo.setOrderSn(orderSn);
-        rabbitTemplate.convertAndSend(
+        orderOutboxMessageService.enqueue(
+                "order.close." + orderSn,
+                "ORDER_CLOSE",
+                orderSn,
                 MqConstants.ORDER_EVENT_EXCHANGE,
                 MqConstants.ORDER_CREATE_ROUTING_KEY,
                 closeTo
@@ -546,7 +611,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return to;
         }).collect(Collectors.toList());
         releaseTo.setItems(releaseItems);
-        rabbitTemplate.convertAndSend(
+        orderOutboxMessageService.enqueue(
+                "stock.release." + orderSn,
+                "STOCK_RELEASE",
+                orderSn,
                 MqConstants.STOCK_RELEASE_EXCHANGE,
                 MqConstants.STOCK_RELEASE_ROUTING_KEY,
                 releaseTo
@@ -568,7 +636,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return to;
         }).collect(Collectors.toList());
         deductTo.setItems(deductItems);
-        rabbitTemplate.convertAndSend(
+        orderOutboxMessageService.enqueue(
+                "stock.deduct." + orderSn,
+                "STOCK_DEDUCT",
+                orderSn,
                 MqConstants.STOCK_RELEASE_EXCHANGE,
                 MqConstants.STOCK_DEDUCT_ROUTING_KEY,
                 deductTo

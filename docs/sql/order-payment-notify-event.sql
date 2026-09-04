@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS oms_payment_notify_event (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT 'id',
+  event_key VARCHAR(192) NOT NULL COMMENT 'idempotency key: channel + trade_no + trade_status',
+  channel VARCHAR(32) NOT NULL COMMENT 'payment channel: alipay/wechat/credit_card',
+  order_sn VARCHAR(64) NOT NULL COMMENT 'order number',
+  trade_no VARCHAR(96) NOT NULL COMMENT 'gateway trade number',
+  trade_status VARCHAR(32) NOT NULL COMMENT 'gateway trade status',
+  total_amount DECIMAL(18, 2) DEFAULT NULL COMMENT 'notified amount',
+  currency VARCHAR(16) DEFAULT NULL COMMENT 'currency',
+  signed_content VARCHAR(1024) NOT NULL COMMENT 'signed content',
+  sign VARCHAR(128) NOT NULL COMMENT 'signature',
+  notify_time VARCHAR(64) DEFAULT NULL COMMENT 'gateway notify time',
+  raw_content TEXT DEFAULT NULL COMMENT 'raw notify content',
+  process_status VARCHAR(32) NOT NULL COMMENT 'process status: processing/processed/ignored',
+  process_message VARCHAR(255) DEFAULT NULL COMMENT 'process result message',
+  create_time DATETIME NOT NULL COMMENT 'create time',
+  update_time DATETIME NOT NULL COMMENT 'update time',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_payment_notify_event_key (event_key),
+  KEY idx_payment_notify_order_sn (order_sn),
+  KEY idx_payment_notify_trade_no (trade_no),
+  KEY idx_payment_notify_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='payment notify event';
