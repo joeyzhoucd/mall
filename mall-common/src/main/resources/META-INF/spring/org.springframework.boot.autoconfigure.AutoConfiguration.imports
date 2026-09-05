@@ -8,3 +8,4 @@ com.mall.common.config.MallOpenApiAutoConfiguration
 com.mall.common.config.ActuatorObservationFilterAutoConfiguration
 com.mall.common.config.ConfigInsightAutoConfiguration
 com.mall.common.config.BusinessMetricsAutoConfiguration
+com.mall.common.config.MultiLevelCacheAutoConfiguration

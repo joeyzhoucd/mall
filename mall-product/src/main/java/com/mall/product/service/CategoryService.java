@@ -3,8 +3,6 @@ package com.mall.product.service;
 import com.baomidou.mybatisplus.spring.service.IService;
 import com.mall.common.utils.PageUtils;
 import com.mall.product.entity.CategoryEntity;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;

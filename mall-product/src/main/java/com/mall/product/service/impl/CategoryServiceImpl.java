@@ -3,6 +3,8 @@ package com.mall.product.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
+import com.mall.common.cache.MultiLevelCacheClient;
+import com.mall.common.cache.MultiLevelCacheOptions;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.product.dao.CategoryDao;
@@ -12,12 +14,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.CollectionUtils;
+import tools.jackson.core.type.TypeReference;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -34,9 +38,25 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     @Autowired
     private RedissonClient redissonClient;
 
+    @Autowired
+    private MultiLevelCacheClient multiLevelCacheClient;
+
     private static final String LOCK_KEY = "category:lock";
     private static final long LOCK_WAIT_TIME = 10;
     private static final long LOCK_LEASE_TIME = 30;
+    private static final String CATEGORY_CACHE_NAME = "category";
+    private static final String CATEGORY_TREE_CACHE_KEY = "listAsTree";
+    private static final TypeReference<List<CategoryEntity>> CATEGORY_TREE_TYPE = new TypeReference<>() {
+    };
+    private static final MultiLevelCacheOptions CATEGORY_TREE_CACHE_OPTIONS = new MultiLevelCacheOptions(
+            Duration.ofSeconds(30),
+            Duration.ofHours(24),
+            Duration.ofSeconds(30),
+            true,
+            Duration.ofSeconds(5),
+            Duration.ofMillis(300),
+            Duration.ofMillis(20),
+            0.1);
 
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
@@ -52,9 +72,13 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      * 查询分类树，使用缓存
      * 缓存 key: category::listAsTree
      */
-    @Cacheable(value = "category", key = "'listAsTree'", unless = "#result == null or #result.isEmpty()")
     @Override
     public List<CategoryEntity> listAsTree() {
+        return multiLevelCacheClient.get(CATEGORY_CACHE_NAME, CATEGORY_TREE_CACHE_KEY,
+                CATEGORY_TREE_TYPE, this::loadCategoryTreeFromDb, CATEGORY_TREE_CACHE_OPTIONS);
+    }
+
+    private List<CategoryEntity> loadCategoryTreeFromDb() {
         log.info("[Category] 缓存未命中，准备查询数据库并写入缓存");
         // 1. Get all categories
         List<CategoryEntity> allCategories = baseMapper.selectList(null);
@@ -84,7 +108,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     /**
      * 保存分类，使用分布式锁，并清除缓存
      */
-    @CacheEvict(value = "category", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     @Override
     public boolean save(CategoryEntity entity) {
@@ -96,6 +119,9 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                 log.info("[Category] save 成功获取锁: {}", LOCK_KEY);
                 try {
                     boolean result = super.save(entity);
+                    if (result) {
+                        evictCategoryTreeCacheAfterCommit();
+                    }
                     log.info("[Category] save 完成数据库写入，准备清除缓存");
                     return result;
                 } finally {
@@ -118,7 +144,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     /**
      * 批量保存分类，使用分布式锁，并清除缓存
      */
-    @CacheEvict(value = "category", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     @Override
     public boolean saveBatch(List<CategoryEntity> entityList) {
@@ -129,6 +154,9 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                 log.info("[Category] saveBatch 成功获取锁: {}", LOCK_KEY);
                 try {
                     boolean result = super.saveBatch(entityList);
+                    if (result) {
+                        evictCategoryTreeCacheAfterCommit();
+                    }
                     log.info("[Category] saveBatch 完成数据库写入，准备清除缓存");
                     return result;
                 } finally {
@@ -150,7 +178,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     /**
      * 更新分类，使用分布式锁，并清除缓存
      */
-    @CacheEvict(value = "category", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     @Override
     public boolean updateById(CategoryEntity entity) {
@@ -161,6 +188,9 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                 log.info("[Category] update 成功获取锁: {}", LOCK_KEY);
                 try {
                     boolean result = super.updateById(entity);
+                    if (result) {
+                        evictCategoryTreeCacheAfterCommit();
+                    }
                     log.info("[Category] update 完成数据库写入，准备清除缓存");
                     return result;
                 } finally {
@@ -182,7 +212,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
     /**
      * 批量删除分类，使用分布式锁，并清除缓存
      */
-    @CacheEvict(value = "category", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     @Override
     public boolean removeByIds(List<?> idList) {
@@ -205,6 +234,9 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                     }
 
                     boolean result = super.removeByIds(idList);
+                    if (result) {
+                        evictCategoryTreeCacheAfterCommit();
+                    }
                     log.info("[Category] remove 完成数据库写入，准备清除缓存");
                     return result;
                 } finally {
@@ -254,7 +286,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
      * 换句话说：修好一个「报错但不写」的 bug，换来了一个「写了但看不见」的 bug。
      * 后者更难查，因为它不报错。
      */
-    @CacheEvict(value = "category", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     @Override
     public boolean updateBatchById(Collection<CategoryEntity> entityList) {
@@ -265,6 +296,9 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
                 log.info("[Category] updateBatch 成功获取锁: {}", LOCK_KEY);
                 try {
                     boolean result = super.updateBatchById(entityList);
+                    if (result) {
+                        evictCategoryTreeCacheAfterCommit();
+                    }
                     log.info("[Category] updateBatch 完成数据库写入，准备清除缓存");
                     return result;
                 } finally {
@@ -301,6 +335,24 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryDao, CategoryEntity
         QueryWrapper<CategoryEntity> wrapper = new QueryWrapper<>();
         wrapper.in("parent_cid", catIds).notIn("cat_id", catIds);
         return this.count(wrapper);
+    }
+
+    private void evictCategoryTreeCacheAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    evictCategoryTreeCache();
+                }
+            });
+            return;
+        }
+        evictCategoryTreeCache();
+    }
+
+    private void evictCategoryTreeCache() {
+        multiLevelCacheClient.evict(CATEGORY_CACHE_NAME, CATEGORY_TREE_CACHE_KEY);
     }
 
 }

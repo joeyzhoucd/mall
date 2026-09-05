@@ -1,6 +1,6 @@
 # Mall 成熟分布式电商能力路线图
 
-更新日期：2026-09-04
+更新日期：2026-09-05
 
 ## 状态图例
 
@@ -22,7 +22,7 @@
 | 2 | 订单状态机 + 超时关单 + 库存解锁 | <span style="color:#16833a;font-weight:700">已实现</span> | 已有完整订单状态枚举、显式状态流转表、非法流转 CAS 保护、订单关闭监听、支付成功扣库存、关单释放库存，以及发货/收货完成/售后状态推进入口。 |
 | 3 | 事务消息 / Outbox / 本地消息表 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀链路已有 `SeckillLocalMessage` 本地消息表和 confirm 等待；普通订单/支付状态流转已走 `oms_order_outbox_message`，库存失败通知已走 `wms_stock_outbox_message`，订单/库存 MQ 消费已补本地幂等记录；还缺跨服务统一消息治理后台。 |
 | 4 | 死信队列 + 消费幂等 + 补偿任务 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单延迟队列、库存失败队列、消费失败 DLX/DLQ、DLQ 查看/重放/丢弃入口、秒杀对账任务、库存重试和订单/库存消费幂等；还缺统一告警、权限化人工处理后台和更细的重试策略。 |
-| 5 | 多级缓存 + 热点保护 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Redis 缓存、秒杀本地售罄标记、Redis Lua；还缺 Caffeine + Redis 多级缓存、缓存预热、热点 key 监控和标准化防穿透/击穿/雪崩策略。 |
+| 5 | 多级缓存 + 热点保护 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已补 `mall-common` 的 `MultiLevelCacheClient`（Caffeine + Redis）、Redis Pub/Sub 本地失效广播、空值缓存、互斥重建、TTL 随机抖动和热点 key 指标；`mall-product` 分类树已接入多级缓存并通过 `CategoryCacheWarmup` 启动预热。下一步是把商品详情、价格等更多热点读路径迁入统一封装。 |
 | 6 | 网关统一鉴权 + 风控限流 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Gateway 管理端 JWT 鉴权、入口限流；还缺前台统一认证、黑白名单、设备/IP/用户维度风控限流。 |
 | 7 | 数据库迁移工具 Flyway/Liquibase | <span style="color:#c62828;font-weight:700">待实现</span> | 当前没有看到 Flyway/Liquibase 迁移目录和依赖。 |
 | 8 | SLO 告警 + Runbook | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Micrometer、Prometheus、Loki、Tempo、Grafana、Alertmanager 文档和业务指标；还缺正式 SLO、告警分级、值班流程、Runbook。 |
@@ -58,8 +58,8 @@
 
 | 能力 | 当前状态 | 现状与下一步 |
 | --- | --- | --- |
-| 热点数据保护：本地缓存 Caffeine + Redis 多级缓存 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀已有本地售罄标记 + Redis；商品侧有 Redis 缓存配置；下一步引入 Caffeine、多级缓存封装和热点 key 治理。 |
-| 缓存治理：缓存穿透、击穿、雪崩、预热、失效策略 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 有 Redis 使用和部分预热/本地标记；还缺统一缓存工具、空值缓存、互斥重建、随机 TTL、预热任务。 |
+| 热点数据保护：本地缓存 Caffeine + Redis 多级缓存 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有秒杀本地售罄标记 + Redis；公共层已新增 `MultiLevelCacheClient`，用 Caffeine 做进程内一级缓存、Redis 做二级缓存，并用 Pub/Sub 做跨实例本地失效；分类树已接入。下一步扩展到商品详情等更多热点 key。 |
+| 缓存治理：缓存穿透、击穿、雪崩、预热、失效策略 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有统一缓存封装：空值短 TTL 防穿透、Redis `SET NX PX` 互斥重建防击穿、Redis TTL 随机抖动防雪崩、热点 key Micrometer 指标和日志、分类树启动预热；还需要补缓存治理文档、告警规则和更多业务缓存接入。 |
 | 秒杀专用链路：资格校验、令牌、库存预热、异步下单、削峰 | <span style="color:#16833a;font-weight:700">已实现</span> | 已有 Redis Lua 扣名额、用户去重、本地消息表、MQ 异步建单、对账补偿、本地售罄保护。 |
 | 读写分离：MySQL 主从、只读库、分库分表 | <span style="color:#c62828;font-weight:700">待实现</span> | 没有看到读写路由或主从数据源配置。 |
 | 分库分表：ShardingSphere、订单按用户/订单号分片 | <span style="color:#c62828;font-weight:700">待实现</span> | 没有看到 ShardingSphere 或分片键设计。 |
