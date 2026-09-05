@@ -16,10 +16,31 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.*;
 
 @Service("purchaseService")
 public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity> implements PurchaseService {
+
+    private static final Logger log = LoggerFactory.getLogger(PurchaseServiceImpl.class);
+
+    /**
+     * 采购明细的状态取值。
+     *
+     * 这些数字原本散在代码里，只有 {@code // Assigned} 之类的英文注释标着。
+     * 这里只把<b>本次改动读到的那几个</b>提出来命名 ——
+     * 幂等判断依赖「3 到底是什么意思」，写成裸数字的话，
+     * 下一个人很难确定 {@code d.getStatus() != 3} 是在防什么。
+     * 其余散落的数字没有一并替换：那属于另一件事，不该混在这次修复里。
+     */
+    static final int DETAIL_ASSIGNED = 1;
+    static final int DETAIL_RECEIVED = 2;
+    /** 已完成 —— <b>库存已经加过了</b>。幂等判断就是靠这个值。 */
+    static final int DETAIL_FINISHED = 3;
+    /** 采购失败 —— 库存<b>没有</b>加过，所以允许改判成功后再入库。 */
+    static final int DETAIL_FAILED = 4;
 
     @Autowired
     private PurchaseDetailDao purchaseDetailDao;
@@ -140,7 +161,34 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity
             for (Long did : successDetailIds) {
                 PurchaseDetailEntity d = purchaseDetailDao.selectById(did);
                 if (d == null) continue;
-                d.setStatus(3);
+
+                // 【明细必须属于这张采购单】
+                // 原来不校验，于是传别的采购单的明细 id 进来，一样会给它加库存。
+                // 这不是理论问题：完成采购的请求体是前端拼的一串 id，
+                // 拼错、或者两个标签页各自完成不同的单子，就会串到一起。
+                if (d.getPurchaseId() == null || !d.getPurchaseId().equals(purchaseId)) {
+                    log.warn("完成采购：明细 {} 不属于采购单 {}（它属于 {}），已跳过",
+                            did, purchaseId, d.getPurchaseId());
+                    continue;
+                }
+
+                // 【幂等：已经完成过的明细绝不能再加一次库存】
+                // 原来没有这个判断。finish 是 @Transactional 的，
+                // 但事务只保证「一次调用要么全成要么全不成」，
+                // 【挡不住第二次调用】—— 两次成功调用各自提交，库存就加了两遍。
+                //
+                // 现实里触发它太容易了：界面上双击「完成」、网络超时后重试、
+                // 或者两个人同时点。而结果是仓库库存虚增，
+                // 且没有任何报错 —— 要等到盘点或超卖时才发现。
+                //
+                // 只跳过 3（已完成、库存已加）。状态 4（失败、库存没加）要允许改判成功，
+                // 否则「先标失败、核实后改成功」这条正常路径就走不通了。
+                if (d.getStatus() != null && d.getStatus() == DETAIL_FINISHED) {
+                    log.info("完成采购：明细 {} 已经是完成状态，跳过重复入库", did);
+                    continue;
+                }
+
+                d.setStatus(DETAIL_FINISHED);
                 purchaseDetailDao.updateById(d);
                 // Add stock
                 wareSkuService.addStock(d.getSkuId(), d.getWareId(), d.getSkuNum(), null);
@@ -151,7 +199,25 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseDao, PurchaseEntity
             for (Long did : failedDetailIds) {
                 PurchaseDetailEntity d = purchaseDetailDao.selectById(did);
                 if (d == null) continue;
-                d.setStatus(4);
+
+                // 归属校验和上面同理。
+                if (d.getPurchaseId() == null || !d.getPurchaseId().equals(purchaseId)) {
+                    log.warn("完成采购：明细 {} 不属于采购单 {}（它属于 {}），已跳过",
+                            did, purchaseId, d.getPurchaseId());
+                    continue;
+                }
+
+                // 【已完成的明细不能被改判成失败】
+                // 它的库存已经加进仓库了，而标成失败并不会把库存减回去 ——
+                // 结果是「这条明细显示采购失败，但仓库里凭空多了一批货」，
+                // 对不上账，而且没有任何报错。
+                // 真要撤销入库，那是一次独立的库存调整，不能靠改状态实现。
+                if (d.getStatus() != null && d.getStatus() == DETAIL_FINISHED) {
+                    log.warn("完成采购：明细 {} 已完成入库，拒绝改判为失败（库存不会自动退回）", did);
+                    continue;
+                }
+
+                d.setStatus(DETAIL_FAILED);
                 purchaseDetailDao.updateById(d);
             }
         }
