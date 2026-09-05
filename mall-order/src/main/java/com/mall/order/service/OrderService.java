@@ -35,6 +35,18 @@ public interface OrderService extends IService<OrderEntity> {
 
     OrderEntity getOrderBySn(String orderSn);
 
+    /**
+     * 后台用的订单详情：订单 + 明细 + 操作记录，一次取全。
+     *
+     * 三样在后台是一个东西 —— 打开订单要同时看到「买了什么」和「经历过什么」。
+     * 分三次请求除了多两次往返，还<b>可能拼出不一致的画面</b>：
+     * 三次之间订单状态变了（比如刚好被发货），界面上会出现
+     * 「状态是待发货，但操作记录里已经有发货那一条」。
+     *
+     * @return 订单不存在时返回 {@code null}，由调用方决定怎么表达（404 还是业务错误）
+     */
+    com.mall.order.vo.OrderDetailVo getOrderDetail(String orderSn);
+
     void recordOperateHistory(com.mall.common.to.OrderOperateTo operateTo);
 
     /**

@@ -24,6 +24,7 @@ import com.mall.order.constant.OrderConstant;
 import com.mall.order.dao.OrderDao;
 import com.mall.order.entity.OrderEntity;
 import com.mall.order.entity.OrderItemEntity;
+import com.mall.order.entity.OrderOperateHistoryEntity;
 import com.mall.order.feign.CartFeignService;
 import com.mall.order.feign.CouponFeignService;
 import com.mall.order.feign.MemberFeignService;
@@ -98,14 +99,111 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderServiceImpl.class);
 
+    /**
+     * 后台的订单分页查询。
+     *
+     * <h3>原来这里是生成器的裸模板</h3>
+     * 空 QueryWrapper、没有任何筛选、也<b>没有 ORDER BY</b>。
+     * 后果分两层：
+     * <ul>
+     *   <li>没有筛选 → 后台只能一页页翻，没法按订单号或状态找单，
+     *       而「找一个具体的订单」正是订单管理最主要的用途</li>
+     *   <li>没有 ORDER BY → MySQL 不保证无序查询的行顺序，
+     *       分页的每一页都是独立查询，行会在页与页之间重复或漏掉。
+     *       数据少时看不出来 —— 就像 spuinfo 那次，10004 行时
+     *       第 1、2 页实测重复 8 行。</li>
+     * </ul>
+     *
+     * <h3>排序为什么要带上 id</h3>
+     * create_time 不唯一（批量下单、秒杀会在同一秒里产生大量订单），
+     * 只按它排，并列的行之间顺序仍然未定义。必须落到唯一列上全序才确定。
+     */
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<OrderEntity> page = this.page(
                 new Query<OrderEntity>().getPage(params),
-                new QueryWrapper<OrderEntity>()
-        );
-
+                buildQueryWrapper(params));
         return new PageUtils(page);
+    }
+
+    /**
+     * 条件拼装单独抽出来，为的是<b>可测</b>：queryPage 要连数据库，而这一段是纯逻辑。
+     *
+     * 【这个抽取不是可有可无的】第一版测试自己复刻了一份拼装逻辑来测，
+     * 结果把生产代码里的 orderByDesc 整行删掉，8 条测试<b>全部照常通过</b> ——
+     * 因为它们测的是复刻的那一份。一个永远通过的测试比没有测试更糟。
+     * 对应的测试见 OrderQueryPageTest，它现在调的是这个方法。
+     */
+    QueryWrapper<OrderEntity> buildQueryWrapper(Map<String, Object> params) {
+        QueryWrapper<OrderEntity> wrapper = new QueryWrapper<>();
+
+        // 订单号：精确匹配。订单号是给人报出来的东西（客服问「您的订单号是多少」），
+        // 用 like 会让人输错一位也能查到别的单子，反而更糟。
+        String orderSn = trimmed(params.get("orderSn"));
+        if (orderSn != null) {
+            wrapper.eq("order_sn", orderSn);
+        }
+
+        // 收件人 / 会员名：这两个是模糊找人用的
+        String key = trimmed(params.get("key"));
+        if (key != null) {
+            wrapper.and(w -> w.like("receiver_name", key)
+                    .or().like("member_username", key)
+                    .or().like("receiver_phone", key));
+        }
+
+        Integer status = parseInt(params.get("status"));
+        if (status != null) {
+            wrapper.eq("status", status);
+        }
+
+        Long memberId = parseLong(params.get("memberId"));
+        if (memberId != null) {
+            wrapper.eq("member_id", memberId);
+        }
+
+        // 时间范围。两端都可以单独给 —— 只给开始时间是「这之后的所有订单」。
+        String from = trimmed(params.get("createTimeFrom"));
+        if (from != null) {
+            wrapper.ge("create_time", from);
+        }
+        String to = trimmed(params.get("createTimeTo"));
+        if (to != null) {
+            wrapper.le("create_time", to);
+        }
+
+        wrapper.orderByDesc("create_time").orderByDesc("id");
+
+        return wrapper;
+    }
+
+    /** 取字符串参数并去空白；空串当作没传，避免拼出恒真/恒假的条件。 */
+    private static String trimmed(Object raw) {
+        if (raw == null) return null;
+        String s = String.valueOf(raw).trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private static Integer parseInt(Object raw) {
+        String s = trimmed(raw);
+        if (s == null) return null;
+        try {
+            return Integer.valueOf(s);
+        } catch (NumberFormatException e) {
+            // 解析不了就当没传。抛异常的话，前端传了个空字符串就变成 500，
+            // 而这只是一个筛选条件。
+            return null;
+        }
+    }
+
+    private static Long parseLong(Object raw) {
+        String s = trimmed(raw);
+        if (s == null) return null;
+        try {
+            return Long.valueOf(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @Override
@@ -264,6 +362,37 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return null;
         }
         return this.getOne(new QueryWrapper<OrderEntity>().eq("order_sn", orderSn));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public com.mall.order.vo.OrderDetailVo getOrderDetail(String orderSn) {
+        OrderEntity order = getOrderBySn(orderSn);
+        if (order == null) {
+            return null;
+        }
+
+        com.mall.order.vo.OrderDetailVo vo = new com.mall.order.vo.OrderDetailVo();
+        vo.setOrder(order);
+
+        // 明细按 id 升序 —— 也就是下单时加入购物车的顺序。
+        // 不排序的话每次打开同一个订单，商品顺序都可能不一样。
+        vo.setItems(orderItemService.list(
+                new QueryWrapper<OrderItemEntity>()
+                        .eq("order_sn", orderSn)
+                        .orderByAsc("id")));
+
+        // 操作记录按【时间倒序】：排查订单问题时先看的总是「最后发生了什么」。
+        // 再按 id 倒序兜底 —— create_time 只精确到秒，同一秒内的多条
+        // （比如支付回调紧接着自动发货）顺序否则是不确定的，
+        // 而操作记录一旦顺序错乱就会把因果关系显示反。
+        vo.setHistory(orderOperateHistoryService.list(
+                new QueryWrapper<OrderOperateHistoryEntity>()
+                        .eq("order_id", order.getId())
+                        .orderByDesc("create_time")
+                        .orderByDesc("id")));
+
+        return vo;
     }
 
     @Override
