@@ -42,6 +42,13 @@ public class SysScheduleController {
 
     private final ScheduleJobService scheduleJobService;
 
+    /**
+     * 只用来列出带 @ScheduledTask 的 bean 名（见 {@link #beans()}）。
+     * 任务的实际执行仍然走 ScheduleJobExecutor，那里的白名单校验没有任何改动。
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.context.ApplicationContext applicationContext;
+
     public SysScheduleController(ScheduleJobService scheduleJobService) {
         this.scheduleJobService = scheduleJobService;
     }
@@ -51,6 +58,32 @@ public class SysScheduleController {
                   @RequestParam(value = "limit", defaultValue = "10") int limit,
                   @RequestParam(value = "beanName", required = false) String beanName) {
         return R.ok().put("page", new PageUtils(scheduleJobService.page(page, limit, beanName)));
+    }
+
+    /**
+     * 列出<b>允许被定时任务调用</b>的 bean 名。
+     *
+     * <h3>为什么要有这个</h3>
+     * beanName 在后台是个自由文本框。填错了不会当场报错 ——
+     * 要等这个任务按 cron 真的跑起来、执行器抛
+     * 「没有标 @ScheduledTask，不允许被定时任务调用」时才知道。
+     * 如果那个 cron 是凌晨三点一次，就得等到第二天。
+     * 有了这个接口，前端可以做成下拉，填错这件事在保存前就不成立。
+     *
+     * <h3>为什么把可用 bean 列给管理员不算泄露</h3>
+     * 能打开这一页的人本来就能创建定时任务，也就本来就需要知道能填什么。
+     * 这里只返回 bean 名，不返回类名、方法或任何配置。
+     * 白名单本身的作用（拦住「调用任意 bean」）完全没有被削弱 ——
+     * 执行时那道校验一个字都没动。
+     */
+    @GetMapping("/beans")
+    public R beans() {
+        List<String> names = new java.util.ArrayList<>(
+                applicationContext.getBeansWithAnnotation(
+                        com.mall.admin.schedule.ScheduledTask.class).keySet());
+        // 排序只是为了下拉稳定 —— 顺序随容器扫描顺序变化会让界面看起来在抖。
+        java.util.Collections.sort(names);
+        return R.ok().put("data", names);
     }
 
     @GetMapping("/info/{jobId}")
