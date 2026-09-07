@@ -1,0 +1,36 @@
+groups:
+  - name: mall-cache
+    rules:
+      - alert: MallCacheMissRateHigh
+        expr: |
+          (
+            sum by (service, cache) (rate(mall_cache_multi_level_requests_total{result="miss"}[5m]))
+            /
+            clamp_min(sum by (service, cache) (rate(mall_cache_multi_level_requests_total{result!~"evict|put|put_null"}[5m])), 0.001)
+          ) > 0.35
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "缓存 miss 率偏高"
+          description: "{{ $labels.service }} {{ $labels.cache }} 过去 10 分钟 miss 率超过 35%，检查是否有批量失效、回源变慢或热点未预热。"
+
+      - alert: MallCacheMutexTimeout
+        expr: |
+          sum by (service, cache) (increase(mall_cache_multi_level_requests_total{result="mutex_timeout"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "缓存互斥重建等待超时"
+          description: "{{ $labels.service }} {{ $labels.cache }} 出现互斥重建等待超时，优先检查回源 SQL、Feign 调用和 Redis 延迟。"
+
+      - alert: MallCacheHotKeyDetected
+        expr: |
+          sum by (service, cache) (increase(mall_cache_hot_key_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "检测到缓存热点 key"
+          description: "{{ $labels.service }} {{ $labels.cache }} 检测到热点 key，具体 key 只在应用日志里，避免 Prometheus 高基数。"

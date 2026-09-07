@@ -22,7 +22,7 @@
 | 2 | 订单状态机 + 超时关单 + 库存解锁 | <span style="color:#16833a;font-weight:700">已实现</span> | 已有完整订单状态枚举、显式状态流转表、非法流转 CAS 保护、订单关闭监听、支付成功扣库存、关单释放库存，以及发货/收货完成/售后状态推进入口。 |
 | 3 | 事务消息 / Outbox / 本地消息表 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀链路已有 `SeckillLocalMessage` 本地消息表和 confirm 等待；普通订单/支付状态流转已走 `oms_order_outbox_message`，库存失败通知已走 `wms_stock_outbox_message`，订单/库存 MQ 消费已补本地幂等记录；还缺跨服务统一消息治理后台。 |
 | 4 | 死信队列 + 消费幂等 + 补偿任务 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单延迟队列、库存失败队列、消费失败 DLX/DLQ、DLQ 查看/重放/丢弃入口、秒杀对账任务、库存重试和订单/库存消费幂等；还缺统一告警、权限化人工处理后台和更细的重试策略。 |
-| 5 | 多级缓存 + 热点保护 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已补 `mall-common` 的 `MultiLevelCacheClient`（Caffeine + Redis）、Redis Pub/Sub 本地失效广播、空值缓存、互斥重建、TTL 随机抖动和热点 key 指标；`mall-product` 分类树已接入多级缓存并通过 `CategoryCacheWarmup` 启动预热，商品详情、SKU 基础信息/价格、图片、SPU 描述、销售属性矩阵和规格属性分组也已迁入统一封装，并补了提交后失效。下一步补缓存治理文档、告警规则和更多促销/库存类热点读路径。 |
+| 5 | 多级缓存 + 热点保护 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已补 `mall-common` 的 `MultiLevelCacheClient`（Caffeine + Redis）、Redis Pub/Sub 本地失效广播、空值缓存、互斥重建、TTL 随机抖动和热点 key 指标；`mall-product` 分类树和商品详情热点读已接入，`mall-coupon` 秒杀页/秒杀关系/场次基础读与 `mall-ware` SKU 分仓库存/可售量读也已迁入统一封装，并补了 after-commit 失效、缓存治理文档和告警规则。下一步可继续补前台首页广告/专题和库存预热策略。 |
 | 6 | 网关统一鉴权 + 风控限流 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Gateway 管理端 JWT 鉴权、入口限流；还缺前台统一认证、黑白名单、设备/IP/用户维度风控限流。 |
 | 7 | 数据库迁移工具 Flyway/Liquibase | <span style="color:#c62828;font-weight:700">待实现</span> | 当前没有看到 Flyway/Liquibase 迁移目录和依赖。 |
 | 8 | SLO 告警 + Runbook | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Micrometer、Prometheus、Loki、Tempo、Grafana、Alertmanager 文档和业务指标；还缺正式 SLO、告警分级、值班流程、Runbook。 |
@@ -147,3 +147,12 @@
 - `SkuInfoServiceImpl.getBySkuId(skuId)` 成为 SKU 基础信息与价格热点读入口；购物车 Feign 的 `/product/skuinfo/info/{skuId}` 已切到该入口，避免绕过缓存。
 - SKU 基础信息、图片、销售属性、SPU 描述、规格参数和 SPU 删除等写路径已补 after-commit 失效，销售属性变更会按 SPU 扩散失效兄弟 SKU 的详情缓存。
 - 已新增 `SkuHotReadCacheTest` 约束热点读必须走统一缓存封装；已通过 `mvn -pl mall-product -am -DskipTests compile` 和 `mvn -pl mall-product -am "-Dtest=SkuHotReadCacheTest,CategoryCacheEvictionTest" -DfailIfNoTests=false "-Dsurefire.failIfNoSpecifiedTests=false" test` 验证。
+
+## 2026-09-06 促销/库存热点读缓存与治理
+
+- `mall-coupon` 新增 `PromotionHotCacheInvalidator`，秒杀页从手写 Redis JSON 缓存迁入 `MultiLevelCacheClient`，秒杀关系和秒杀场次 `getById` 也接入统一封装。
+- 秒杀关系保存、更新、删除和 `sold_count` 自增会提交后失效 relation/page 缓存；秒杀场次写路径会提交后失效 session 缓存。
+- `mall-ware` 新增 `WareHotCacheInvalidator`，新增 `listBySkuId(skuId)` 和 `getAvailableStock(skuId)` 热点读入口，并通过 `/ware/waresku/sku/{skuId}`、`/ware/waresku/stock/{skuId}` 暴露。
+- 库存入库、手动设置、库存记录 CRUD、锁定、释放、扣减成功后都会提交后失效 SKU 库存缓存；下单裁决仍然只看数据库原子 UPDATE 影响行数，不用缓存判断库存是否足够。
+- 新增 `docs/cache-governance.md` 和 `docs/cache-alert-rules.yml`，覆盖接入边界、cache name/TTL、写路径纪律、指标和 miss/互斥超时/热点 key 告警。
+- 新增 `PromotionHotReadCacheTest`、`WareHotReadCacheTest` 约束促销/库存热点读必须走统一缓存封装、写路径必须 after-commit 失效。

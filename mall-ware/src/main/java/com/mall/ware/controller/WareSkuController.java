@@ -49,6 +49,16 @@ public class WareSkuController {
         return R.ok().put("wareSku", wareSku);
     }
 
+    @GetMapping("/sku/{skuId}")
+    public R listBySkuId(@PathVariable("skuId") Long skuId) {
+        return R.ok().put("list", wareSkuService.listBySkuId(skuId));
+    }
+
+    @GetMapping("/stock/{skuId}")
+    public R availableStock(@PathVariable("skuId") Long skuId) {
+        return R.ok().put("availableStock", wareSkuService.getAvailableStock(skuId));
+    }
+
     /**
      * Save warehouse SKU
      */

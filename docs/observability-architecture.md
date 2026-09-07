@@ -381,6 +381,7 @@ OpenTelemetry Collector 做采样决策，这套集群暂时不上。
 | 要改什么 | 文件 |
 | --- | --- |
 | 告警规则 | `mall-deploy/charts/mall/files/alert-rules.yml` |
+| 缓存治理说明 / 缓存告警规则草案 | `docs/cache-governance.md` / `docs/cache-alert-rules.yml` |
 | Alertmanager（分组/抑制/通知渠道） | `mall-deploy/charts/mall/templates/observability-alerting.yaml` |
 | Grafana 面板 | `mall-deploy/charts/mall/files/dashboards/*.json` |
 | Grafana 数据源 | `mall-deploy/charts/mall/templates/observability-grafana.yaml` |
@@ -486,6 +487,9 @@ expr: |
 全都表现为「没有告警」，而**「没有告警」和「一切正常」在界面上长得一模一样**。
 这条恒定触发，所以只要它**不在** Alertmanager 里，就说明链路断了。
 总览面板上有一格专门显示它。
+
+缓存类告警的草案在 `docs/cache-alert-rules.yml`：覆盖 miss 率、互斥重建超时和热点 key。
+真正合入部署规则时，把它并入 `mall-deploy/charts/mall/files/alert-rules.yml`，不要在 Grafana UI 里手建。
 
 **3. 抑制（inhibition）和去重是两回事。**
 

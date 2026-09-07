@@ -3,6 +3,8 @@ package com.mall.ware.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
+import com.mall.common.cache.MultiLevelCacheClient;
+import com.mall.common.cache.MultiLevelCacheOptions;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.common.constant.OrderStatus;
@@ -14,6 +16,7 @@ import com.mall.common.to.StockDeductTo;
 import com.mall.common.to.StockReleaseItemTo;
 import com.mall.common.to.StockReleaseTo;
 import com.mall.ware.dao.WareSkuDao;
+import com.mall.ware.cache.WareHotCacheInvalidator;
 import com.mall.ware.entity.WareSkuEntity;
 import com.mall.ware.entity.WareOrderTaskDetailEntity;
 import com.mall.ware.entity.WareOrderTaskEntity;
@@ -31,16 +34,35 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.mall.common.utils.RUtils;
 import com.mall.common.constant.MqConstants;
+import tools.jackson.core.type.TypeReference;
 
+import java.io.Serializable;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import com.mall.ware.entity.WareInfoEntity;
 import com.mall.ware.service.WareInfoService;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service("wareSkuService")
 public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> implements WareSkuService {
+
+    private static final TypeReference<List<WareSkuEntity>> WARE_SKU_LIST_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<Integer> AVAILABLE_STOCK_TYPE = new TypeReference<>() {
+    };
+    private static final MultiLevelCacheOptions WARE_SKU_CACHE_OPTIONS = new MultiLevelCacheOptions(
+            Duration.ofSeconds(5),
+            Duration.ofSeconds(30),
+            Duration.ofSeconds(5),
+            true,
+            Duration.ofSeconds(3),
+            Duration.ofMillis(150),
+            Duration.ofMillis(20),
+            0.1);
 
     /**
      * 只在 setStock 里用：SKU 还没有任何库存记录时，判断系统里是不是只有一个仓库。
@@ -51,6 +73,12 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
 
     @Autowired
     private com.mall.ware.dao.WareSkuDao wareSkuDao;
+
+    @Autowired
+    private MultiLevelCacheClient multiLevelCacheClient;
+
+    @Autowired
+    private WareHotCacheInvalidator wareHotCacheInvalidator;
 
     @Autowired
     private com.mall.ware.dao.WareOrderTaskDetailDao wareOrderTaskDetailDao;
@@ -120,6 +148,38 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     }
 
     @Override
+    public List<WareSkuEntity> listBySkuId(Long skuId) {
+        if (skuId == null) {
+            return List.of();
+        }
+        return multiLevelCacheClient.get(WareHotCacheInvalidator.WARE_SKU_BY_SKU_CACHE_NAME,
+                WareHotCacheInvalidator.key(skuId),
+                WARE_SKU_LIST_TYPE,
+                () -> baseMapper.selectList(new QueryWrapper<WareSkuEntity>()
+                        .eq("sku_id", skuId)
+                        .orderByAsc("id")),
+                WARE_SKU_CACHE_OPTIONS);
+    }
+
+    @Override
+    public Integer getAvailableStock(Long skuId) {
+        if (skuId == null) {
+            return 0;
+        }
+        return multiLevelCacheClient.get(WareHotCacheInvalidator.SKU_AVAILABLE_STOCK_CACHE_NAME,
+                WareHotCacheInvalidator.key(skuId),
+                AVAILABLE_STOCK_TYPE,
+                () -> listBySkuId(skuId).stream()
+                        .mapToInt(row -> {
+                            int stock = row.getStock() == null ? 0 : row.getStock();
+                            int locked = row.getStockLocked() == null ? 0 : row.getStockLocked();
+                            return Math.max(0, stock - locked);
+                        })
+                        .sum(),
+                WARE_SKU_CACHE_OPTIONS);
+    }
+
+    @Override
     public void addStock(Long skuId, Long wareId, Integer skuNum, String skuName) {
         QueryWrapper<WareSkuEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("sku_id", skuId).eq("ware_id", wareId);
@@ -135,6 +195,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
         } else {
             // 相对增量，避免两个收货单同时入库同一个 sku 时丢更新。
             wareSkuDao.addStockById(exist.getId(), skuNum == null ? 0 : skuNum);
+            wareHotCacheInvalidator.evictSkuAfterCommit(skuId);
         }
     }
 
@@ -165,7 +226,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             // 换下一个继续试；全部试完都不够才算失败。
             // 注意查询只用来枚举候选，真正的裁决权在 UPDATE 的影响行数上——
             // 如果拿查询结果去决定「哪些仓库值得试」，就又退回 check-then-act 了。
-            List<WareSkuEntity> wareSkus = this.list(new QueryWrapper<WareSkuEntity>().eq("sku_id", item.getSkuId()));
+            List<WareSkuEntity> wareSkus = listBySkuId(item.getSkuId());
             WareSkuEntity matched = null;
             if (wareSkus != null) {
                 for (WareSkuEntity wareSku : wareSkus) {
@@ -195,6 +256,7 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             wareOrderTaskDetailService.save(detailEntity);
             lockedDetails.add(detailEntity);
             lockedWares.add(new LockedSku(matched.getId(), item.getCount()));
+            wareHotCacheInvalidator.evictSkuAfterCommit(item.getSkuId());
         }
         return true;
     }
@@ -217,6 +279,50 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
             // 只有一种写法，避免以后有人照着这行复制出一个真的有并发的整行写回。
             wareOrderTaskDetailDao.casLockStatus(detail.getId(), StockLockStatus.LOCKED, StockLockStatus.UNLOCKED);
         }
+    }
+
+    @Override
+    public WareSkuEntity getById(Serializable id) {
+        return super.getById(id);
+    }
+
+    @Override
+    public boolean save(WareSkuEntity entity) {
+        boolean result = super.save(entity);
+        if (result && entity != null) {
+            wareHotCacheInvalidator.evictSkuAfterCommit(entity.getSkuId());
+        }
+        return result;
+    }
+
+    @Override
+    public boolean updateById(WareSkuEntity entity) {
+        Long skuId = null;
+        if (entity != null && entity.getId() != null) {
+            WareSkuEntity old = super.getById(entity.getId());
+            skuId = old == null ? entity.getSkuId() : old.getSkuId();
+        }
+        boolean result = super.updateById(entity);
+        if (result && entity != null) {
+            wareHotCacheInvalidator.evictSkuAfterCommit(entity.getSkuId() == null ? skuId : entity.getSkuId());
+        }
+        return result;
+    }
+
+    @Override
+    public boolean removeByIds(Collection<?> list) {
+        List<Long> ids = normalizeIds(list);
+        if (ids.isEmpty()) {
+            return false;
+        }
+        List<Long> skuIds = listByIds(ids).stream()
+                .map(WareSkuEntity::getSkuId)
+                .collect(Collectors.toList());
+        boolean result = super.removeByIds(list);
+        if (result) {
+            wareHotCacheInvalidator.evictSkusAfterCommit(skuIds);
+        }
+        return result;
     }
 
     private static class LockedSku {
@@ -606,6 +712,17 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
         patch.setStock(stock);
         this.updateById(patch);
         return finalWareId;
+    }
+
+    private List<Long> normalizeIds(Collection<?> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(Objects::nonNull)
+                .map(id -> Long.valueOf(String.valueOf(id)))
+                .distinct()
+                .collect(Collectors.toList());
     }
 
 }

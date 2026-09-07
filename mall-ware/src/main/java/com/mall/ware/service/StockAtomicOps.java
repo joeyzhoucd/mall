@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.mall.ware.dao.WareOrderTaskDetailDao;
 import com.mall.ware.dao.WareSkuDao;
+import com.mall.ware.cache.WareHotCacheInvalidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +41,9 @@ public class StockAtomicOps {
     @Autowired
     private WareOrderTaskDetailDao wareOrderTaskDetailDao;
 
+    @Autowired
+    private WareHotCacheInvalidator wareHotCacheInvalidator;
+
     /**
      * 释放锁定的库存（订单取消/超时）。
      *
@@ -61,6 +65,7 @@ public class StockAtomicOps {
             return false;
         }
         releaseByWareOrFallback(skuId, wareId, count);
+        evictSkuAfterCommit(skuId);
         return true;
     }
 
@@ -106,6 +111,13 @@ public class StockAtomicOps {
             // 理由见 releaseByWareOrFallback
             wareSkuDao.deductStockBySku(skuId, count);
         }
+        evictSkuAfterCommit(skuId);
         return true;
+    }
+
+    private void evictSkuAfterCommit(Long skuId) {
+        if (wareHotCacheInvalidator != null) {
+            wareHotCacheInvalidator.evictSkuAfterCommit(skuId);
+        }
     }
 }

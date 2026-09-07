@@ -9,11 +9,16 @@ import com.mall.common.to.StockReleaseItemTo;
 import com.mall.common.to.StockDeductTo;
 
 import java.util.Map;
+import java.util.List;
 
 
 public interface WareSkuService extends IService<WareSkuEntity> {
 
     PageUtils queryPage(Map<String, Object> params);
+
+    List<WareSkuEntity> listBySkuId(Long skuId);
+
+    Integer getAvailableStock(Long skuId);
 
     
     void addStock(Long skuId, Long wareId, Integer skuNum, String skuName);
