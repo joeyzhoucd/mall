@@ -10,6 +10,7 @@ import com.mall.common.to.StockDeductTo;
 
 import java.util.Map;
 import java.util.List;
+import java.util.Collection;
 
 
 public interface WareSkuService extends IService<WareSkuEntity> {
@@ -19,6 +20,8 @@ public interface WareSkuService extends IService<WareSkuEntity> {
     List<WareSkuEntity> listBySkuId(Long skuId);
 
     Integer getAvailableStock(Long skuId);
+
+    int warmStockCache(Collection<Long> skuIds);
 
     
     void addStock(Long skuId, Long wareId, Integer skuNum, String skuName);

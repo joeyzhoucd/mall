@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -57,6 +58,15 @@ public class WareSkuController {
     @GetMapping("/stock/{skuId}")
     public R availableStock(@PathVariable("skuId") Long skuId) {
         return R.ok().put("availableStock", wareSkuService.getAvailableStock(skuId));
+    }
+
+    @PostMapping("/warmup")
+    public R warmup(@RequestBody List<Long> skuIds) {
+        if (skuIds == null) {
+            return R.ok().put("warmed", 0);
+        }
+        int warmed = wareSkuService.warmStockCache(skuIds);
+        return R.ok().put("warmed", warmed);
     }
 
     /**

@@ -36,6 +36,11 @@ public class HomeAdvController {
         return R.ok().put("homeAdv", homeAdv);
     }
 
+    @GetMapping("/active")
+    public R active() {
+        return R.ok().put("list", homeAdvService.listActive());
+    }
+
     
     @RequestMapping("/save")
     public R save(@RequestBody HomeAdvEntity homeAdv){

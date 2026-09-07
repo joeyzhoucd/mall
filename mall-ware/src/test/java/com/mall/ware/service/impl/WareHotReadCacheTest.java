@@ -48,6 +48,23 @@ class WareHotReadCacheTest {
                 "库存查询接口必须走带缓存的那个服务方法，不能自己拼");
     }
 
+    @Test
+    @DisplayName("库存预热必须先失效再加载库存行和可售量")
+    void stockWarmupEvictsBeforeLoading() throws IOException {
+        String source = Files.readString(WARE_SKU_SOURCE, StandardCharsets.UTF_8);
+        String controller = Files.readString(WARE_SKU_CONTROLLER_SOURCE, StandardCharsets.UTF_8);
+        String body = methodBody(source, "warmStockCache");
+
+        assertTrue(body.contains("wareHotCacheInvalidator.evictSkus(ids)"),
+                "库存预热必须先失效，避免把旧库存重新预热进去");
+        assertTrue(body.contains("listBySkuId(skuId)") && body.contains("getAvailableStock(skuId)"),
+                "库存预热必须同时加载分仓库存行和聚合可售量");
+        assertTrue(controller.contains("wareSkuService.warmStockCache"),
+                "库存预热接口必须调用 service 层预热方法");
+        assertTrue(controller.contains("@RequestBody List<Long> skuIds"),
+                "库存预热接口必须接收批量 SKU 清单，方便 Feign 直接调用");
+    }
+
     /**
      * 五条写路径<b>逐个</b>断言。
      *

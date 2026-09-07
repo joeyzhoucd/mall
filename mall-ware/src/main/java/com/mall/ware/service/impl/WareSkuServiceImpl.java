@@ -180,6 +180,20 @@ public class WareSkuServiceImpl extends ServiceImpl<WareSkuDao, WareSkuEntity> i
     }
 
     @Override
+    public int warmStockCache(Collection<Long> skuIds) {
+        List<Long> ids = normalizeIds(skuIds);
+        if (ids.isEmpty()) {
+            return 0;
+        }
+        wareHotCacheInvalidator.evictSkus(ids);
+        ids.forEach(skuId -> {
+            listBySkuId(skuId);
+            getAvailableStock(skuId);
+        });
+        return ids.size();
+    }
+
+    @Override
     public void addStock(Long skuId, Long wareId, Integer skuNum, String skuName) {
         QueryWrapper<WareSkuEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("sku_id", skuId).eq("ware_id", wareId);

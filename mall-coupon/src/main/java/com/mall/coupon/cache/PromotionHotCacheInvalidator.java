@@ -15,6 +15,11 @@ public class PromotionHotCacheInvalidator {
     public static final String SECKILL_RELATION_CACHE_NAME = "coupon:seckill-relation";
     public static final String SECKILL_SESSION_CACHE_NAME = "coupon:seckill-session";
     public static final String SECKILL_PAGE_CACHE_NAME = "coupon:seckill-page";
+    public static final String HOME_ADV_ACTIVE_CACHE_NAME = "coupon:home-adv-active";
+    public static final String HOME_SUBJECT_ACTIVE_CACHE_NAME = "coupon:home-subject-active";
+    public static final String HOME_SUBJECT_SPU_CACHE_NAME = "coupon:home-subject-spu";
+
+    public static final String HOME_ACTIVE_CACHE_KEY = "active";
 
     private final MultiLevelCacheClient multiLevelCacheClient;
 
@@ -56,6 +61,28 @@ public class PromotionHotCacheInvalidator {
         sessionIds.stream().filter(Objects::nonNull).distinct().forEach(this::evictSession);
     }
 
+    public void evictHomeAdv() {
+        multiLevelCacheClient.evict(HOME_ADV_ACTIVE_CACHE_NAME, HOME_ACTIVE_CACHE_KEY);
+    }
+
+    public void evictHomeSubjects() {
+        multiLevelCacheClient.evict(HOME_SUBJECT_ACTIVE_CACHE_NAME, HOME_ACTIVE_CACHE_KEY);
+    }
+
+    public void evictHomeSubjectSpu(Long subjectId) {
+        if (subjectId == null) {
+            return;
+        }
+        multiLevelCacheClient.evict(HOME_SUBJECT_SPU_CACHE_NAME, key(subjectId));
+    }
+
+    public void evictHomeSubjectSpus(Collection<Long> subjectIds) {
+        if (CollectionUtils.isEmpty(subjectIds)) {
+            return;
+        }
+        subjectIds.stream().filter(Objects::nonNull).distinct().forEach(this::evictHomeSubjectSpu);
+    }
+
     public void evictRelationAfterCommit(Long relationId) {
         afterCommit(() -> evictRelation(relationId));
     }
@@ -70,6 +97,22 @@ public class PromotionHotCacheInvalidator {
 
     public void evictSessionsAfterCommit(Collection<Long> sessionIds) {
         afterCommit(() -> evictSessions(sessionIds));
+    }
+
+    public void evictHomeAdvAfterCommit() {
+        afterCommit(this::evictHomeAdv);
+    }
+
+    public void evictHomeSubjectsAfterCommit() {
+        afterCommit(this::evictHomeSubjects);
+    }
+
+    public void evictHomeSubjectSpuAfterCommit(Long subjectId) {
+        afterCommit(() -> evictHomeSubjectSpu(subjectId));
+    }
+
+    public void evictHomeSubjectSpusAfterCommit(Collection<Long> subjectIds) {
+        afterCommit(() -> evictHomeSubjectSpus(subjectIds));
     }
 
     public void afterCommit(Runnable task) {

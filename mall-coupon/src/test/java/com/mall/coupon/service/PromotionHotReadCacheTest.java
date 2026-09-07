@@ -38,6 +38,14 @@ class PromotionHotReadCacheTest {
             "src/main/java/com/mall/coupon/service/impl/SeckillSkuRelationServiceImpl.java");
     private static final Path SECKILL_SESSION_SOURCE = Path.of(
             "src/main/java/com/mall/coupon/service/impl/SeckillSessionServiceImpl.java");
+    private static final Path HOME_ADV_SOURCE = Path.of(
+            "src/main/java/com/mall/coupon/service/impl/HomeAdvServiceImpl.java");
+    private static final Path HOME_SUBJECT_SOURCE = Path.of(
+            "src/main/java/com/mall/coupon/service/impl/HomeSubjectServiceImpl.java");
+    private static final Path HOME_SUBJECT_SPU_SOURCE = Path.of(
+            "src/main/java/com/mall/coupon/service/impl/HomeSubjectSpuServiceImpl.java");
+    private static final Path HOME_WARMUP_SOURCE = Path.of(
+            "src/main/java/com/mall/coupon/schedule/HomeCacheWarmupTask.java");
 
     @Test
     @DisplayName("秒杀热点读必须走 MultiLevelCacheClient")
@@ -83,6 +91,56 @@ class PromotionHotReadCacheTest {
         }
     }
 
+    @Test
+    @DisplayName("首页广告/专题热点读必须走 MultiLevelCacheClient")
+    void homePromotionHotReadsUseMultiLevelCache() throws IOException {
+        String adv = Files.readString(HOME_ADV_SOURCE, StandardCharsets.UTF_8);
+        String subject = Files.readString(HOME_SUBJECT_SOURCE, StandardCharsets.UTF_8);
+        String subjectSpu = Files.readString(HOME_SUBJECT_SPU_SOURCE, StandardCharsets.UTF_8);
+
+        assertTrue(methodBody(adv, "listActive").contains("PromotionHotCacheInvalidator.HOME_ADV_ACTIVE_CACHE_NAME"),
+                "首页广告 listActive 必须通过 MultiLevelCacheClient 缓存");
+        assertTrue(methodBody(subject, "listActive").contains("PromotionHotCacheInvalidator.HOME_SUBJECT_ACTIVE_CACHE_NAME"),
+                "首页专题 listActive 必须通过 MultiLevelCacheClient 缓存");
+        assertTrue(methodBody(subjectSpu, "listBySubjectId").contains("PromotionHotCacheInvalidator.HOME_SUBJECT_SPU_CACHE_NAME"),
+                "专题 SPU 列表必须通过 MultiLevelCacheClient 缓存");
+    }
+
+    @Test
+    @DisplayName("首页广告/专题写路径都要提交后失效")
+    void homePromotionWritePathsEvictAfterCommit() throws IOException {
+        String adv = Files.readString(HOME_ADV_SOURCE, StandardCharsets.UTF_8);
+        String subject = Files.readString(HOME_SUBJECT_SOURCE, StandardCharsets.UTF_8);
+        String subjectSpu = Files.readString(HOME_SUBJECT_SPU_SOURCE, StandardCharsets.UTF_8);
+
+        for (String method : new String[] { "save", "saveBatch", "updateById", "removeByIds" }) {
+            assertTrue(methodBody(adv, method).contains("evictHomeAdvAfterCommit"),
+                    "首页广告写路径 " + method + " 没有提交后失效 active 广告缓存");
+            assertTrue(methodBody(subject, method).contains("evictHomeSubjectsAfterCommit"),
+                    "首页专题写路径 " + method + " 没有提交后失效 active 专题缓存");
+            assertTrue(methodBody(subjectSpu, method).contains("evictHomeSubjectSpu"),
+                    "专题 SPU 写路径 " + method + " 没有提交后失效专题 SPU 缓存");
+        }
+    }
+
+    @Test
+    @DisplayName("首页预热任务按真实首页展示内容生成库存预热清单")
+    void homeWarmupUsesHomeTrafficShape() throws IOException {
+        String source = Files.readString(HOME_WARMUP_SOURCE, StandardCharsets.UTF_8);
+        String body = methodBody(source, "warmupOnce");
+
+        assertTrue(body.contains("homeAdvService.listActive()"),
+                "首页预热必须先预热当前启用广告缓存");
+        assertTrue(body.contains("homeSubjectService.listActive()"),
+                "首页预热必须按当前启用专题生成后续预热清单");
+        assertTrue(body.contains("homeSubjectSpuService.listBySubjectId"),
+                "首页预热必须按专题实际展示的 SPU 关系预热");
+        assertTrue(body.contains("wareFeignService.warmStockCache"),
+                "首页预热必须把专题 SPU 反查成 SKU 后触发库存预热");
+        assertTrue(source.contains("redissonClient.getLock"),
+                "首页预热任务多副本运行时必须有分布式锁");
+    }
+
     /**
      * 取一个方法从签名到下一个同级方法之间的文本。
      *
@@ -110,7 +168,7 @@ class PromotionHotReadCacheTest {
 
     private static int lastIndexOfDeclaration(String source, int before) {
         int best = -1;
-        for (String modifier : new String[] { "\n    public ", "\n    private ", "\n    protected " }) {
+        for (String modifier : new String[] { "\n    public ", "\n    private ", "\n    protected ", "\n    WarmupResult " }) {
             best = Math.max(best, source.lastIndexOf(modifier, before));
         }
         return best;
@@ -118,7 +176,7 @@ class PromotionHotReadCacheTest {
 
     private static int nextDeclaration(String source, int after) {
         int best = source.length();
-        for (String modifier : new String[] { "\n    public ", "\n    private ", "\n    protected " }) {
+        for (String modifier : new String[] { "\n    public ", "\n    private ", "\n    protected ", "\n    WarmupResult " }) {
             int at = source.indexOf(modifier, after + 1);
             if (at >= 0) {
                 best = Math.min(best, at);

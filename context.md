@@ -1,6 +1,6 @@
 # Mall 成熟分布式电商能力路线图
 
-更新日期：2026-09-06
+更新日期：2026-09-07
 
 ## 状态图例
 
@@ -22,7 +22,7 @@
 | 2 | 订单状态机 + 超时关单 + 库存解锁 | <span style="color:#16833a;font-weight:700">已实现</span> | 已有完整订单状态枚举、显式状态流转表、非法流转 CAS 保护、订单关闭监听、支付成功扣库存、关单释放库存，以及发货/收货完成/售后状态推进入口。 |
 | 3 | 事务消息 / Outbox / 本地消息表 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀链路已有 `SeckillLocalMessage` 本地消息表和 confirm 等待；普通订单/支付状态流转已走 `oms_order_outbox_message`，库存失败通知已走 `wms_stock_outbox_message`，订单/库存 MQ 消费已补本地幂等记录；还缺跨服务统一消息治理后台。 |
 | 4 | 死信队列 + 消费幂等 + 补偿任务 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单延迟队列、库存失败队列、消费失败 DLX/DLQ、DLQ 查看/重放/丢弃入口、秒杀对账任务、库存重试和订单/库存消费幂等；还缺统一告警、权限化人工处理后台和更细的重试策略。 |
-| 5 | 多级缓存 + 热点保护 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已补 `mall-common` 的 `MultiLevelCacheClient`（Caffeine + Redis）、Redis Pub/Sub 本地失效广播、空值缓存、互斥重建、TTL 随机抖动和热点 key 指标；`mall-product` 分类树和商品详情热点读已接入，`mall-coupon` 秒杀页/秒杀关系/场次基础读与 `mall-ware` SKU 分仓库存/可售量读也已迁入统一封装，并补了 after-commit 失效、缓存治理文档和告警规则。下一步可继续补前台首页广告/专题和库存预热策略。 |
+| 5 | 多级缓存 + 热点保护 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已补 `mall-common` 的 `MultiLevelCacheClient`（Caffeine + Redis）、Redis Pub/Sub 本地失效广播、空值缓存、互斥重建、TTL 随机抖动和热点 key 指标；`mall-product` 分类树和商品详情热点读已接入，`mall-coupon` 秒杀页/秒杀关系/场次基础读、前台首页广告/专题与 `mall-ware` SKU 分仓库存/可售量读也已迁入统一封装，并补了 after-commit 失效、库存预热入口、首页缓存预热调度、缓存治理文档和告警规则。缓存告警已落到部署仓 `mall-deploy/charts/mall/files/alert-rules.yml` 的 `mall.缓存` 分组。 |
 | 6 | 网关统一鉴权 + 风控限流 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Gateway 管理端 JWT 鉴权、入口限流；还缺前台统一认证、黑白名单、设备/IP/用户维度风控限流。 |
 | 7 | 数据库迁移工具 Flyway/Liquibase | <span style="color:#c62828;font-weight:700">待实现</span> | 当前没有看到 Flyway/Liquibase 迁移目录和依赖。 |
 | 8 | SLO 告警 + Runbook | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Micrometer、Prometheus、Loki、Tempo、Grafana、Alertmanager 文档和业务指标；还缺正式 SLO、告警分级、值班流程、Runbook。 |
@@ -59,7 +59,7 @@
 | 能力 | 当前状态 | 现状与下一步 |
 | --- | --- | --- |
 | 热点数据保护：本地缓存 Caffeine + Redis 多级缓存 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有秒杀本地售罄标记 + Redis；公共层已新增 `MultiLevelCacheClient`，用 Caffeine 做进程内一级缓存、Redis 做二级缓存，并用 Pub/Sub 做跨实例本地失效；分类树已接入。下一步扩展到商品详情等更多热点 key。 |
-| 缓存治理：缓存穿透、击穿、雪崩、预热、失效策略 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有统一缓存封装：空值短 TTL 防穿透、Redis `SET NX PX` 互斥重建防击穿、Redis TTL 随机抖动防雪崩、热点 key Micrometer 指标和日志、分类树启动预热；还需要补缓存治理文档、告警规则和更多业务缓存接入。 |
+| 缓存治理：缓存穿透、击穿、雪崩、预热、失效策略 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有统一缓存封装：空值短 TTL 防穿透、Redis `SET NX PX` 互斥重建防击穿、Redis TTL 随机抖动防雪崩、热点 key Micrometer 指标和日志、分类树/首页/库存预热、缓存治理文档和部署仓告警规则；还需要补更多业务缓存接入和线上规则加载验证。 |
 | 秒杀专用链路：资格校验、令牌、库存预热、异步下单、削峰 | <span style="color:#16833a;font-weight:700">已实现</span> | 已有 Redis Lua 扣名额、用户去重、本地消息表、MQ 异步建单、对账补偿、本地售罄保护。 |
 | 读写分离：MySQL 主从、只读库、分库分表 | <span style="color:#c62828;font-weight:700">待实现</span> | 没有看到读写路由或主从数据源配置。 |
 | 分库分表：ShardingSphere、订单按用户/订单号分片 | <span style="color:#c62828;font-weight:700">待实现</span> | 没有看到 ShardingSphere 或分片键设计。 |
@@ -156,3 +156,17 @@
 - 库存入库、手动设置、库存记录 CRUD、锁定、释放、扣减成功后都会提交后失效 SKU 库存缓存；下单裁决仍然只看数据库原子 UPDATE 影响行数，不用缓存判断库存是否足够。
 - 新增 `docs/cache-governance.md` 和 `docs/cache-alert-rules.yml`，覆盖接入边界、cache name/TTL、写路径纪律、指标和 miss/互斥超时/热点 key 告警。
 - 新增 `PromotionHotReadCacheTest`、`WareHotReadCacheTest` 约束促销/库存热点读必须走统一缓存封装、写路径必须 after-commit 失效。
+- 前台首页广告、专题和专题 SPU 列表新增缓存读入口，并通过后台 CRUD 写路径提交后失效。
+- `mall-ware` 新增 `warmStockCache(skuIds)` 和 `/ware/waresku/warmup`，预热前先失效再加载分仓库存行与聚合可售量缓存。
+
+## 2026-09-06 首页缓存预热调度
+
+- `mall-product` 新增 `/product/skuinfo/skuIds/{spuId}`，用于首页专题 SPU 预热库存前反查 SKU 清单；`product:spu-sku-ids` 纳入 SPU 级缓存失效。
+- `mall-coupon` 新增 `HomeCacheWarmupTask`，按当前启用首页广告、启用专题和专题 SPU 关系预热展示缓存，并将专题 SPU 反查为 SKU 清单后调用 `mall-ware` 的 `/ware/waresku/warmup`。
+- 预热任务默认启用，周期由 `mall.coupon.cache.home.warmup.initial-delay-ms`、`fixed-delay-ms` 控制；默认每轮最多 20 个专题、100 个 SPU、300 个 SKU，并用 Redisson 锁避免多副本重复跑。
+
+## 2026-09-07 缓存告警规则落地部署仓
+
+- 缓存治理文档中的三条告警规则已并入 `mall-deploy/charts/mall/files/alert-rules.yml`，新增 `mall.缓存` 分组。
+- 规则覆盖缓存 miss 率偏高、互斥重建等待超时、热点 key 检测；具体热点 key 仍只写应用日志，不进入 Prometheus 标签。
+- 已用本地 YAML 解析校验目标文件；本机未安装 `promtool`，Prometheus 规则语义校验还需要在有 `promtool` 的环境补跑。

@@ -26,6 +26,11 @@ public class CartFeignController {
         return R.ok().put("skuInfo", info);
     }
 
+    @GetMapping("/product/skuinfo/skuIds/{spuId}")
+    public R skuIdsBySpuId(@PathVariable("spuId") Long spuId) {
+        return R.ok().put("skuIds", skuInfoService.listSkuIdsBySpuId(spuId));
+    }
+
     @GetMapping("/product/skusaleattrvalue/values/{skuId}")
     public List<String> skuSaleAttrValues(@PathVariable("skuId") Long skuId) {
         return skuSaleAttrValueService.getSkuSaleAttrValuesAsStringList(skuId);

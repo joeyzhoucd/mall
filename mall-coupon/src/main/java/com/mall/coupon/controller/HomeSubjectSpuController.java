@@ -36,6 +36,11 @@ public class HomeSubjectSpuController {
         return R.ok().put("homeSubjectSpu", homeSubjectSpu);
     }
 
+    @GetMapping("/subject/{subjectId}")
+    public R listBySubject(@PathVariable("subjectId") Long subjectId) {
+        return R.ok().put("list", homeSubjectSpuService.listBySubjectId(subjectId));
+    }
+
     
     @RequestMapping("/save")
     public R save(@RequestBody HomeSubjectSpuEntity homeSubjectSpu){

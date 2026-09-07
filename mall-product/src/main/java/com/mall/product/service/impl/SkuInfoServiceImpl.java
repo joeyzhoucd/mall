@@ -48,6 +48,8 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
     };
     private static final TypeReference<List<SpuItemAttrGroupVo>> SPU_ATTR_GROUPS_TYPE = new TypeReference<>() {
     };
+    private static final TypeReference<List<Long>> SPU_SKU_IDS_TYPE = new TypeReference<>() {
+    };
     private static final MultiLevelCacheOptions SKU_INFO_CACHE_OPTIONS = new MultiLevelCacheOptions(
             Duration.ofSeconds(30),
             Duration.ofMinutes(10),
@@ -273,6 +275,24 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
                 SKU_INFO_TYPE,
                 () -> baseMapper.selectById(skuId),
                 SKU_INFO_CACHE_OPTIONS);
+    }
+
+    @Override
+    public List<Long> listSkuIdsBySpuId(Long spuId) {
+        if (spuId == null) {
+            return List.of();
+        }
+        return multiLevelCacheClient.get(ProductHotCacheInvalidator.SPU_SKU_IDS_CACHE_NAME,
+                ProductHotCacheInvalidator.key(spuId),
+                SPU_SKU_IDS_TYPE,
+                () -> baseMapper.selectList(new QueryWrapper<SkuInfoEntity>()
+                                .select("sku_id")
+                                .eq("spu_id", spuId)
+                                .orderByAsc("sku_id"))
+                        .stream()
+                        .map(SkuInfoEntity::getSkuId)
+                        .collect(Collectors.toList()),
+                PRODUCT_COMPONENT_CACHE_OPTIONS);
     }
 
     @Override

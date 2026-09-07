@@ -30,6 +30,8 @@ class SkuHotReadCacheTest {
                 "item(skuId) must cache the assembled product detail through MultiLevelCacheClient");
         assertTrue(methodBody(source, "getBySkuId").contains("ProductHotCacheInvalidator.SKU_INFO_CACHE_NAME"),
                 "getBySkuId(skuId), including price reads, must use the unified multi-level cache");
+        assertTrue(methodBody(source, "listSkuIdsBySpuId").contains("ProductHotCacheInvalidator.SPU_SKU_IDS_CACHE_NAME"),
+                "spuId -> skuIds reads used by warmup must use the unified multi-level cache");
         assertTrue(source.contains("ProductHotCacheInvalidator.SKU_IMAGES_CACHE_NAME"),
                 "sku images used by detail pages must use the unified multi-level cache");
         assertTrue(source.contains("ProductHotCacheInvalidator.SPU_SALE_ATTRS_CACHE_NAME"),
@@ -38,6 +40,9 @@ class SkuHotReadCacheTest {
                 "spu descriptions used by detail pages must use the unified multi-level cache");
         assertTrue(source.contains("ProductHotCacheInvalidator.SPU_ATTR_GROUPS_CACHE_NAME"),
                 "spu attribute groups used by detail pages must use the unified multi-level cache");
+        assertTrue(Files.readString(CART_FEIGN_SOURCE, StandardCharsets.UTF_8)
+                        .contains("skuInfoService.listSkuIdsBySpuId(spuId)"),
+                "product feign must expose cached spuId -> skuIds lookup for homepage stock warmup");
     }
 
     @Test

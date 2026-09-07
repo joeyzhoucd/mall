@@ -27,6 +27,9 @@
 | `mall-coupon` | `coupon:seckill-page` | `relationId` | 秒杀页渲染数据 | local 2s / Redis 5s |
 | `mall-coupon` | `coupon:seckill-relation` | `relationId` | 秒杀商品关系 | local 10s / Redis 2m |
 | `mall-coupon` | `coupon:seckill-session` | `sessionId` | 秒杀场次基础信息 | local 30s / Redis 5m |
+| `mall-coupon` | `coupon:home-adv-active` | `active` | 前台首页启用广告 | local 30s / Redis 5m |
+| `mall-coupon` | `coupon:home-subject-active` | `active` | 前台首页启用专题 | local 30s / Redis 10m |
+| `mall-coupon` | `coupon:home-subject-spu` | `subjectId` | 专题下 SPU 列表 | local 30s / Redis 10m |
 | `mall-ware` | `ware:sku-by-sku` | `skuId` | SKU 分仓库存行 | local 5s / Redis 30s |
 | `mall-ware` | `ware:sku-available-stock` | `skuId` | SKU 聚合可售量 | local 5s / Redis 30s |
 
@@ -37,6 +40,10 @@
 有事务的写路径必须使用 `*AfterCommit`。原因是缓存不参与数据库事务：事务内提前删缓存，随后事务回滚，会让其他请求回源读到旧值并重新写回缓存；事务提交后再删，才能保证下一次回源看到的是已提交数据。
 
 库存缓存的 TTL 故意很短。它只能用于页面展示和查询接口，不能用于判断能不能下单。`orderLockStock` 可以用缓存枚举候选库存行，但真正是否锁定成功仍由 `UPDATE ... WHERE stock - stock_locked >= count` 的影响行数决定。
+
+库存预热使用 `WareSkuService.warmStockCache(skuIds)`：先删除 SKU 对应的库存行和可售量缓存，再主动加载两类缓存。触发点应该是大促前的 SKU 清单、批量补货后或搜索/详情页预热任务，不应该在每一次普通查询里做预热。
+
+`mall-coupon` 的 `HomeCacheWarmupTask` 会定时按当前首页启用广告、启用专题和专题 SPU 关系预热展示缓存，并把这些 SPU 反查成 SKU 清单后调用 `mall-ware` 的库存预热接口。默认上限是 20 个专题、100 个 SPU、300 个 SKU，可通过 `mall.coupon.cache.home.warmup.max-*` 调整；多副本用 Redisson 锁保证同一轮只跑一次。
 
 ## 指标
 

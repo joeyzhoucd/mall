@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.spring.service.IService;
 import com.mall.common.utils.PageUtils;
 import com.mall.product.entity.SkuInfoEntity;
 
+import java.util.List;
 import java.util.Map;
 
 
@@ -17,6 +18,8 @@ public interface SkuInfoService extends IService<SkuInfoEntity> {
     com.mall.product.vo.SkuItemVo item(Long skuId);
 
     SkuInfoEntity getBySkuId(Long skuId);
+
+    List<Long> listSkuIdsBySpuId(Long spuId);
 
     /**
      * 删除 SKU，连同它的图片和销售属性。

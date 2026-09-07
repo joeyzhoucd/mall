@@ -19,6 +19,7 @@ public class ProductHotCacheInvalidator {
     public static final String SPU_DESC_CACHE_NAME = "product:spu-desc";
     public static final String SPU_SALE_ATTRS_CACHE_NAME = "product:spu-sale-attrs";
     public static final String SPU_ATTR_GROUPS_CACHE_NAME = "product:spu-attr-groups";
+    public static final String SPU_SKU_IDS_CACHE_NAME = "product:spu-sku-ids";
 
     private final MultiLevelCacheClient multiLevelCacheClient;
 
@@ -56,6 +57,7 @@ public class ProductHotCacheInvalidator {
         multiLevelCacheClient.evict(SPU_DESC_CACHE_NAME, key);
         multiLevelCacheClient.evict(SPU_SALE_ATTRS_CACHE_NAME, key);
         multiLevelCacheClient.evict(SPU_ATTR_GROUPS_CACHE_NAME, key);
+        multiLevelCacheClient.evict(SPU_SKU_IDS_CACHE_NAME, key);
     }
 
     public void evictSpus(Collection<Long> spuIds) {
