@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.mall.common.constant.OrderOutboxStatus;
+import com.mall.common.utils.MqAdminQuery;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.order.config.OrderOutboxProperties;
@@ -45,9 +46,15 @@ public class OrderOutboxMessageServiceImpl extends ServiceImpl<OrderOutboxMessag
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<OrderOutboxMessageEntity> page = this.page(
                 new Query<OrderOutboxMessageEntity>().getPage(params),
-                new QueryWrapper<OrderOutboxMessageEntity>().orderByDesc("id")
+                MqAdminQuery.outbox(params)
         );
         return new PageUtils(page);
+    }
+
+    @Override
+    public Map<Integer, Long> statusCounts() {
+        return MqAdminQuery.toStatusCounts(
+                this.listMaps(MqAdminQuery.statusCountQuery()));
     }
 
     @Override

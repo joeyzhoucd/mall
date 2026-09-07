@@ -130,6 +130,61 @@ spring:
               filters:
                 - RewritePath=/api/(?<segment>.*),/$\{segment}
 
+            # 后台的订单相关接口。和下面那条 Path=/order/** 是【两条不同的路由】，
+            # 前缀不同、信任域也不同，这是有意的：
+            #   /order/**      前台结算/支付链路，从 cart.mall.com 跳过来，
+            #                  身份是会员会话，AdminAuthFilter 不管它；
+            #   /api/order/**  后台管理端，走 AdminAuthFilter，必须带管理员令牌。
+            # 同一批控制器，两个入口，鉴权强度不一样。
+            #
+            # 【为什么 2026-09-06 才加】
+            # 上周做订单管理页时只补了后端的 /order/order/list 和 /detail，
+            # 忘了网关这一层 —— 后台前端的 baseUrl 是 '/api'，发出去是
+            # /api/order/order/list，而当时【没有任何一条 /api/order 路由】。
+            # 它会一路掉到最后那条兜底的 Host=**.mall.com（admin.mall.com 也匹配）
+            # 转给 mall-product，拿回一个 404。页面代码、后端接口、菜单都对，
+            # 唯独中间这一跳不存在，而三者单独看都是好的。
+            #
+            # 实测确认（在网关 pod 里打 localhost:88，Host 不匹配 **.mall.com，
+            # 兜底那条不会掺和进来）：
+            #   /api/ware/outbox/list  → 401  路由在，是鉴权拦的
+            #   /api/order/order/list  → 404  网关自己的 404（响应体带 requestId）
+            # 401 和 404 能区分这两种情况，是因为路由匹配发生在全局过滤器【之前】：
+            # 没匹配上路由的请求根本进不了 AdminAuthFilter。
+            - id: admin_order_route
+              uri: lb://mall-order
+              predicates:
+                - Path=/api/order/**
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+
+            # 死信队列控制台（/mq/dlq/**）。
+            #
+            # 【为什么指向 mall-ware，而三个服务都能提供这个接口】
+            # mall-mq-starter 被 mall-coupon / mall-order / mall-ware 三个模块引入，
+            # MqDlqController 由 MallMqAutoConfiguration 无条件 @Import，
+            # 所以三个服务里都有。实测三个都返回 200。
+            #
+            # 它们的行为是【等价的】：MqDlqService 只用 RabbitAdmin 查队列深度、
+            # 用 RabbitTemplate 收发原始 Message（不经消息转换器），
+            # 而那张 DLQ 绑定表是 MqDlqService 里的静态常量，不随宿主服务变化。
+            # 交换机在 broker 上是全局的，谁声明的都一样能发。
+            #
+            # 选 mall-ware 的理由只有一条，而且是弱理由：五条绑定里它占三条
+            # （stock_release / stock_deduct / stock_fail）。
+            # 换成另外两个也不会错 —— 但【必须选一个】，因为让同一个控制台
+            # 随机落到不同服务上会让"我刚才 replay 的那条去哪了"变得难以追查。
+            #
+            # 注意这条路由和 mall-ware 的 mall-mq-starter 依赖是绑定的：
+            # 哪天有人把那个 starter 从 mall-ware 的 pom 里去掉，
+            # 这个控制台会静默变成 404，而 pom 的改动看不出和网关有关系。
+            - id: admin_mq_route
+              uri: lb://mall-ware
+              predicates:
+                - Path=/api/mq/**
+              filters:
+                - RewritePath=/api/(?<segment>.*),/$\{segment}
+
             # 还差一个 /api/seckill/**：前端会调 /api/seckill/scheduler/save，但后端【压根没有
             # 这个接口】（已全仓库确认，mall-coupon 里的秒杀接口在 coupon/seckill 和
             # coupon/seckillpromotion 下面）。所以这里刻意不加路由 —— 加一条指向不存在接口的

@@ -26,6 +26,12 @@ public class StockOutboxMessageController {
         return R.ok().put("page", stockOutboxMessageService.queryPage(params));
     }
 
+    /** 各状态条数。说明见 OrderOutboxMessageController.stats。 */
+    @GetMapping("/stats")
+    public R stats() {
+        return R.ok().put("counts", stockOutboxMessageService.statusCounts());
+    }
+
     @PostMapping("/publish")
     public R publishReadyMessages() {
         return R.ok().put("count", stockOutboxMessageService.publishReadyMessages());

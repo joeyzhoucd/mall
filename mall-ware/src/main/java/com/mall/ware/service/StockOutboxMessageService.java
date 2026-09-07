@@ -26,4 +26,12 @@ public interface StockOutboxMessageService extends IService<StockOutboxMessageEn
     void markFailed(Long id, String reason);
 
     PageUtils queryPage(Map<String, Object> params);
+
+    /**
+     * 各状态各有多少条。给后台页面顶部的汇总条用。
+     *
+     * <p>返回 状态码 → 条数，<b>只包含实际出现过的状态</b>。
+     * 和 OrderOutboxMessageService.statusCounts 是同一个约定。
+     */
+    Map<Integer, Long> statusCounts();
 }

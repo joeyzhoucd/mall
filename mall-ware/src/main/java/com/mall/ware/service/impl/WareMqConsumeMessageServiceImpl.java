@@ -2,8 +2,12 @@ package com.mall.ware.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.mall.common.constant.MqConsumeStatus;
+import com.mall.common.utils.MqAdminQuery;
+import com.mall.common.utils.PageUtils;
+import com.mall.common.utils.Query;
 import com.mall.ware.dao.WareMqConsumeMessageDao;
 import com.mall.ware.entity.WareMqConsumeMessageEntity;
 import com.mall.ware.service.WareMqConsumeMessageService;
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @Service("wareMqConsumeMessageService")
 public class WareMqConsumeMessageServiceImpl
@@ -20,6 +25,21 @@ public class WareMqConsumeMessageServiceImpl
         implements WareMqConsumeMessageService {
 
     private static final int LAST_ERROR_LIMIT = 500;
+
+    @Override
+    public PageUtils queryPage(Map<String, Object> params) {
+        IPage<WareMqConsumeMessageEntity> page = this.page(
+                new Query<WareMqConsumeMessageEntity>().getPage(params),
+                MqAdminQuery.consume(params)
+        );
+        return new PageUtils(page);
+    }
+
+    @Override
+    public Map<Integer, Long> statusCounts() {
+        return MqAdminQuery.toStatusCounts(
+                this.listMaps(MqAdminQuery.statusCountQuery()));
+    }
 
     @Override
     public boolean consumeOnce(String consumerGroup, String messageKey, String businessType, Runnable handler) {

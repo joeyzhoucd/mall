@@ -26,6 +26,18 @@ public class OrderOutboxMessageController {
         return R.ok().put("page", orderOutboxMessageService.queryPage(params));
     }
 
+    /**
+     * 各状态条数。
+     *
+     * <p>Outbox 页第一眼要回答的是「有没有卡住的」，而不是「第一页有哪些」。
+     * 只给列表的话，DEAD 有 37 条这件事要求看的人<b>先怀疑、再去筛</b>，
+     * 而没人会主动这么做 —— 一次把所有状态的条数拿全，异常会自己跳出来。
+     */
+    @GetMapping("/stats")
+    public R stats() {
+        return R.ok().put("counts", orderOutboxMessageService.statusCounts());
+    }
+
     @PostMapping("/publish")
     public R publishReadyMessages() {
         return R.ok().put("count", orderOutboxMessageService.publishReadyMessages());

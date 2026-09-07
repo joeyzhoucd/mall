@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.mall.common.constant.OutboxMessageStatus;
+import com.mall.common.utils.MqAdminQuery;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.ware.config.StockOutboxProperties;
@@ -45,9 +46,15 @@ public class StockOutboxMessageServiceImpl extends ServiceImpl<StockOutboxMessag
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<StockOutboxMessageEntity> page = this.page(
                 new Query<StockOutboxMessageEntity>().getPage(params),
-                new QueryWrapper<StockOutboxMessageEntity>().orderByDesc("id")
+                MqAdminQuery.outbox(params)
         );
         return new PageUtils(page);
+    }
+
+    @Override
+    public Map<Integer, Long> statusCounts() {
+        return MqAdminQuery.toStatusCounts(
+                this.listMaps(MqAdminQuery.statusCountQuery()));
     }
 
     @Override
