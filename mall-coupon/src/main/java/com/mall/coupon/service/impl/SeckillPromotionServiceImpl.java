@@ -20,7 +20,7 @@ public class SeckillPromotionServiceImpl extends ServiceImpl<SeckillPromotionDao
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SeckillPromotionEntity> page = this.page(
                 new Query<SeckillPromotionEntity>().getPage(params),
-                new QueryWrapper<SeckillPromotionEntity>()
+                new QueryWrapper<SeckillPromotionEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

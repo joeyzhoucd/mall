@@ -20,7 +20,7 @@ public class MemberLoginLogServiceImpl extends ServiceImpl<MemberLoginLogDao, Me
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<MemberLoginLogEntity> page = this.page(
                 new Query<MemberLoginLogEntity>().getPage(params),
-                new QueryWrapper<>()
+                new QueryWrapper<MemberLoginLogEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

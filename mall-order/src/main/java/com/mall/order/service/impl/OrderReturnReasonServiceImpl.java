@@ -20,7 +20,7 @@ public class OrderReturnReasonServiceImpl extends ServiceImpl<OrderReturnReasonD
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<OrderReturnReasonEntity> page = this.page(
                 new Query<OrderReturnReasonEntity>().getPage(params),
-                new QueryWrapper<OrderReturnReasonEntity>()
+                new QueryWrapper<OrderReturnReasonEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

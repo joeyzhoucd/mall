@@ -32,7 +32,7 @@ public class AttrAttrgroupRelationServiceImpl extends ServiceImpl<AttrAttrgroupR
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<AttrAttrgroupRelationEntity> page = this.page(
                 new Query<AttrAttrgroupRelationEntity>().getPage(params),
-                new QueryWrapper<>()
+                new QueryWrapper<AttrAttrgroupRelationEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

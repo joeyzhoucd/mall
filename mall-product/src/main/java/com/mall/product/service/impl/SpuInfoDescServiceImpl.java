@@ -35,7 +35,7 @@ public class SpuInfoDescServiceImpl extends ServiceImpl<SpuInfoDescDao, SpuInfoD
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SpuInfoDescEntity> page = this.page(
                 new Query<SpuInfoDescEntity>().getPage(params),
-                new QueryWrapper<>()
+                new QueryWrapper<SpuInfoDescEntity>().orderByDesc("spu_id")
         );
 
         return new PageUtils(page);

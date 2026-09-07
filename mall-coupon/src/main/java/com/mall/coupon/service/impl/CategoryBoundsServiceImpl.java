@@ -20,7 +20,7 @@ public class CategoryBoundsServiceImpl extends ServiceImpl<CategoryBoundsDao, Ca
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<CategoryBoundsEntity> page = this.page(
                 new Query<CategoryBoundsEntity>().getPage(params),
-                new QueryWrapper<CategoryBoundsEntity>()
+                new QueryWrapper<CategoryBoundsEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

@@ -22,7 +22,7 @@ public class PaymentInfoServiceImpl extends ServiceImpl<PaymentInfoDao, PaymentI
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<PaymentInfoEntity> page = this.page(
                 new Query<PaymentInfoEntity>().getPage(params),
-                new QueryWrapper<PaymentInfoEntity>()
+                new QueryWrapper<PaymentInfoEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

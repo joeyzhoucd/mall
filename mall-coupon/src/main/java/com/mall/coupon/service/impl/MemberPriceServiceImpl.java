@@ -20,7 +20,7 @@ public class MemberPriceServiceImpl extends ServiceImpl<MemberPriceDao, MemberPr
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<MemberPriceEntity> page = this.page(
                 new Query<MemberPriceEntity>().getPage(params),
-                new QueryWrapper<MemberPriceEntity>()
+                new QueryWrapper<MemberPriceEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

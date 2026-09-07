@@ -20,7 +20,7 @@ public class MemberStatisticsInfoServiceImpl extends ServiceImpl<MemberStatistic
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<MemberStatisticsInfoEntity> page = this.page(
                 new Query<MemberStatisticsInfoEntity>().getPage(params),
-                new QueryWrapper<>()
+                new QueryWrapper<MemberStatisticsInfoEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

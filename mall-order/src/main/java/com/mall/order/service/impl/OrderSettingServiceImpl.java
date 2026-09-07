@@ -20,7 +20,7 @@ public class OrderSettingServiceImpl extends ServiceImpl<OrderSettingDao, OrderS
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<OrderSettingEntity> page = this.page(
                 new Query<OrderSettingEntity>().getPage(params),
-                new QueryWrapper<OrderSettingEntity>()
+                new QueryWrapper<OrderSettingEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

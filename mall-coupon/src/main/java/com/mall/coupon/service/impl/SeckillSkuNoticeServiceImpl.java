@@ -20,7 +20,7 @@ public class SeckillSkuNoticeServiceImpl extends ServiceImpl<SeckillSkuNoticeDao
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SeckillSkuNoticeEntity> page = this.page(
                 new Query<SeckillSkuNoticeEntity>().getPage(params),
-                new QueryWrapper<SeckillSkuNoticeEntity>()
+                new QueryWrapper<SeckillSkuNoticeEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

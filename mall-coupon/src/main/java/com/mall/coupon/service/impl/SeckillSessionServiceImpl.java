@@ -49,7 +49,7 @@ public class SeckillSessionServiceImpl extends ServiceImpl<SeckillSessionDao, Se
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SeckillSessionEntity> page = this.page(
                 new Query<SeckillSessionEntity>().getPage(params),
-                new QueryWrapper<SeckillSessionEntity>()
+                new QueryWrapper<SeckillSessionEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

@@ -20,7 +20,7 @@ public class RefundInfoServiceImpl extends ServiceImpl<RefundInfoDao, RefundInfo
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<RefundInfoEntity> page = this.page(
                 new Query<RefundInfoEntity>().getPage(params),
-                new QueryWrapper<RefundInfoEntity>()
+                new QueryWrapper<RefundInfoEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

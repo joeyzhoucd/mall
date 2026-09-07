@@ -20,7 +20,7 @@ public class OrderReturnApplyServiceImpl extends ServiceImpl<OrderReturnApplyDao
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<OrderReturnApplyEntity> page = this.page(
                 new Query<OrderReturnApplyEntity>().getPage(params),
-                new QueryWrapper<OrderReturnApplyEntity>()
+                new QueryWrapper<OrderReturnApplyEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

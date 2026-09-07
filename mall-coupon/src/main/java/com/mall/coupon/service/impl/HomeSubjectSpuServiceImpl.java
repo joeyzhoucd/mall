@@ -48,7 +48,7 @@ public class HomeSubjectSpuServiceImpl extends ServiceImpl<HomeSubjectSpuDao, Ho
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<HomeSubjectSpuEntity> page = this.page(
                 new Query<HomeSubjectSpuEntity>().getPage(params),
-                new QueryWrapper<HomeSubjectSpuEntity>()
+                new QueryWrapper<HomeSubjectSpuEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

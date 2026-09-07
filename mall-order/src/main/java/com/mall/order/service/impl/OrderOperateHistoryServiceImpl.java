@@ -20,7 +20,7 @@ public class OrderOperateHistoryServiceImpl extends ServiceImpl<OrderOperateHist
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<OrderOperateHistoryEntity> page = this.page(
                 new Query<OrderOperateHistoryEntity>().getPage(params),
-                new QueryWrapper<OrderOperateHistoryEntity>()
+                new QueryWrapper<OrderOperateHistoryEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

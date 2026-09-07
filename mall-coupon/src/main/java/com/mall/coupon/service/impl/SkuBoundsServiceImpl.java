@@ -20,7 +20,7 @@ public class SkuBoundsServiceImpl extends ServiceImpl<SkuBoundsDao, SkuBoundsEnt
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SkuBoundsEntity> page = this.page(
                 new Query<SkuBoundsEntity>().getPage(params),
-                new QueryWrapper<SkuBoundsEntity>()
+                new QueryWrapper<SkuBoundsEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

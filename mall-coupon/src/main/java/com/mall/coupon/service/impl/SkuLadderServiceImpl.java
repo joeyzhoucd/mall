@@ -20,7 +20,7 @@ public class SkuLadderServiceImpl extends ServiceImpl<SkuLadderDao, SkuLadderEnt
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SkuLadderEntity> page = this.page(
                 new Query<SkuLadderEntity>().getPage(params),
-                new QueryWrapper<SkuLadderEntity>()
+                new QueryWrapper<SkuLadderEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

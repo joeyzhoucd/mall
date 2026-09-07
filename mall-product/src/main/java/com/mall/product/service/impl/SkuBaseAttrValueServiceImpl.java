@@ -20,7 +20,7 @@ public class SkuBaseAttrValueServiceImpl extends ServiceImpl<SkuBaseAttrValueDao
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SkuBaseAttrValueEntity> page = this.page(
                 new Query<SkuBaseAttrValueEntity>().getPage(params),
-                new QueryWrapper<>()
+                new QueryWrapper<SkuBaseAttrValueEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

@@ -20,7 +20,7 @@ public class OrderItemServiceImpl extends ServiceImpl<OrderItemDao, OrderItemEnt
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<OrderItemEntity> page = this.page(
                 new Query<OrderItemEntity>().getPage(params),
-                new QueryWrapper<OrderItemEntity>()
+                new QueryWrapper<OrderItemEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

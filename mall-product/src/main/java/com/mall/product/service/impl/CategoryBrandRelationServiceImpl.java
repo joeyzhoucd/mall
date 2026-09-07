@@ -35,7 +35,7 @@ public class CategoryBrandRelationServiceImpl extends ServiceImpl<CategoryBrandR
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<CategoryBrandRelationEntity> page = this.page(
                 new Query<CategoryBrandRelationEntity>().getPage(params),
-                new QueryWrapper<>()
+                new QueryWrapper<CategoryBrandRelationEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

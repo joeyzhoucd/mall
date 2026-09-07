@@ -50,7 +50,7 @@ public class SeckillSkuRelationServiceImpl extends ServiceImpl<SeckillSkuRelatio
     public PageUtils queryPage(Map<String, Object> params) {
         IPage<SeckillSkuRelationEntity> page = this.page(
                 new Query<SeckillSkuRelationEntity>().getPage(params),
-                new QueryWrapper<SeckillSkuRelationEntity>()
+                new QueryWrapper<SeckillSkuRelationEntity>().orderByDesc("id")
         );
 
         return new PageUtils(page);

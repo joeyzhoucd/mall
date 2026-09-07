@@ -58,7 +58,12 @@ public class SkuImagesServiceImpl extends ServiceImpl<SkuImagesDao, SkuImagesEnt
             }
         }
 
-        wrapper.orderByAsc("img_sort");
+        // img_sort 是业务排序（图片展示顺序），但它【不唯一】——
+        // 同一个 SKU 的多张图很容易都是 0（生成器插入时不填这一列）。
+        // 并列行之间顺序未定义，翻页时会重复或漏掉。
+        // 所以必须再用主键收尾。id 放在【后面】：img_sort 才是业务想要的顺序，
+        // 反过来写会让展示顺序变成按插入顺序，那是改变行为而不是补漏。
+        wrapper.orderByAsc("img_sort").orderByAsc("id");
 
         IPage<SkuImagesEntity> page = this.page(new Query<SkuImagesEntity>().getPage(params), wrapper);
         return new PageUtils(page);
