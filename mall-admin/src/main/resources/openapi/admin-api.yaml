@@ -901,6 +901,37 @@ paths:
                                 type: array
                                 items: { $ref: '#/components/schemas/ScheduleJob' }
 
+  /sys/schedule/beans:
+    get:
+      tags: [定时任务]
+      summary: 可用于定时任务的 bean 名清单
+      description: >
+        只读。返回带 @ScheduledTask 注解的 bean 名，供前端把 beanName 做成下拉。
+
+        beanName 原本是自由文本框，填错不会当场报错 —— 要等这个任务按 cron
+        真的跑起来、执行器抛「没有标 @ScheduledTask，不允许被定时任务调用」
+        时才知道。cron 是凌晨三点的话就得等到第二天。
+
+        把清单给管理员不算泄露：能打开这一页的人本来就能创建定时任务，
+        也就本来需要知道能填什么。这里只返回 bean 名，不返回类名、方法或配置。
+        白名单本身的作用（拦住"调用任意 bean"）没有被削弱 ——
+        执行时那道校验一个字都没动。
+      operationId: scheduleBeans
+      responses:
+        '200':
+          description: bean 名列表，已排序
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { type: string }
+                        example: [ scheduleJobLogCleanupTask, seckillReconcileTask ]
+
   /sys/schedule/info/{jobId}:
     get:
       tags: [定时任务]
