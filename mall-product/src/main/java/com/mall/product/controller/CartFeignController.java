@@ -22,7 +22,7 @@ public class CartFeignController {
 
     @GetMapping("/product/skuinfo/info/{skuId}")
     public R skuInfo(@PathVariable("skuId") Long skuId) {
-        SkuInfoEntity info = skuInfoService.getById(skuId);
+        SkuInfoEntity info = skuInfoService.getBySkuId(skuId);
         return R.ok().put("skuInfo", info);
     }
 

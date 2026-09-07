@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.common.utils.R;
+import com.mall.product.cache.ProductHotCacheInvalidator;
 import com.mall.product.dao.*;
 import com.mall.product.entity.*;
 import com.mall.product.feign.SearchFeignService;
@@ -74,6 +75,9 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
 
     @Autowired
     private SearchFeignService searchFeignService;
+
+    @Autowired
+    private ProductHotCacheInvalidator productHotCacheInvalidator;
 
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
@@ -687,6 +691,8 @@ public class SpuInfoServiceImpl extends ServiceImpl<SpuInfoDao, SpuInfoEntity> i
         spuImagesService.remove(new QueryWrapper<SpuImagesEntity>().in("spu_id", spuIds));
         this.removeByIds(spuIds);
 
+        productHotCacheInvalidator.evictSkusAfterCommit(skuIds);
+        productHotCacheInvalidator.evictSpusAfterCommit(spuIds);
         deleteFromEsAfterCommit(skuIds);
     }
 

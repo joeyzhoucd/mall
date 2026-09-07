@@ -5,15 +5,25 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
+import com.mall.product.cache.ProductHotCacheInvalidator;
 import com.mall.product.dao.SkuImagesDao;
 import com.mall.product.entity.SkuImagesEntity;
 import com.mall.product.service.SkuImagesService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service("skuImagesService")
 public class SkuImagesServiceImpl extends ServiceImpl<SkuImagesDao, SkuImagesEntity> implements SkuImagesService {
+
+    @Autowired
+    private ProductHotCacheInvalidator productHotCacheInvalidator;
 
     /**
      * 按 skuId 分页查图片。
@@ -52,5 +62,79 @@ public class SkuImagesServiceImpl extends ServiceImpl<SkuImagesDao, SkuImagesEnt
 
         IPage<SkuImagesEntity> page = this.page(new Query<SkuImagesEntity>().getPage(params), wrapper);
         return new PageUtils(page);
+    }
+
+    @Override
+    public boolean save(SkuImagesEntity entity) {
+        boolean result = super.save(entity);
+        if (result && entity != null) {
+            productHotCacheInvalidator.evictSkuAfterCommit(entity.getSkuId());
+        }
+        return result;
+    }
+
+    @Override
+    public boolean saveBatch(Collection<SkuImagesEntity> entityList) {
+        boolean result = super.saveBatch(entityList);
+        if (result) {
+            productHotCacheInvalidator.evictSkusAfterCommit(skuIds(entityList));
+        }
+        return result;
+    }
+
+    @Override
+    public boolean updateById(SkuImagesEntity entity) {
+        Long oldSkuId = null;
+        if (entity != null && entity.getId() != null) {
+            SkuImagesEntity old = getById(entity.getId());
+            oldSkuId = old == null ? null : old.getSkuId();
+        }
+        boolean result = super.updateById(entity);
+        if (result && entity != null) {
+            List<Long> skuIds = Arrays.asList(oldSkuId, entity.getSkuId()).stream()
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+            productHotCacheInvalidator.evictSkusAfterCommit(skuIds);
+        }
+        return result;
+    }
+
+    @Override
+    public boolean removeByIds(Collection<?> list) {
+        List<Long> ids = normalizeIds(list);
+        if (ids.isEmpty()) {
+            return false;
+        }
+        List<Long> skuIds = listByIds(ids).stream()
+                .map(SkuImagesEntity::getSkuId)
+                .collect(Collectors.toList());
+        boolean result = super.removeByIds(list);
+        if (result) {
+            productHotCacheInvalidator.evictSkusAfterCommit(skuIds);
+        }
+        return result;
+    }
+
+    private List<Long> skuIds(Collection<SkuImagesEntity> images) {
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+        return images.stream()
+                .map(SkuImagesEntity::getSkuId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private List<Long> normalizeIds(Collection<?> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(Objects::nonNull)
+                .map(id -> Long.valueOf(String.valueOf(id)))
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

@@ -3,8 +3,11 @@ package com.mall.product.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
+import com.mall.common.cache.MultiLevelCacheClient;
+import com.mall.common.cache.MultiLevelCacheOptions;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
+import com.mall.product.cache.ProductHotCacheInvalidator;
 import com.mall.product.dao.*;
 import com.mall.product.entity.*;
 import com.mall.product.service.SkuInfoService;
@@ -13,22 +16,65 @@ import com.mall.product.vo.SkuInfoVo;
 import com.mall.product.vo.SkuItemSaleAttrVo;
 import com.mall.product.vo.SkuItemVo;
 import com.mall.product.vo.SpuItemAttrGroupVo;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
 
+import java.io.Serializable;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
 
 @Service("skuInfoService")
 public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> implements SkuInfoService {
+
+    private static final TypeReference<SkuInfoEntity> SKU_INFO_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<SkuItemVo> SKU_ITEM_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<List<SkuImagesEntity>> SKU_IMAGES_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<List<SkuItemSaleAttrVo>> SPU_SALE_ATTRS_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<SpuInfoDescEntity> SPU_DESC_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<List<SpuItemAttrGroupVo>> SPU_ATTR_GROUPS_TYPE = new TypeReference<>() {
+    };
+    private static final MultiLevelCacheOptions SKU_INFO_CACHE_OPTIONS = new MultiLevelCacheOptions(
+            Duration.ofSeconds(30),
+            Duration.ofMinutes(10),
+            Duration.ofSeconds(30),
+            true,
+            Duration.ofSeconds(5),
+            Duration.ofMillis(300),
+            Duration.ofMillis(20),
+            0.1);
+    private static final MultiLevelCacheOptions SKU_ITEM_CACHE_OPTIONS = new MultiLevelCacheOptions(
+            Duration.ofSeconds(20),
+            Duration.ofMinutes(5),
+            Duration.ofSeconds(30),
+            true,
+            Duration.ofSeconds(5),
+            Duration.ofMillis(300),
+            Duration.ofMillis(20),
+            0.1);
+    private static final MultiLevelCacheOptions PRODUCT_COMPONENT_CACHE_OPTIONS = new MultiLevelCacheOptions(
+            Duration.ofSeconds(30),
+            Duration.ofMinutes(30),
+            Duration.ofSeconds(30),
+            true,
+            Duration.ofSeconds(5),
+            Duration.ofMillis(300),
+            Duration.ofMillis(20),
+            0.1);
 
     @Autowired
     private CategoryDao categoryDao;
@@ -47,6 +93,12 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
 
     @Autowired
     private AttrGroupDao attrGroupDao;
+
+    @Autowired
+    private MultiLevelCacheClient multiLevelCacheClient;
+
+    @Autowired
+    private ProductHotCacheInvalidator productHotCacheInvalidator;
 
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
@@ -159,49 +211,137 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
 
     @Override
     public SkuItemVo item(Long skuId) {
+        if (skuId == null) {
+            throw new IllegalArgumentException("skuId cannot be null");
+        }
+        return multiLevelCacheClient.get(ProductHotCacheInvalidator.SKU_ITEM_CACHE_NAME,
+                ProductHotCacheInvalidator.key(skuId),
+                SKU_ITEM_TYPE,
+                () -> loadSkuItemFromDb(skuId),
+                SKU_ITEM_CACHE_OPTIONS);
+    }
+
+    private SkuItemVo loadSkuItemFromDb(Long skuId) {
         SkuItemVo skuItemVo = new SkuItemVo();
 
-        CompletableFuture<SkuInfoEntity> infoFuture = CompletableFuture.supplyAsync(() -> {
-            // 1. SKU Info
-            SkuInfoEntity info = getById(skuId);
-            skuItemVo.setInfo(info);
-            return info;
-        });
+        SkuInfoEntity info = getBySkuId(skuId);
+        skuItemVo.setInfo(info);
+        if (info == null) {
+            return skuItemVo;
+        }
 
-        CompletableFuture<Void> saleAttrFuture = infoFuture.thenAcceptAsync((info) -> {
+        CompletableFuture<Void> saleAttrFuture = CompletableFuture.runAsync(() -> {
             // 3. SPU Sale Attr Combination
-            List<SkuItemSaleAttrVo> saleAttr = skuSaleAttrValueDao.getSaleAttrsBySpuId(info.getSpuId());
-            skuItemVo.setSaleAttr(saleAttr);
+            skuItemVo.setSaleAttr(getSaleAttrsBySpuIdCached(info.getSpuId()));
         });
 
-        CompletableFuture<Void> descFuture = infoFuture.thenAcceptAsync((info) -> {
+        CompletableFuture<Void> descFuture = CompletableFuture.runAsync(() -> {
             // 4. SPU Description
-            SpuInfoDescEntity desc = spuInfoDescService.getById(info.getSpuId());
-            skuItemVo.setDesc(desc);
+            skuItemVo.setDesc(getSpuDescCached(info.getSpuId()));
         });
 
-        CompletableFuture<Void> baseAttrFuture = infoFuture.thenAcceptAsync((info) -> {
+        CompletableFuture<Void> baseAttrFuture = CompletableFuture.runAsync(() -> {
             // 5. SPU Group Attrs
-            List<SpuItemAttrGroupVo> groupAttrs = attrGroupDao.getAttrGroupWithAttrsBySpuId(info.getSpuId(), info.getCategoryId());
-            skuItemVo.setGroupAttrs(groupAttrs);
+            skuItemVo.setGroupAttrs(getAttrGroupWithAttrsCached(info.getSpuId(), info.getCategoryId()));
         });
 
         CompletableFuture<Void> imageFuture = CompletableFuture.runAsync(() -> {
             // 2. SKU Images
-            List<SkuImagesEntity> images = skuImagesDao.selectList(new QueryWrapper<SkuImagesEntity>().eq("sku_id", skuId));
-            skuItemVo.setImages(images);
+            skuItemVo.setImages(getSkuImagesCached(skuId));
         });
 
         // Wait for all
         try {
             CompletableFuture.allOf(saleAttrFuture, descFuture, baseAttrFuture, imageFuture).get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("load sku item failed: " + skuId, e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("load sku item failed: " + skuId, e);
         }
 
         return skuItemVo;
     }
 
+    @Override
+    public SkuInfoEntity getBySkuId(Long skuId) {
+        if (skuId == null) {
+            return null;
+        }
+        return multiLevelCacheClient.get(ProductHotCacheInvalidator.SKU_INFO_CACHE_NAME,
+                ProductHotCacheInvalidator.key(skuId),
+                SKU_INFO_TYPE,
+                () -> baseMapper.selectById(skuId),
+                SKU_INFO_CACHE_OPTIONS);
+    }
+
+    @Override
+    public SkuInfoEntity getById(Serializable id) {
+        if (id instanceof Long skuId) {
+            return getBySkuId(skuId);
+        }
+        return super.getById(id);
+    }
+
+    private List<SkuImagesEntity> getSkuImagesCached(Long skuId) {
+        return multiLevelCacheClient.get(ProductHotCacheInvalidator.SKU_IMAGES_CACHE_NAME,
+                ProductHotCacheInvalidator.key(skuId),
+                SKU_IMAGES_TYPE,
+                () -> skuImagesDao.selectList(new QueryWrapper<SkuImagesEntity>()
+                        .eq("sku_id", skuId)
+                        .orderByAsc("img_sort")),
+                PRODUCT_COMPONENT_CACHE_OPTIONS);
+    }
+
+    private List<SkuItemSaleAttrVo> getSaleAttrsBySpuIdCached(Long spuId) {
+        return multiLevelCacheClient.get(ProductHotCacheInvalidator.SPU_SALE_ATTRS_CACHE_NAME,
+                ProductHotCacheInvalidator.key(spuId),
+                SPU_SALE_ATTRS_TYPE,
+                () -> skuSaleAttrValueDao.getSaleAttrsBySpuId(spuId),
+                PRODUCT_COMPONENT_CACHE_OPTIONS);
+    }
+
+    private SpuInfoDescEntity getSpuDescCached(Long spuId) {
+        return multiLevelCacheClient.get(ProductHotCacheInvalidator.SPU_DESC_CACHE_NAME,
+                ProductHotCacheInvalidator.key(spuId),
+                SPU_DESC_TYPE,
+                () -> spuInfoDescService.getById(spuId),
+                PRODUCT_COMPONENT_CACHE_OPTIONS);
+    }
+
+    private List<SpuItemAttrGroupVo> getAttrGroupWithAttrsCached(Long spuId, Long categoryId) {
+        return multiLevelCacheClient.get(ProductHotCacheInvalidator.SPU_ATTR_GROUPS_CACHE_NAME,
+                ProductHotCacheInvalidator.key(spuId),
+                SPU_ATTR_GROUPS_TYPE,
+                () -> attrGroupDao.getAttrGroupWithAttrsBySpuId(spuId, categoryId),
+                PRODUCT_COMPONENT_CACHE_OPTIONS);
+    }
+
+    @Override
+    public boolean updateById(SkuInfoEntity entity) {
+        boolean result = super.updateById(entity);
+        if (result && entity != null) {
+            productHotCacheInvalidator.evictSkuAfterCommit(entity.getSkuId());
+        }
+        return result;
+    }
+
+    @Override
+    public boolean removeByIds(Collection<?> list) {
+        List<Long> skuIds = normalizeIds(list);
+        if (skuIds.isEmpty()) {
+            return false;
+        }
+        List<Long> spuIds = baseMapper.selectBatchIds(skuIds).stream()
+                .map(SkuInfoEntity::getSpuId)
+                .collect(Collectors.toList());
+        boolean result = super.removeByIds(list);
+        if (result) {
+            productHotCacheInvalidator.evictSkusAfterCommit(skuIds);
+            productHotCacheInvalidator.evictSpusAfterCommit(spuIds);
+        }
+        return result;
+    }
 
     @Override
     @Transactional
@@ -245,7 +385,22 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
         }
         SkuInfoEntity patch = new SkuInfoEntity();
         patch.setPublishStatus(publishStatus);
-        return this.baseMapper.update(patch, new QueryWrapper<SkuInfoEntity>().in("sku_id", skuIds));
+        int updated = this.baseMapper.update(patch, new QueryWrapper<SkuInfoEntity>().in("sku_id", skuIds));
+        if (updated > 0) {
+            productHotCacheInvalidator.evictSkusAfterCommit(skuIds);
+        }
+        return updated;
+    }
+
+    private List<Long> normalizeIds(Collection<?> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(id -> id != null)
+                .map(id -> Long.valueOf(String.valueOf(id)))
+                .distinct()
+                .collect(Collectors.toList());
     }
 
 }
