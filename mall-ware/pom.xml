@@ -23,7 +23,18 @@
             <artifactId>mall-mq-starter</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
-    
+
+        <!-- 库存热点读的多级缓存要用（2026-09-06 新增）。
+             必须在这里显式声明：mall-common 里那个是 <optional>true</optional>，
+             不会传递下来。少了它，classpath 上没有 StringRedisTemplate 这个类，
+             MultiLevelCacheAutoConfiguration 的 @ConditionalOnClass 会整段跳过，
+             于是 WareHotCacheInvalidator 拼不出来、整个上下文起不来。
+             —— 这正是 2026-09-06 CI 集成测试逮到的那个失败。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- 集成测试的容器定义。test 作用域 —— 它不会进任何生产镜像。 -->
         <dependency>
             <groupId>com.mall</groupId>

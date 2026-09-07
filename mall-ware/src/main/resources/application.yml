@@ -62,6 +62,31 @@ spring:
       keepalive-time: 300000
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
+  # ---------------------------------------------------------------------------
+  # Redis（2026-09-06 新增）—— 库存热点读的多级缓存要用
+  # ---------------------------------------------------------------------------
+  # 【为什么以前没有，现在必须有】
+  # mall-common 里的 spring-boot-starter-data-redis 是 <optional>true</optional>，
+  # 不会传递给下游模块 —— mall-product / mall-coupon / mall-order 都各自显式声明了，
+  # 唯独 mall-ware 没有。所以 mall-ware 的 classpath 上根本没有 StringRedisTemplate
+  # 这个【类】，而 MultiLevelCacheAutoConfiguration 里造 MultiLevelCacheClient 的那段
+  # 带着 @ConditionalOnClass(StringRedisTemplate.class)，于是整段被跳过。
+  #
+  # 结果是 WareHotCacheInvalidator（构造器要 MultiLevelCacheClient）拼不出来，
+  # 【整个 Spring 上下文起不来】。这不是测试环境的问题 —— 线上一样会 crashloop。
+  # CI 的集成测试逮住了它（那个测试的注释里写的就是要防这类问题）。
+  #
+  # 地址和 mall-product 用同一份哨兵配置：不直连固定 host/port，
+  # 把哨兵地址给客户端去问 master 是谁，这样主从切换不需要改配置。
+  #
+  # 注意 mall-ware 没有引 redisson，所以不需要像 mall-product 那样
+  # 排除 RedissonAutoConfigurationV4 —— 这里的 RedisConnectionFactory 就是 Lettuce。
+  data:
+    redis:
+      sentinel:
+        master: ${REDIS_SENTINEL_MASTER:mymaster}
+        nodes: ${REDIS_SENTINEL_NODES:redis-sentinel-0.redis-sentinel:26379,redis-sentinel-1.redis-sentinel:26379,redis-sentinel-2.redis-sentinel:26379}
+      database: 0
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
