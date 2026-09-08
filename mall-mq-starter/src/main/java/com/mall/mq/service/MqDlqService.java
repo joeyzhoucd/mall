@@ -72,22 +72,67 @@ public class MqDlqService {
         this.rabbitAdmin = rabbitAdmin;
     }
 
+    /**
+     * 队列一览。
+     *
+     * <h3>2026-09-08：加了 dlqExists 和 sourceConsumers，因为原来它会把「不存在」显示成「空」</h3>
+     * 原实现只取消息数，而 {@code getQueueProperties} 对<b>不存在的队列返回 null</b>，
+     * 被当成了 count 0。于是那次实际发生的故障长这样：
+     * <pre>
+     * 控制台显示：5 条绑定，深度全 0        —— 看着非常健康
+     * broker 实际：5 个死信队列【一个都不存在】
+     * </pre>
+     * 根因是那五个消费队列建于死信配置之前，参数不匹配导致声明失败
+     * （406 PRECONDITION_FAILED），而 RabbitAdmin 的声明是成批的、
+     * 第一个失败就整批中止，所以死信队列和绑定全没被创建。
+     * 详见 mall-deploy/RUNBOOK-mq-queue-args.md。
+     *
+     * <h3>这两个字段对应的正是当时观察到的两个症状</h3>
+     * <ul>
+     *   <li>{@code dlqExists=false} —— 死信队列不存在，<b>死信机制完全没接通</b>，
+     *       消费失败的消息会被直接丢弃。这时深度 0 毫无意义。</li>
+     *   <li>{@code sourceConsumers=0} —— 源队列没有消费者，消息只会堆积。
+     *       那次 order.release.order.queue 就是 0，意味着超时订单永远不关。</li>
+     * </ul>
+     * 一个显示"一切正常"的运维页面比没有页面更糟，因为它会让人停止怀疑。
+     *
+     * <h3>查不到源队列的 x-dead-letter-exchange，这是已知的覆盖缺口</h3>
+     * RabbitAdmin 只给名称/消息数/消费者数，拿不到队列参数。
+     * 也就是说"死信队列存在、但源队列没配 DLX"这种半修好的状态这里检测不到。
+     * 好在它<b>总会</b>在启动时报 PRECONDITION_FAILED，所以那一半靠日志告警覆盖
+     * （charts/mall/files/alert-rules.yml）。两者合起来才完整。
+     */
     public List<DlqQueueView> overview() {
         List<DlqQueueView> result = new ArrayList<>();
         for (DlqBinding binding : bindings()) {
-            Properties properties = rabbitAdmin.getQueueProperties(binding.dlq());
-            int count = properties == null || properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT) == null
-                    ? 0
-                    : ((Number) properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).intValue();
+            Properties dlqProps = rabbitAdmin.getQueueProperties(binding.dlq());
+            Properties sourceProps = rabbitAdmin.getQueueProperties(binding.sourceQueue());
             result.add(new DlqQueueView(
                     binding.sourceQueue(),
                     binding.dlq(),
                     binding.replayExchange(),
                     binding.replayRoutingKey(),
-                    count
+                    intProperty(dlqProps, RabbitAdmin.QUEUE_MESSAGE_COUNT),
+                    dlqProps != null,
+                    sourceProps != null,
+                    intProperty(sourceProps, RabbitAdmin.QUEUE_CONSUMER_COUNT)
             ));
         }
         return result;
+    }
+
+    /**
+     * 队列不存在时 properties 是 null；这里统一成 0，但"不存在"由单独的布尔字段表达。
+     *
+     * <p>key 的类型是 {@code Object} 而不是 {@code String} —— RabbitAdmin 那三个
+     * 常量（QUEUE_NAME / QUEUE_MESSAGE_COUNT / QUEUE_CONSUMER_COUNT）声明成的就是
+     * {@code public static final Object}（字节码确认）。写 String 编译不过。
+     */
+    private static int intProperty(Properties properties, Object key) {
+        if (properties == null || properties.get(key) == null) {
+            return 0;
+        }
+        return ((Number) properties.get(key)).intValue();
     }
 
     /**
@@ -274,8 +319,15 @@ public class MqDlqService {
     public record DlqBinding(String sourceQueue, String dlq, String replayExchange, String replayRoutingKey) {
     }
 
+    /**
+     * @param messageCount    死信队列里的消息数。<b>dlqExists 为 false 时这个数没有意义</b>
+     * @param dlqExists       死信队列在 broker 上是否存在。false = 死信机制没接通，
+     *                        消费失败的消息会被直接丢弃
+     * @param sourceExists    源队列是否存在
+     * @param sourceConsumers 源队列的消费者数。0 = 没人消费，消息只会堆积
+     */
     public record DlqQueueView(String sourceQueue, String dlq, String replayExchange, String replayRoutingKey,
-                               int messageCount) {
+                               int messageCount, boolean dlqExists, boolean sourceExists, int sourceConsumers) {
     }
 
     public record DlqMessageView(String sourceQueue, String dlq, String messageId, String correlationId,

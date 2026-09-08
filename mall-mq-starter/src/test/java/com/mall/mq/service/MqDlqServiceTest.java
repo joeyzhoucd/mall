@@ -19,8 +19,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -209,6 +211,88 @@ class MqDlqServiceTest {
                     "死信队列和源队列不该同名：" + binding.dlq());
         }
         assertEquals(5, dlqs.size(), "绑定表条数变了，确认是有意的：" + dlqs);
+    }
+
+    // -----------------------------------------------------------------------
+    // 一览：把"不存在"和"空"区分开
+    // -----------------------------------------------------------------------
+
+    /**
+     * 死信队列不存在时必须报 {@code dlqExists=false}，而不是"深度 0"。
+     *
+     * <h3>这条对应 2026-09-08 实际发生的故障</h3>
+     * 那五个消费队列建于死信配置之前，参数不匹配导致声明失败（406），
+     * 而 RabbitAdmin 的声明是成批的、第一个失败整批中止 ——
+     * 所以五个死信队列<b>一个都没被创建</b>。
+     * <p>
+     * 而 {@code getQueueProperties} 对不存在的队列返回 null，原实现把它当成了 0，
+     * 于是控制台显示"5 条绑定、深度全 0"，看着非常健康。
+     * <b>一个显示"一切正常"的运维页面比没有页面更糟，因为它让人停止怀疑。</b>
+     */
+    @Test
+    @DisplayName("死信队列不存在时要报 dlqExists=false，不能显示成「深度 0」")
+    void overviewDistinguishesMissingQueueFromEmptyQueue() {
+        RabbitAdmin admin = mock(RabbitAdmin.class);
+        // 全部返回 null = 队列都不存在，也就是那次故障的状态
+        when(admin.getQueueProperties(anyString())).thenReturn(null);
+
+        MqDlqService svc = new MqDlqService(mock(RabbitTemplate.class), admin);
+
+        for (MqDlqService.DlqQueueView v : svc.overview()) {
+            assertFalse(v.dlqExists(),
+                    v.dlq() + " 不存在，但 dlqExists 报了 true —— "
+                            + "控制台会把「死信机制没接通」显示成「一切正常」");
+            assertEquals(0, v.messageCount(), "不存在的队列深度应当是 0（但要靠 dlqExists 表达「不存在」）");
+        }
+    }
+
+    /**
+     * 源队列没有消费者时要报出来。
+     *
+     * <p>那次 {@code order.release.order.queue} 的消费者数是 <b>0</b> ——
+     * 意味着超时订单永远不关、锁定库存永远不释放。
+     * 而这件事在任何常规监控里都是绿的：队列存在、深度 0、pod Ready。
+     */
+    @Test
+    @DisplayName("源队列存在但没有消费者时要如实报 0，那意味着消息只会堆积")
+    void overviewReportsSourceConsumerCount() {
+        Properties existsNoConsumer = new Properties();
+        existsNoConsumer.put(RabbitAdmin.QUEUE_MESSAGE_COUNT, 0);
+        existsNoConsumer.put(RabbitAdmin.QUEUE_CONSUMER_COUNT, 0);
+
+        RabbitAdmin admin = mock(RabbitAdmin.class);
+        when(admin.getQueueProperties(anyString())).thenReturn(existsNoConsumer);
+
+        MqDlqService svc = new MqDlqService(mock(RabbitTemplate.class), admin);
+
+        for (MqDlqService.DlqQueueView v : svc.overview()) {
+            assertTrue(v.dlqExists(), "队列存在却报 dlqExists=false");
+            assertTrue(v.sourceExists(), "源队列存在却报 sourceExists=false");
+            assertEquals(0, v.sourceConsumers(),
+                    v.sourceQueue() + " 的消费者数没有如实报出来");
+        }
+    }
+
+    @Test
+    @DisplayName("一切正常时两个存在标志都为 true、消费者数如实反映")
+    void overviewReportsHealthyState() {
+        Properties healthy = new Properties();
+        healthy.put(RabbitAdmin.QUEUE_MESSAGE_COUNT, 3);
+        healthy.put(RabbitAdmin.QUEUE_CONSUMER_COUNT, 2);
+
+        RabbitAdmin admin = mock(RabbitAdmin.class);
+        when(admin.getQueueProperties(anyString())).thenReturn(healthy);
+
+        List<MqDlqService.DlqQueueView> views =
+                new MqDlqService(mock(RabbitTemplate.class), admin).overview();
+
+        assertEquals(5, views.size(), "绑定表应当有 5 条");
+        for (MqDlqService.DlqQueueView v : views) {
+            assertTrue(v.dlqExists());
+            assertTrue(v.sourceExists());
+            assertEquals(3, v.messageCount());
+            assertEquals(2, v.sourceConsumers());
+        }
     }
 
     // -----------------------------------------------------------------------
