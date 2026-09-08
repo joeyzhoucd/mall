@@ -64,6 +64,66 @@ jobs:
   # 它拿各模块自己 classpath 上的配置元数据校验配置文件，专门守住
   # 「属性名变了、写旧名字不报错但完全不生效」这一类静默失效
   # （本次 Boot 4 迁移因此踩了 5 个坑，包括网关整站 404 和链路追踪零 span）。
+  # 算出这次改动【真正影响】哪些服务，只构建/只部署那些。
+  #
+  # 【为什么加】原来 build 是写死的 14 项矩阵，update-deploy 把 values.yaml 里
+  # 一个 image.tag 推到新 commit —— 而 12 个服务全都引用它，于是改一个模块，
+  # 整集群 12 个服务全部重新拉镜像、全部滚动。
+  # 实测单节点单镜像：传输 5m42s + 排队 14 分钟（一个节点同时拉 8 个约 200MB 镜像）。
+  #
+  # 【影响面从真实的 pom 依赖算，不写映射表】
+  # 逻辑在 .github/scripts/affected-services.sh（mvn -pl <改动模块> -amd）。
+  # 放脚本而不是内嵌 YAML 是为了能在本地拿真实提交区间验证 ——
+  # 内嵌只能靠推一次真实提交来试，而试错代价是一整轮构建。
+  #
+  # 【失败方向：宁可多构建，绝不少构建】
+  # 漏判的后果是某个服务静默继续跑旧代码 —— 没有报错，且和"部署成功"一模一样。
+  # 脚本对任何无法归类的改动一律返回全量，详见其文件头注释。
+  #
+  # 注意 test / integration-test 【仍然跑全量】，不受这里影响：
+  # 它们守的正是跨模块回归（2026-09-07 那次失败就是改别的模块、
+  # 却挂在 mall-admin 的 OpenApiContractTest 上）。缩小它们的范围等于自废武功。
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      services: ${{ steps.affected.outputs.services }}
+      count: ${{ steps.affected.outputs.count }}
+    steps:
+      - name: Checkout
+        # 需要历史才能 diff 两个 commit。取全量比算"要多深"可靠，这个仓库也不大。
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compute affected services
+        id: affected
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # 手动触发拿不到有意义的 before，而且手动触发的意图通常就是"全部重建一次"。
+            LIST=$(bash .github/scripts/affected-services.sh --all)
+          else
+            LIST=$(bash .github/scripts/affected-services.sh "${{ github.event.before }}" "${{ github.sha }}")
+          fi
+          echo "受影响的服务:"
+          echo "$LIST" | sed 's/^/  /'
+          COUNT=$(echo "$LIST" | grep -c . || true)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          # 矩阵要 JSON 数组。空数组会让 build 报错，所以下面的 job 用 count 做 if 条件。
+          #
+          # 用 jq -R -n '[inputs]' 逐行读，而不是 -s 'split(...)' ——
+          # 后者的表达式里要写换行转义，而这份 YAML 经过 shell 时转义不可靠
+          # （这一行第一版就是这么写坏的：转义被吃掉，jq 表达式里出现了真换行，
+          #  整个 workflow YAML 解析失败）。逐行读不需要任何转义。
+          echo "services=$(echo "$LIST" | jq -R -n -c '[inputs | select(length > 0)]')" >> "$GITHUB_OUTPUT"
+
   test:
     runs-on: ubuntu-latest
     # 超时必须显式写。GitHub 的默认是【6 小时】，对这个仓库毫无意义 ——
@@ -192,7 +252,10 @@ jobs:
 
 
   build:
-    needs: [test, integration-test]
+    needs: [plan, test, integration-test]
+    # 受影响集合为空时（例如只改了文档而 paths-ignore 没拦住）不跑 ——
+    # GitHub Actions 对空矩阵会直接报错，所以用 count 做条件而不是靠空数组。
+    if: needs.plan.outputs.count != '0'
     runs-on: ubuntu-latest
     # 一个矩阵项 = 一个服务的 docker build。正常大约 5-8 分钟（含 CDS 训练运行），
     # 25 分钟还没完就是卡住了 —— 卡住的典型原因是 CDS 训练运行没能退出
@@ -206,23 +269,9 @@ jobs:
       # 各服务独立构建,互不影响——某一个服务的 Dockerfile 写错了,
       # 不会挡住其他服务的构建。
       matrix:
-        service:
-          # 配置中心要先起来（其他服务的 spring.config.import 指向它），
-          # 但矩阵是并行的、构建顺序跟启动顺序无关，放第一个只是为了看着顺眼。
-          - mall-config
-          - mall-admin
-          - mall-gateway
-          - mall-auth
-          - mall-member
-          - mall-product
-          - mall-cart
-          - mall-order
-          - mall-ware
-          - mall-coupon
-          - mall-search
-          - mall-thirdparty
-          - static-assets
-          - elasticsearch-ik
+        # 由 plan 作业算出，只含本次真正受影响的服务。
+        # 原来这里是写死的 14 项 —— 那意味着改一行代码要构建并部署全部服务。
+        service: ${{ fromJSON(needs.plan.outputs.services) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -258,7 +307,7 @@ jobs:
   # GitHub 上，两边够不着，所以用 GITEE_TOKEN 直接 git clone/push，不走
   # actions/checkout（它只认 GitHub 仓库）。
   update-deploy:
-    needs: build
+    needs: [plan, build]
     runs-on: ubuntu-latest
     # 只是 clone + 改 values.yaml + push，分钟级。
     timeout-minutes: 10
@@ -266,8 +315,51 @@ jobs:
       - name: Clone mall-deploy from Gitee
         run: git clone https://joeyzhoucd:${{ secrets.GITEE_TOKEN }}@gitee.com/joeyzhoucd/mall-deploy.git mall-deploy
 
-      - name: Bump backend image tag
-        run: yq e '.image.tag = "${{ github.sha }}"' -i mall-deploy/charts/mall/values.yaml
+      # 只写本次受影响的服务，其余保持原样 —— 不动的服务不会滚动。
+      #
+      # 【为什么不再动全局 image.tag】它是"全新安装时的回落值"。
+      # 每次都推它等于让所有还没有 imageTags 覆盖的服务一起滚动，
+      # 那正是这次要解决的问题。
+      #
+      # 【为什么用 yq 的 strenv 而不是字符串插值】
+      # 服务名里有连字符（mall-product），yq 的路径表达式必须加引号才能取到那个 key；
+      # 而 sha 用 strenv 传进去，避免 40 位十六进制被 yq 当成数字或表达式解析。
+      - name: Bump per-service image tags
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          cd mall-deploy
+          for svc in $(echo '${{ needs.plan.outputs.services }}' | jq -r '.[]'); do
+            echo "  $svc -> $SHA"
+            SVC="$svc" yq e '.imageTags[strenv(SVC)] = strenv(SHA)' -i charts/mall/values.yaml
+          done
+          echo "改动后的 imageTags:"
+          yq e '.imageTags' charts/mall/values.yaml | sed 's/^/  /'
+
+      # 写完立刻读回来比对。
+      #
+      # 【为什么值得单独一步】上面那条 yq 表达式（动态 key + strenv）
+      # 在本地没法验证 —— 这台开发机没装 yq。而它写坏的后果不是"CI 失败"，
+      # 是【把一份坏的 values.yaml 推给 ArgoCD 去应用】：
+      # tag 写成空会渲染出 image: repo/svc:（pod 起不来），
+      # key 写错会让那个服务悄悄停在旧镜像上 —— 后者完全静默。
+      #
+      # 读回比对把"表达式写错"从"部署事故"降级成"CI 红"。
+      - name: Verify the tags were actually written
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          cd mall-deploy
+          fail=0
+          for svc in $(echo '${{ needs.plan.outputs.services }}' | jq -r '.[]'); do
+            actual=$(SVC="$svc" yq e '.imageTags[strenv(SVC)]' charts/mall/values.yaml)
+            if [ "$actual" != "$SHA" ]; then
+              echo "写入校验失败: $svc 期望 $SHA，实际 '$actual'"
+              fail=1
+            fi
+          done
+          [ "$fail" = "0" ] || { echo "values.yaml 没被正确改写，中止（不推送）"; exit 1; }
+          echo "全部 $(echo '${{ needs.plan.outputs.services }}' | jq -r 'length') 个服务的 tag 校验通过"
 
       - name: Commit and push
         run: |
@@ -279,5 +371,6 @@ jobs:
             exit 0
           fi
           git add charts/mall/values.yaml
-          git commit -m "chore: 后端镜像自动更新到 ${{ github.sha }}"
+          SVCS=$(echo '${{ needs.plan.outputs.services }}' | jq -r 'join(" ")')
+          git commit -m "chore: 镜像更新到 ${{ github.sha }} ($SVCS)"
           git push
