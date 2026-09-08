@@ -1,6 +1,6 @@
 # Mall 成熟分布式电商能力路线图
 
-更新日期：2026-09-07
+更新日期：2026-09-08
 
 ## 状态图例
 
@@ -23,7 +23,7 @@
 | 3 | 事务消息 / Outbox / 本地消息表 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀链路已有 `SeckillLocalMessage` 本地消息表和 confirm 等待；普通订单/支付状态流转已走 `oms_order_outbox_message`，库存失败通知已走 `wms_stock_outbox_message`，订单/库存 MQ 消费已补本地幂等记录；还缺跨服务统一消息治理后台。 |
 | 4 | 死信队列 + 消费幂等 + 补偿任务 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有订单延迟队列、库存失败队列、消费失败 DLX/DLQ、DLQ 查看/重放/丢弃入口、秒杀对账任务、库存重试和订单/库存消费幂等；还缺统一告警、权限化人工处理后台和更细的重试策略。 |
 | 5 | 多级缓存 + 热点保护 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已补 `mall-common` 的 `MultiLevelCacheClient`（Caffeine + Redis）、Redis Pub/Sub 本地失效广播、空值缓存、互斥重建、TTL 随机抖动和热点 key 指标；`mall-product` 分类树和商品详情热点读已接入，`mall-coupon` 秒杀页/秒杀关系/场次基础读、前台首页广告/专题与 `mall-ware` SKU 分仓库存/可售量读也已迁入统一封装，并补了 after-commit 失效、库存预热入口、首页缓存预热调度、缓存治理文档和告警规则。缓存告警已落到部署仓 `mall-deploy/charts/mall/files/alert-rules.yml` 的 `mall.缓存` 分组。 |
-| 6 | 网关统一鉴权 + 风控限流 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Gateway 管理端 JWT 鉴权、入口限流；还缺前台统一认证、黑白名单、设备/IP/用户维度风控限流。 |
+| 6 | 网关统一鉴权 + 风控限流 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Gateway 管理端 JWT 鉴权、秒杀总量入口限流；前台统一认证第一版已落在网关，复用 Spring Session 保护订单/支付/秒杀抢购/秒杀地址入口，并补了 IP/设备/会员维度黑白名单与 Redis 固定窗口限流。还缺风控后台、真实设备指纹、策略审计和更多业务维度规则。 |
 | 7 | 数据库迁移工具 Flyway/Liquibase | <span style="color:#c62828;font-weight:700">待实现</span> | 当前没有看到 Flyway/Liquibase 迁移目录和依赖。 |
 | 8 | SLO 告警 + Runbook | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 Micrometer、Prometheus、Loki、Tempo、Grafana、Alertmanager 文档和业务指标；还缺正式 SLO、告警分级、值班流程、Runbook。 |
 | 9 | 灰度发布 / 回滚 | <span style="color:#c62828;font-weight:700">待实现</span> | 当前 CI 能构建镜像，但没有看到按用户/地区/比例灰度和自动回滚闭环。 |
@@ -70,7 +70,7 @@
 
 | 能力 | 当前状态 | 现状与下一步 |
 | --- | --- | --- |
-| 服务限流：Gateway 入口限流，服务内部限流 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | Gateway 有限流配置，秒杀有隔离舱；普通服务内部限流还缺统一方案。 |
+| 服务限流：Gateway 入口限流，服务内部限流 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | Gateway 已有秒杀路由总量令牌桶，并新增前台 IP/设备/会员三维固定窗口限流；秒杀服务内有隔离舱。普通服务内部限流、策略动态治理和压测校准还缺。 |
 | 熔断降级策略：Resilience4j 与业务降级方案 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 公共配置已有 Resilience4j 参数；还缺按业务定义的 fallback、降级开关和演练。 |
 | 超时治理：Feign、DB、Redis、MQ 全链路统一超时预算 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有部分 Feign/配置可观测；还缺统一超时预算表和强制校验。 |
 | 隔离舱：线程池/连接池/信号量隔离 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 秒杀有 bulkhead；其他业务链路还缺标准化隔离。 |
@@ -84,11 +84,11 @@
 | --- | --- | --- |
 | 统一认证中心：OAuth2/OIDC、SSO、Refresh Token | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有后台 JWT、前台登录/社交登录雏形；还不是统一 OAuth2/OIDC/SSO，缺 Refresh Token 和撤销机制。 |
 | 权限模型：RBAC、菜单权限、按钮权限、数据权限 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 后台有用户、角色、菜单；按钮权限、数据权限和统一鉴权注解仍需补。 |
-| 风控系统：刷单、薅羊毛、恶意注册、异常支付、设备指纹 | <span style="color:#c62828;font-weight:700">待实现</span> | 需要规则、模型、黑名单、设备指纹和审核后台。 |
+| 风控系统：刷单、薅羊毛、恶意注册、异常支付、设备指纹 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 网关已有基础黑白名单和 IP/设备/会员限流；还缺真实设备指纹、规则模型、异常支付/注册策略、审核后台和策略命中审计。 |
 | 验证码/人机验证：图形验证码、短信验证码、滑块验证 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 后台登录有图形验证码；短信、滑块、注册/下单风控验证码还缺。 |
 | 接口签名：开放 API、支付回调、防篡改 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | mock 支付回调有 HMAC 签名校验；还缺开放 API 签名规范和真实支付验签。 |
 | 敏感数据治理：脱敏、加密、密钥管理、审计日志 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 已有 JWT 密钥校验、配置指标敏感字段过滤、系统日志；还缺 PII 脱敏、字段加密、KMS 和审计闭环。 |
-| WAF/防爬：限频、黑名单、UA/IP/设备策略 | <span style="color:#c62828;font-weight:700">待实现</span> | 需要网关/WAF/风控服务配合实现。 |
+| WAF/防爬：限频、黑名单、UA/IP/设备策略 | <span style="color:#a66a00;font-weight:700">已实现，需加强</span> | 网关已补基础限频、IP/设备/会员黑白名单和可信身份头清洗；还缺 CDN/WAF 层策略、UA 行为规则、验证码联动和统一封禁运营面。 |
 
 ## 数据与搜索推荐
 
@@ -170,3 +170,12 @@
 - 缓存治理文档中的三条告警规则已并入 `mall-deploy/charts/mall/files/alert-rules.yml`，新增 `mall.缓存` 分组。
 - 规则覆盖缓存 miss 率偏高、互斥重建等待超时、热点 key 检测；具体热点 key 仍只写应用日志，不进入 Prometheus 标签。
 - 已用本地 YAML 解析校验目标文件；本机未安装 `promtool`，Prometheus 规则语义校验还需要在有 `promtool` 的环境补跑。
+
+## 2026-09-08 前台统一认证与网关风控第一版
+
+- `mall-gateway` 新增 `FrontendSecurityFilter`，对前台订单、支付 mock 操作、秒杀抢购/消息/地址入口做统一会员会话检查；HTML 请求未登录跳 `auth.mall.com/login.html`，接口请求返回 401 JSON。
+- 前台身份继续复用 Spring Session：网关按 `MALLSESSION` 读取 Redis 中的 `sessionAttr:loginUser`，不新增第二套会员 JWT 语义。
+- 网关会剥掉客户端自带的 `X-Member-Id`、`X-Member-Name`、`X-Client-Ip`、`X-Device-Id`，再写入自己解析出的可信头，避免客户端伪造身份透传到下游。
+- `mall.frontend.security.*` 新增 IP、设备、会员 ID 黑白名单和 Redis 固定窗口限流配置；默认阈值为 IP 600/min、设备 300/min、会员 120/min。
+- 支付通知 `/pay/mock/notify`、秒杀内部激活和订单创建回调继续豁免会员会话，避免把自带签名/共享密钥的内部入口误拦。
+- 已通过 `mvn -pl mall-gateway -am "-Dtest=FrontendSecurityFilterTest,DefaultFrontendSecurityServiceTest,AdminAuthFilterTest,AdminJwtSecretWiringTest,ConfigMetadataTest" -DfailIfNoTests=false "-Dsurefire.failIfNoSpecifiedTests=false" test` 验证。

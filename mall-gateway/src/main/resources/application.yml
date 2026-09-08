@@ -294,6 +294,52 @@ mall:
   admin:
     jwt:
       secret: ${JWT_SECRET:local-dev-only-do-not-use-in-any-real-environment}
+  frontend:
+    security:
+      enabled: true
+      login-page-url: http://auth.mall.com/login.html
+      session:
+        cookie-name: MALLSESSION
+        redis-key-prefix: "spring:session:sessions:"
+        login-attribute: "sessionAttr:loginUser"
+      access:
+        # 前台只有这些入口必须在网关层确认会员已登录。首页、搜索、商品详情和购物车浏览
+        # 仍然允许匿名访问；购物车匿名态靠 mall-cart 的 user-key cookie 处理。
+        protected-path-patterns:
+          - /order/**
+          - /pay/mock/success
+          - /pay/mock/fail
+          - /pay/mock/close
+          - /coupon/seckill/grab/**
+          - /coupon/seckill/message/*
+          - /coupon/seckill/message/*/address
+          - /coupon/seckill/address/**
+        # 内部回调或自带签名/共享密钥的入口不能用会员会话拦，否则支付回调和秒杀内部回调会断。
+        bypass-path-patterns:
+          - /pay/mock/notify
+          - /coupon/seckill/activate/**
+          - /coupon/seckill/message/*/order-created
+        allowed-ips: []
+        denied-ips: []
+        allowed-device-ids: []
+        denied-device-ids: []
+        allowed-user-ids: []
+        denied-user-ids: []
+      rate-limit:
+        enabled: true
+        redis-key-prefix: mall:security:rate
+        ip:
+          enabled: true
+          capacity: 600
+          window: 1m
+        device:
+          enabled: true
+          capacity: 300
+          window: 1m
+        user:
+          enabled: true
+          capacity: 120
+          window: 1m
 
 logging:
   level:
