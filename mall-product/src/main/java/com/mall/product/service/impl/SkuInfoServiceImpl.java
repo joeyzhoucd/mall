@@ -18,6 +18,7 @@ import com.mall.product.vo.SkuItemVo;
 import com.mall.product.vo.SpuItemAttrGroupVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.type.TypeReference;
 
@@ -101,6 +102,42 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
 
     @Autowired
     private ProductHotCacheInvalidator productHotCacheInvalidator;
+
+    /**
+     * 商品详情并行装配用的执行器。<b>必须显式给，不能用 runAsync 的单参重载。</b>
+     *
+     * <h3>不给执行器时它跑在 ForkJoinPool.commonPool() 上，而那个池在这里是废的</h3>
+     * common pool 的并行度是 {@code availableProcessors() - 1}。
+     * 容器的 CPU limit 是 500m，Java 21 认 cgroup 配额，所以
+     * {@code availableProcessors()} 返回 1 —— 实测确认过
+     * （运行中的 mall-product pod，{@code /actuator/prometheus} 里
+     * {@code system_cpu_count 1.0}）。
+     * <p>
+     * 于是 common pool 并行度是 <b>0</b>：它没有工作线程，任务在 join 时由
+     * <b>提交线程自己执行</b>。四个「并行」任务实际上是串行跑在请求线程上，
+     * 这套 CompletableFuture 编排一点并行度都没买到，只买到了复杂度。
+     *
+     * <h3>更糟的是这些任务会阻塞，而阻塞 common pool 是 JVM 级的影响</h3>
+     * 四个任务现在跑的是<b>带互斥重建的缓存读</b>，缓存击穿时
+     * MultiLevelCacheClient 会 {@code Thread.sleep} 轮询等锁
+     * （lockWait=300ms，lockRetryInterval=20ms），后面还可能落到 JDBC。
+     * common pool 是全 JVM 共享的（并行流也用它），在上面做阻塞 I/O
+     * 本来就是反模式。
+     * <p>
+     * 叠加起来的实际代价：串行 × 每个最多等 300ms = 一次商品详情请求最坏
+     * <b>多等 1.2 秒</b>（本该是 300ms）。而这只在缓存击穿时发生 ——
+     * 也就是最需要扛住的那一刻。
+     *
+     * <h3>为什么注入 applicationTaskExecutor 而不是自己 new 一个虚拟线程执行器</h3>
+     * {@code spring.threads.virtual.enabled=true} 在
+     * mall-common-default.properties 里对所有服务生效，此时 Boot 提供的
+     * applicationTaskExecutor 就是虚拟线程的 SimpleAsyncTaskExecutor。
+     * 注入它意味着这里<b>跟随全局开关</b>：将来关掉虚拟线程，
+     * 这里会退回 Boot 的平台线程池（对阻塞任务仍然比 common pool 合适），
+     * 而不是留下一处写死的、和全局配置不一致的实现。
+     */
+    @Autowired
+    private AsyncTaskExecutor applicationTaskExecutor;
 
     @Override
     public PageUtils queryPage(Map<String, Object> params) {
@@ -223,6 +260,21 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
                 SKU_ITEM_CACHE_OPTIONS);
     }
 
+    /**
+     * 装配商品详情。
+     *
+     * <h3>这四个任务现在是真的并行了，所以线程安全要显式确认一遍</h3>
+     * 改成传执行器之前它们是<b>串行</b>的（见 applicationTaskExecutor 的说明），
+     * 也就是说任何共享可变状态的问题都被掩盖着。现在不掩盖了。
+     * <p>
+     * 确认结论：四个任务各写 {@code skuItemVo} 的<b>不同字段</b>
+     * （saleAttr / desc / groupAttrs / images），不存在同字段竞争；
+     * 而 {@code allOf(...).get()} 给了 happens-before 边，
+     * 所以之后在本线程读这些字段是可见的。
+     * <p>
+     * 往这里加第五个任务时要重新做这个判断 —— 如果它和已有任务写同一个字段，
+     * 或者读另一个任务写的字段，那就不能这么并行。
+     */
     private SkuItemVo loadSkuItemFromDb(Long skuId) {
         SkuItemVo skuItemVo = new SkuItemVo();
 
@@ -232,25 +284,28 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
             return skuItemVo;
         }
 
+        // 四处都必须传 applicationTaskExecutor —— 不传会落到 ForkJoinPool.commonPool()，
+        // 而它在 500m CPU 下并行度为 0，等于把并行装配变回串行。
+        // 见 applicationTaskExecutor 字段上的说明（含实测数据）。
         CompletableFuture<Void> saleAttrFuture = CompletableFuture.runAsync(() -> {
             // 3. SPU Sale Attr Combination
             skuItemVo.setSaleAttr(getSaleAttrsBySpuIdCached(info.getSpuId()));
-        });
+        }, applicationTaskExecutor);
 
         CompletableFuture<Void> descFuture = CompletableFuture.runAsync(() -> {
             // 4. SPU Description
             skuItemVo.setDesc(getSpuDescCached(info.getSpuId()));
-        });
+        }, applicationTaskExecutor);
 
         CompletableFuture<Void> baseAttrFuture = CompletableFuture.runAsync(() -> {
             // 5. SPU Group Attrs
             skuItemVo.setGroupAttrs(getAttrGroupWithAttrsCached(info.getSpuId(), info.getCategoryId()));
-        });
+        }, applicationTaskExecutor);
 
         CompletableFuture<Void> imageFuture = CompletableFuture.runAsync(() -> {
             // 2. SKU Images
             skuItemVo.setImages(getSkuImagesCached(skuId));
-        });
+        }, applicationTaskExecutor);
 
         // Wait for all
         try {
