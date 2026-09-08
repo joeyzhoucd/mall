@@ -78,14 +78,35 @@ public class MallMqAutoConfiguration {
         return new RabbitAdmin(connectionFactory);
     }
 
+    /**
+     * 监听容器工厂。
+     *
+     * <h3>并发和预取必须显式设 —— Spring AMQP 的默认组合在这里是错的</h3>
+     * 默认是 {@code concurrentConsumers=1} + {@code prefetchCount=250}
+     * （从 spring-rabbit 4.1.1 的字节码确认过，不是凭记忆）。
+     * 一个消费者抓 250 条未确认消息、却一条一条处理，在 2 副本下会造成
+     * 「一个 pod 压着积压、另一个空闲」。理由和取值依据写在
+     * {@link MallMqProperties.Listener} 的类注释里。
+     *
+     * <h3>没有给它换虚拟线程执行器，这是有意的</h3>
+     * SimpleMessageListenerContainer 的消费者线程是<b>长期存在的阻塞循环</b>，
+     * 每个并发消费者一条。concurrency=1 时总共就一条线程，
+     * 换成虚拟线程既不省什么也不快什么 —— 虚拟线程的收益在于
+     * 「大量短生命周期的阻塞任务」，不是「一条常驻线程」。
+     * 真要提高并发度时再评估（那时候要一起看的是 DirectMessageListenerContainer，
+     * 它的线程模型更适合高并发消费，而不是简单地把 concurrency 调大）。
+     */
     @Bean(name = "rabbitListenerContainerFactory")
     @ConditionalOnMissingBean(name = "rabbitListenerContainerFactory")
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory,
-                                                                              MessageConverter messageConverter) {
+                                                                              MessageConverter messageConverter,
+                                                                              MallMqProperties properties) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(messageConverter);
         factory.setDefaultRequeueRejected(false);
+        factory.setConcurrentConsumers(properties.getListener().getConcurrency());
+        factory.setPrefetchCount(properties.getListener().getPrefetch());
         return factory;
     }
 
