@@ -9,3 +9,4 @@ com.mall.common.config.ActuatorObservationFilterAutoConfiguration
 com.mall.common.config.ConfigInsightAutoConfiguration
 com.mall.common.config.BusinessMetricsAutoConfiguration
 com.mall.common.config.MultiLevelCacheAutoConfiguration
+com.mall.common.config.ActuatorSanitizingAutoConfiguration
