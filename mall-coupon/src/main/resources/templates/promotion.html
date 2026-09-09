@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>优惠券领取</title>
+    <style>
+        body { font-family: Arial, "Microsoft YaHei", sans-serif; background: #f5f5f5; margin: 0; }
+        .topbar { background: #fff; padding: 10px 30px; border-bottom: 1px solid #eee; }
+        .topbar a { color: #333; text-decoration: none; margin-right: 16px; }
+        .container { max-width: 860px; margin: 30px auto; }
+        h2 { margin: 0 0 18px; font-size: 22px; }
+        .empty { background: #fff; padding: 40px; text-align: center; color: #666; border-radius: 4px; }
+        .coupon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(390px, 1fr)); gap: 16px; }
+        .coupon { background: #fff; border-radius: 4px; display: flex; overflow: hidden; }
+        .face { background: #e1251b; color: #fff; width: 130px; flex: 0 0 130px;
+                display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .face.out { background: #bbb; }
+        .amount { font-size: 30px; font-weight: bold; line-height: 1.1; }
+        .amount small { font-size: 15px; font-weight: normal; }
+        .threshold { font-size: 12px; margin-top: 6px; opacity: .9; }
+        .body { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; }
+        .name { font-size: 16px; margin-bottom: 6px; }
+        .meta { color: #888; font-size: 12px; line-height: 1.7; }
+        .actions { margin-top: auto; display: flex; align-items: center; gap: 10px; }
+        .btn { background: #e1251b; color: #fff; border: none; padding: 8px 22px;
+               border-radius: 3px; cursor: pointer; font-size: 14px; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .msg { font-size: 12px; min-height: 16px; }
+        .msg.ok { color: #2b8a3e; }
+        .msg.err { color: #e1251b; }
+        .remaining { color: #888; font-size: 12px; }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <a href="http://mall.com">商城首页</a>
+    <a href="http://search.mall.com/list.html">全部商品</a>
+    <a href="http://cart.mall.com/cart.html">购物车</a>
+    <span th:if="${session.loginUser == null}">
+        <a href="http://auth.mall.com/login.html">登录</a>
+    </span>
+    <span th:if="${session.loginUser != null}">
+        欢迎，[[${session.loginUser.nickname}]]
+    </span>
+</div>
+
+<div class="container">
+    <h2>优惠券</h2>
+
+    <div class="empty" th:if="${#lists.isEmpty(coupons)}">
+        当前没有可领取的优惠券活动。
+    </div>
+
+    <div class="coupon-list" th:unless="${#lists.isEmpty(coupons)}">
+        <!-- 已抢光的券【也会】出现在这里，显示成灰色的"已抢光"。
+             从列表里去掉会让用户以为活动不存在，见 CouponDao.selectPromotionCoupons。 -->
+        <div class="coupon" th:each="c : ${coupons}" th:attr="data-id=${c.id}">
+            <div class="face" th:classappend="${c.soldOut} ? 'out' : ''">
+                <div class="amount"><small>¥</small>[[${#numbers.formatDecimal(c.amount,1,0)}]]</div>
+                <div class="threshold" th:if="${c.minPoint != null and c.minPoint.signum() > 0}">
+                    满 [[${#numbers.formatDecimal(c.minPoint,1,0)}]] 可用
+                </div>
+                <div class="threshold" th:unless="${c.minPoint != null and c.minPoint.signum() > 0}">
+                    无门槛
+                </div>
+            </div>
+            <div class="body">
+                <div class="name" th:text="${c.couponName}">券名</div>
+                <div class="meta">
+                    <div>有效期至 <span th:text="${#dates.format(c.endTime,'yyyy-MM-dd')}">-</span></div>
+                    <div>领取截止 <span th:text="${#dates.format(c.enableEndTime,'yyyy-MM-dd')}">-</span></div>
+                    <div>每人限领 [[${c.perLimit}]] 张</div>
+                </div>
+                <div class="actions">
+                    <button type="button" class="btn receive-btn"
+                            th:disabled="${c.soldOut}"
+                            th:text="${c.soldOut} ? '已抢光' : '立即领取'">立即领取</button>
+                    <span class="remaining">剩 [[${c.remaining}]] / [[${c.publishCount}]]</span>
+                    <span class="msg"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /*
+     * 领券。每种失败都有自己的错误码（23001..23007），所以这里能给出准确提示，
+     * 而不是笼统的"领取失败"。码的定义见 com.mall.common.constant.ErrorCode。
+     *
+     * 【为什么成功之后不刷新整页】刷新会丢掉页面上其他券的提示信息，
+     * 而且用户很可能要连着领好几张。只更新这一张的状态就够了。
+     */
+    var MESSAGES = {
+        23001: '优惠券不存在',
+        23002: '已被领完',
+        23003: '你已经领过了',
+        23004: '活动未开始',
+        23005: '不在领取时间内',
+        23006: '会员等级不满足',
+        23007: '请先登录'
+    };
+
+    document.querySelectorAll('.coupon').forEach(function (card) {
+        var btn = card.querySelector('.receive-btn');
+        var msg = card.querySelector('.msg');
+        var remaining = card.querySelector('.remaining');
+        if (!btn || btn.disabled) { return; }
+
+        btn.addEventListener('click', function () {
+            // 双击防护。真正的防重复由数据库的唯一索引保证，这里只是别让用户
+            // 无谓地打出第二个请求 —— 服务端会用 23003 拒掉它。
+            btn.disabled = true;
+            msg.className = 'msg';
+            msg.textContent = '领取中…';
+
+            fetch('/coupon/promotion/receive/' + card.getAttribute('data-id'), {
+                method: 'POST',
+                credentials: 'same-origin'
+            }).then(function (r) {
+                return r.json();
+            }).then(function (data) {
+                if (data.code === 0) {
+                    msg.className = 'msg ok';
+                    msg.textContent = '领取成功';
+                    btn.textContent = '已领取';
+                    // 余量减一：不重新拉列表，因为并发下拉回来的数也是瞬时值，
+                    // 而这一次成功是确定的。
+                    var m = remaining.textContent.match(/剩 (\d+)/);
+                    if (m) {
+                        remaining.textContent = remaining.textContent.replace(
+                            /剩 \d+/, '剩 ' + Math.max(0, parseInt(m[1], 10) - 1));
+                    }
+                    return;
+                }
+                msg.className = 'msg err';
+                msg.textContent = MESSAGES[data.code] || data.msg || '领取失败';
+                if (data.code === 23007) {
+                    setTimeout(function () {
+                        window.location.href = 'http://auth.mall.com/login.html';
+                    }, 800);
+                    return;
+                }
+                // 已领完 / 已领过是终态，按钮不再放开；其他失败可以重试。
+                if (data.code === 23002) {
+                    btn.textContent = '已抢光';
+                    card.querySelector('.face').classList.add('out');
+                } else if (data.code !== 23003) {
+                    btn.disabled = false;
+                }
+            }).catch(function () {
+                msg.className = 'msg err';
+                msg.textContent = '网络异常，请重试';
+                btn.disabled = false;
+            });
+        });
+    });
+</script>
+</body>
+</html>

@@ -95,18 +95,81 @@
         </div>
 
         <div class="section">
+            <h3>优惠券</h3>
+            <!-- 列表里只有【当前金额下真能用的】券：门槛过滤由 mall-coupon 在 SQL 里做。
+                 让用户看到一张选不了的券、点了才报错是很差的交互。 -->
+            <p th:if="${#lists.isEmpty(confirmVo.coupons)}" class="muted">
+                没有可用的优惠券。<a href="http://seckill.mall.com/promotion.html">去领券</a>
+            </p>
+            <div th:unless="${#lists.isEmpty(confirmVo.coupons)}">
+                <label class="coupon-item">
+                    <input type="radio" name="couponHistoryId" value="" data-amount="0" checked>
+                    <span>不使用优惠券</span>
+                </label>
+                <label th:each="c : ${confirmVo.coupons}" class="coupon-item">
+                    <input type="radio" name="couponHistoryId"
+                           th:value="${c.id}"
+                           th:attr="data-amount=${c.amount}">
+                    <span th:text="${c.couponName}">券名</span>
+                    <span>减 ¥[[${#numbers.formatDecimal(c.amount,1,2)}]]</span>
+                    <span th:if="${c.minPoint != null and c.minPoint.signum() > 0}"
+                          class="muted">（满 ¥[[${#numbers.formatDecimal(c.minPoint,1,2)}]] 可用）</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="section">
             <h3>备注</h3>
             <input type="text" name="note" placeholder="订单备注">
         </div>
 
         <div class="summary">
+            <div>商品合计：<span>¥[[${#numbers.formatDecimal(confirmVo.totalAmount,1,2)}]]</span></div>
             <div>运费：<span>¥[[${#numbers.formatDecimal(confirmVo.freightAmount,1,2)}]]</span></div>
-            <div>合计：<span>¥[[${#numbers.formatDecimal(confirmVo.payAmount,1,2)}]]</span></div>
+            <div>优惠券抵扣：<span id="couponDiscount">-¥0.00</span></div>
+            <div>应付：<span id="payAmountText">¥[[${#numbers.formatDecimal(confirmVo.payAmount,1,2)}]]</span></div>
             <button type="submit" class="btn">提交订单并去支付</button>
         </div>
     </form>
 </div>
 <script th:inline="javascript">
+    // 结算页的原始应付（不含券）。服务端算出来的，不从页面文本里反解析。
+    var basePayAmount = /*[[${confirmVo.payAmount}]]*/ 0;
+
+    /*
+     * 【选券之后必须把 payPrice 重算，否则每一笔用券订单都下不了】
+     *
+     * submitOrder 里有一道价格校验：
+     *     |服务端算出的应付 - 客户端提交的 payPrice| > 0.01  ->  返回 code 2「价格已变动」
+     * 服务端算的是「总额 - 抵扣」，如果这里还提交原始总额，
+     * 差额恰好等于券面额，必然大于 0.01 —— 用户会看到"价格已变动"，
+     * 而实际上什么都没变，是前后端算法不一致。
+     *
+     * 抵扣的算法要和服务端逐字一致：min(券面额, 订单金额)。
+     * 服务端是 face.min(orderAmount)（CouponClaimServiceImpl.validateForUse），
+     * 目的是不让应付变成负数。这里少了这个 min，
+     * 一张 100 元券用在 60 元订单上，页面会显示应付 -40，提交又被判价格变动。
+     *
+     * 【这里算的数只用于显示和过校验，绝不是扣款依据】
+     * 真正的抵扣金额由服务端重新算（客户端传什么都不采信）。
+     */
+    function recalc() {
+        var checked = document.querySelector('input[name="couponHistoryId"]:checked');
+        var face = checked ? parseFloat(checked.getAttribute('data-amount') || '0') : 0;
+        if (isNaN(face) || face < 0) { face = 0; }
+        var discount = Math.min(face, basePayAmount);
+        var pay = basePayAmount - discount;
+        document.getElementById('couponDiscount').textContent = '-¥' + discount.toFixed(2);
+        document.getElementById('payAmountText').textContent = '¥' + pay.toFixed(2);
+        document.querySelector('input[name="payPrice"]').value = pay.toFixed(2);
+    }
+
+    Array.prototype.forEach.call(
+        document.querySelectorAll('input[name="couponHistoryId"]'),
+        function (el) { el.addEventListener('change', recalc); }
+    );
+    recalc();
+
     document.querySelector('form').addEventListener('submit', function (e) {
         if (!document.querySelector('input[name="addrId"]:checked')) {
             e.preventDefault();

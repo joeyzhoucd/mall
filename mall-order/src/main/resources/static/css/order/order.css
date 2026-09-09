@@ -29,6 +29,15 @@ body {
     display: block;
     margin-bottom: 10px;
 }
+/* 优惠券可选项。和 .address-item 一样是整行可点的 label，
+   多给一点行内间距，因为一行里有券名 / 面额 / 门槛三段文字。 */
+.coupon-item {
+    display: block;
+    margin-bottom: 10px;
+}
+.coupon-item span {
+    margin-right: 8px;
+}
 .form-row {
     display: flex;
     align-items: center;

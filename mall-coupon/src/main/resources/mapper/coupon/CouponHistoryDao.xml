@@ -9,12 +9,181 @@
         <result property="couponId" column="coupon_id"/>
         <result property="memberId" column="member_id"/>
         <result property="memberNickName" column="member_nick_name"/>
+        <result property="receiveSeq" column="receive_seq"/>
         <result property="getType" column="get_type"/>
         <result property="createTime" column="create_time"/>
+        <result property="expireTime" column="expire_time"/>
         <result property="useType" column="use_type"/>
         <result property="useTime" column="use_time"/>
         <result property="orderId" column="order_id"/>
         <result property="orderSn" column="order_sn"/>
     </resultMap>
+
+    <!--
+      会员持有的券。【必须显式映射】，因为两张表都有 use_type 而含义相反：
+        h.use_type -> status     使用状态 0未使用/1已使用/2已过期
+        c.use_type -> scopeType  适用范围 0全场/1指定分类/2指定商品
+      如果 VO 里两个都叫 useType，SELECT 里后出现的那个会覆盖前一个，
+      而且类型相同（都是 tinyint）、编译和运行都不报错 —— 表现是
+      "全场券显示成已过期"或"已用的券显示成可用"。这是个真实的静默陷阱。
+    -->
+    <resultMap type="com.mall.coupon.vo.MemberCouponVo" id="memberCouponMap">
+        <id     property="id"          column="history_id"/>
+        <result property="couponId"    column="coupon_id"/>
+        <result property="couponName"  column="coupon_name"/>
+        <result property="couponImg"   column="coupon_img"/>
+        <result property="amount"      column="amount"/>
+        <result property="minPoint"    column="min_point"/>
+        <result property="scopeType"   column="scope_type"/>
+        <result property="status"      column="status"/>
+        <result property="createTime"  column="create_time"/>
+        <result property="expireTime"  column="expire_time"/>
+        <result property="useTime"     column="use_time"/>
+        <result property="orderSn"     column="order_sn"/>
+    </resultMap>
+
+    <!-- 别名在 SQL 里就把两个 use_type 拆开，不依赖调用方记得区分。 -->
+    <sql id="memberCouponColumns">
+        h.id            AS history_id,
+        h.coupon_id     AS coupon_id,
+        c.coupon_name   AS coupon_name,
+        c.coupon_img    AS coupon_img,
+        c.amount        AS amount,
+        c.min_point     AS min_point,
+        c.use_type      AS scope_type,
+        h.use_type      AS status,
+        h.create_time   AS create_time,
+        h.expire_time   AS expire_time,
+        h.use_time      AS use_time,
+        h.order_sn      AS order_sn
+    </sql>
+
+    <!--
+      这个人已经领了这张券几张。
+
+      【它是限领机制的一半，不是辅助查询】
+      唯一索引 uk_member_coupon_seq 只保证「一个 seq 槽位一个赢家」，
+      给 seq 定上限的是调用方基于这个 COUNT 做的 already >= perLimit 检查。
+      实测（2026-09-08，30 并发/同一会员/per_limit=2）：
+        去掉检查 -> 3 张（seq=1,2,3）；加上检查 -> 2 张（seq=1,2）。
+      详见 CouponHistoryDao.countByMemberAndCoupon 的 javadoc。
+
+      走 uk_member_coupon_seq 的前缀 (member_id, coupon_id)，不会全表扫。
+    -->
+    <select id="countByMemberAndCoupon" resultType="int">
+        SELECT COUNT(*)
+          FROM sms_coupon_history
+         WHERE member_id = #{memberId}
+           AND coupon_id = #{couponId}
+    </select>
+
+    <!--
+      用券：0（未使用）-> 1（已使用），同时写上订单号。
+
+      WHERE 里三个条件缺一个都是一个洞：
+        id = ?           目标券
+        member_id = ?    越权保护 —— 少了它，猜到别人的 history id 就能用别人的券
+        use_type = 0     重复使用保护 —— 少了它，一张券能被两笔订单同时用掉
+
+      affected rows = 0 必须当失败处理让下单失败，不能忽略。
+    -->
+    <update id="markUsed">
+        UPDATE sms_coupon_history
+           SET use_type = 1,
+               use_time = #{now},
+               order_sn = #{orderSn},
+               order_id = #{orderId}
+         WHERE id = #{id}
+           AND member_id = #{memberId}
+           AND use_type = 0
+    </update>
+
+    <!--
+      补偿：1 -> 0，把券退回未使用。
+
+      【order_sn 必须在 WHERE 里】只按 id 退会退错券：
+      假如补偿重投，而这张券期间已经被会员用在了另一笔订单上，
+      只按 id 退会把那笔【有效】订单的券也退掉 —— 一张券被用两次。
+      带上 order_sn 就把补偿限定在"确实是这笔订单占用的那张"。
+    -->
+    <update id="markUnusedByOrder">
+        UPDATE sms_coupon_history
+           SET use_type = 0,
+               use_time = NULL,
+               order_sn = NULL,
+               order_id = NULL
+         WHERE id = #{id}
+           AND order_sn = #{orderSn}
+           AND use_type = 1
+    </update>
+
+    <!--
+      "我的优惠券"三个页签。
+
+      过期不落库、在读的时候算，所以 useType=0（可用）要额外排掉已过期的，
+      useType=2（已过期）反过来只要未使用且已过期的。
+      这样就不需要一个定时任务扫全表改状态 —— 那个任务挂掉会让过期券
+      一直显示成可用，而且不会有任何报错。
+    -->
+    <select id="selectMemberCoupons" resultMap="memberCouponMap">
+        SELECT <include refid="memberCouponColumns"/>
+          FROM sms_coupon_history h
+          JOIN sms_coupon c ON c.id = h.coupon_id
+         WHERE h.member_id = #{memberId}
+        <choose>
+            <when test="useType != null and useType == 0">
+               AND h.use_type = 0
+               AND (h.expire_time IS NULL OR h.expire_time &gt;= #{now})
+            </when>
+            <when test="useType != null and useType == 2">
+               AND h.use_type = 0
+               AND h.expire_time IS NOT NULL AND h.expire_time &lt; #{now}
+            </when>
+            <when test="useType != null">
+               AND h.use_type = #{useType}
+            </when>
+        </choose>
+         ORDER BY h.id DESC
+    </select>
+
+    <!--
+      结算页可选的券：未使用、未过期、且订单金额达到门槛。
+
+      门槛判断放 SQL 里是为了不让用户看到一张选不了的券。
+      但【后端用券时仍然要再校验一遍】—— 这个列表只是给 UI 看的，
+      客户端可以提交任意 couponHistoryId，不能信它只会提交列表里的那些。
+
+      【c.use_type = 0 是失败关闭，不是遗漏】
+      适用范围 1（指定分类）/ 2（指定商品）需要知道订单里有哪些 spu 和分类，
+      而 OrderServiceImpl.buildOrderItem 从来不填 oms_order_item 的
+      spu_id / category_id（实测这三列在库里全是 NULL），
+      购物车传来的 OrderItemVo 也只有 skuId。
+      也就是说范围限制目前【无法校验】，两个方向：
+        - 忽略范围照抵扣 -> 指定商品券能抵扣任意商品，直接的资金损失
+        - 当作不可用     -> 这类券暂时用不了，损失是零
+      选后者。用券接口里也会再拒一次（防御纵深）。
+      等 spu_id / category_id 补上之后，这个条件和那边的拒绝一起放开。
+    -->
+    <select id="selectUsableForAmount" resultMap="memberCouponMap">
+        SELECT <include refid="memberCouponColumns"/>
+          FROM sms_coupon_history h
+          JOIN sms_coupon c ON c.id = h.coupon_id
+         WHERE h.member_id = #{memberId}
+           AND h.use_type = 0
+           AND c.use_type = 0
+           AND (h.expire_time IS NULL OR h.expire_time &gt;= #{now})
+           AND (c.min_point IS NULL OR c.min_point &lt;= #{amount})
+         ORDER BY c.amount DESC, h.id ASC
+    </select>
+
+    <!-- 用券前的服务端校验：按 history id + 会员精确取一张，连券面。
+         member_id 写在 WHERE 里而不是查回来再比 —— 后者容易被后来的改动漏掉。 -->
+    <select id="selectOwnedCoupon" resultMap="memberCouponMap">
+        SELECT <include refid="memberCouponColumns"/>
+          FROM sms_coupon_history h
+          JOIN sms_coupon c ON c.id = h.coupon_id
+         WHERE h.id = #{id}
+           AND h.member_id = #{memberId}
+    </select>
 
 </mapper>

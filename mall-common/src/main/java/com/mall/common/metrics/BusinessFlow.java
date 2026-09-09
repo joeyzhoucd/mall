@@ -34,6 +34,19 @@ public final class BusinessFlow {
     /** 库存扣减（订单支付后真实扣掉）。 */
     public static final String STOCK_DEDUCT = "stock.deduct";
 
+    /**
+     * 领券。
+     * <p>
+     * 【为什么领券也要打点】领券压测的正确性判据是<b>计数</b>而不是错误：
+     * 并发 200 抢 10 张，超发时表现为 11 个成功 —— 没有任何异常、没有任何日志。
+     * 只有把每种结果分开计数，才能在 Grafana 上直接读出
+     * "成功数是否恰好等于发行量"。
+     */
+    public static final String COUPON_RECEIVE = "coupon.receive";
+
+    /** 用券（下单时抵扣）。 */
+    public static final String COUPON_USE = "coupon.use";
+
     // ------------------------------------------------ 下单失败原因（比返回码更细）
 
     /** 未登录或拿不到用户上下文。 */
@@ -59,6 +72,16 @@ public final class BusinessFlow {
 
     /** 落库或发 MQ 抛异常 —— 这条才是真正需要有人去看的。 */
     public static final String REASON_PERSIST_FAILED = "persist_failed";
+
+    /**
+     * 下单时用券失败（券已被并发订单用掉、已过期、不满门槛、不属于此人）。
+     * <p>
+     * 和 {@link #REASON_PERSIST_FAILED} 分开记：用券失败绝大多数是用户
+     * 停在结算页太久（券过期）或在两个标签页各下一单（券被抢先用掉），
+     * 属于正常业务拒绝；混进"落库失败"会让那个指标被无害噪声污染到没法定阈值。
+     * 这和当初把 duplicate_submit 从 persist_failed 里拆出来是同一个理由。
+     */
+    public static final String REASON_COUPON_INVALID = "coupon_invalid";
 
     // -------------------------------------------------------- 库存相关失败原因
 

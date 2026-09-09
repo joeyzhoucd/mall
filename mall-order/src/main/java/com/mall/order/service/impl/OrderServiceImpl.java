@@ -38,6 +38,7 @@ import com.mall.order.to.OrderCreateTo;
 import com.mall.order.to.UserInfoTo;
 import com.mall.order.vo.MemberAddressVo;
 import com.mall.order.vo.OrderConfirmVo;
+import com.mall.order.vo.OrderCouponVo;
 import com.mall.order.vo.OrderItemLockVo;
 import com.mall.order.vo.OrderItemVo;
 import com.mall.order.vo.OrderSubmitVo;
@@ -227,7 +228,154 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         confirmVo.setItems(items);
         confirmVo.setIntegration(0);
         confirmVo.setFreightAmount(BigDecimal.ZERO);
+        confirmVo.setCoupons(loadUsableCoupons(userInfoTo.getUserId(), confirmVo.getTotalAmount()));
         return confirmVo;
+    }
+
+    /**
+     * 结算页可用的券。
+     *
+     * <p><b>查不到就返回空列表，绝不让结算页打不开</b>：券是可选的增值功能，
+     * mall-coupon 挂了不该导致用户无法下单。这是 Feign 降级里"可降级"的典型 ——
+     * 和库存扣减那种"绝不可降级"的调用是两类东西
+     * （库存降级成"假装成功"就是超卖）。
+     */
+    private List<OrderCouponVo> loadUsableCoupons(Long memberId, BigDecimal totalAmount) {
+        if (memberId == null || totalAmount == null) {
+            return Collections.emptyList();
+        }
+        try {
+            R resp = couponFeignService.usableCoupons(memberId, totalAmount, internalToken);
+            List<OrderCouponVo> coupons = RUtils.getData(
+                    resp,
+                    "coupons",
+                    objectMapper,
+                    new TypeReference<List<OrderCouponVo>>() {}
+            );
+            return coupons == null ? Collections.emptyList() : coupons;
+        } catch (Exception e) {
+            // 只记不抛。日志里要留痕迹，否则"券列表一直是空的"会被当成"我没有券"。
+            log.warn("查询可用优惠券失败，结算页按无券继续 memberId={}", memberId, e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 预览抵扣金额。只读，不改任何状态。
+     *
+     * <h3>【这个调用不可降级】拿不到结果必须让下单失败，不能当作"没有券"继续</h3>
+     * 降级成 discount = 0 的后果是：用户明明选了一张 20 元券，
+     * 却被<b>按原价扣款</b>，而且订单上没有任何券的痕迹 —— 事后连投诉都难查。
+     * 直接失败（{@code code 5}）让用户重试，比静默多收钱好得多。
+     * <p>
+     * 这和 {@link #loadUsableCoupons} 恰好相反：那个是"可降级"的读路径
+     * （查不到券列表就按无券展示，不影响下单）。同一个下游服务的两个调用，
+     * 一个能降一个不能降 —— 所以降级策略必须按<b>调用</b>分类，不能按服务分类。
+     *
+     * @return 抵扣金额；null 表示券不可用或校验失败，调用方必须让下单失败
+     */
+    private BigDecimal previewCouponDiscount(Long couponHistoryId, Long memberId, BigDecimal totalAmount) {
+        try {
+            R resp = couponFeignService.previewCoupon(couponHistoryId, memberId, totalAmount, internalToken);
+            if (!RUtils.isOk(resp)) {
+                log.info("优惠券预览被拒 historyId={} memberId={} code={}",
+                        couponHistoryId, memberId, RUtils.getCode(resp));
+                return null;
+            }
+            // R 是 Map<String,Object>，Jackson 默认把 JSON 数字读成 Double，
+            // convertValue 再转 BigDecimal 走的是 BigDecimal.valueOf(double)
+            // （经 Double.toString），不是 new BigDecimal(double) 那个会产生
+            // 20.000000000000000444 的构造器，所以这里是安全的。
+            // 小数位数可能和库里的 decimal(18,4) 不一致，但只参与算术和 compareTo，
+            // scale 不影响结果。
+            BigDecimal discount = RUtils.getData(
+                    resp, "discount", objectMapper, new TypeReference<BigDecimal>() {});
+            if (discount == null || discount.signum() < 0) {
+                log.warn("优惠券预览返回了非法抵扣额，按不可用处理 historyId={} discount={}",
+                        couponHistoryId, discount);
+                return null;
+            }
+            return discount;
+        } catch (Exception e) {
+            log.warn("优惠券预览调用失败，下单终止 historyId={} memberId={}", couponHistoryId, memberId, e);
+            return null;
+        }
+    }
+
+    /**
+     * 把抵扣金额写进订单。
+     *
+     * <p>{@code payAmount} 和 {@code payPrice} 都要改：前者是落库的字段，
+     * 后者是用来和客户端提交的 {@code payPrice} 做比对的。漏改任何一个，
+     * 每一笔用券订单都会被判成"价格已变动"。
+     * <p>
+     * 不动 {@code discountAmount} —— 那一列是会员价/促销优惠，和券是两回事，
+     * 混在一起会让后续对账分不清钱是从哪减掉的。
+     */
+    private void applyCouponDiscount(OrderCreateTo orderCreateTo, BigDecimal discount) {
+        OrderEntity order = orderCreateTo.getOrder();
+        BigDecimal payAmount = order.getTotalAmount().subtract(discount);
+        // 抵扣不超过订单金额这一条 mall-coupon 侧已经保证了（face.min(orderAmount)），
+        // 这里再兜一次：跨服务的约定不该只由一边维护，而且负数应付
+        // 在 decimal(18,4) 里存得下、不会有任何报错。
+        if (payAmount.signum() < 0) {
+            log.warn("抵扣额大于订单金额，按 0 处理 orderSn={} total={} discount={}",
+                    order.getOrderSn(), order.getTotalAmount(), discount);
+            payAmount = BigDecimal.ZERO;
+            discount = order.getTotalAmount();
+        }
+        order.setCouponAmount(discount);
+        order.setPayAmount(payAmount);
+        orderCreateTo.setPayPrice(payAmount);
+    }
+
+    /**
+     * 用券。<b>返回 false 必须让下单失败</b> —— 忽略它就是一张券抵扣两笔订单。
+     *
+     * <p>抛异常也算失败：券没被成功标记为已使用就继续下单，等于白送一次抵扣。
+     */
+    private boolean useCoupon(Long couponHistoryId, Long memberId, BigDecimal totalAmount, String orderSn) {
+        try {
+            R resp = couponFeignService.useCoupon(couponHistoryId, memberId, totalAmount, orderSn, internalToken);
+            if (!RUtils.isOk(resp)) {
+                log.info("用券被拒 historyId={} orderSn={} code={}",
+                        couponHistoryId, orderSn, RUtils.getCode(resp));
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn("用券调用失败，下单终止 historyId={} orderSn={}", couponHistoryId, orderSn, e);
+            return false;
+        }
+    }
+
+    /**
+     * 退券补偿 —— <b>保证不抛异常</b>。
+     *
+     * <p>这个"保证"是它存在的全部理由。调用点有两个，都在失败路径上：
+     * 锁库存失败之后，以及 {@code saveOrder} 的 catch 块里。后者尤其关键 ——
+     * 那个 catch 块里还有 {@code sendStockRelease}，而这个仓库已经因为
+     * "catch 里的补偿动作自己抛异常"吃过一次大亏：异常穿透 catch，
+     * 后面的补偿一个都没执行，锁定库存永久泄漏。
+     * <p>
+     * 所以这里把 {@code Throwable} 都吃掉，只留日志。
+     * 幂等性在 mall-coupon 侧保证（{@code markUnusedByOrder} 的 WHERE 带
+     * order_sn 和 use_type=1），重复调用无副作用。
+     */
+    private void releaseCouponQuietly(Long couponHistoryId, String orderSn) {
+        if (couponHistoryId == null || orderSn == null) {
+            return;
+        }
+        try {
+            couponFeignService.releaseCoupon(couponHistoryId, orderSn, internalToken);
+            log.info("已请求退券 historyId={} orderSn={}", couponHistoryId, orderSn);
+        } catch (Throwable t) {
+            // 【绝不重抛】这里抛出去会连累同一个 catch 块里的库存释放。
+            // 退不掉的后果是一张券被占着（用户损失一张券，可人工退回），
+            // 而库存释放不掉的后果是商品卖不出去 —— 后者严重得多。
+            log.error("退券失败，这张券会一直是已使用状态，需要人工处理 historyId={} orderSn={}",
+                    couponHistoryId, orderSn, t);
+        }
     }
 
     @Override
@@ -267,6 +415,27 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         }
 
         OrderCreateTo orderCreateTo = createOrder(submitVo, userInfoTo);
+
+        // -------------------------------------------------------------------
+        // 券抵扣：必须在价格校验【之前】算进应付金额
+        // -------------------------------------------------------------------
+        // 价格校验比的就是"含券的应付金额"。如果先校验再算券，用户选了券之后
+        // 前端算出的应付和后端算出的不含券应付必然不等，每一笔用券订单都会被
+        // 判成"价格已变动"。
+        //
+        // preview 是【只读】调用，不改任何状态，所以它失败不需要任何补偿。
+        Long couponHistoryId = submitVo.getCouponHistoryId();
+        if (couponHistoryId != null) {
+            BigDecimal discount = previewCouponDiscount(
+                    couponHistoryId, userInfoTo.getUserId(), orderCreateTo.getOrder().getTotalAmount());
+            if (discount == null) {
+                businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_COUPON_INVALID);
+                responseVo.setCode(5);
+                return responseVo;
+            }
+            applyCouponDiscount(orderCreateTo, discount);
+        }
+
         if (submitVo.getPayPrice() != null) {
             BigDecimal delta = orderCreateTo.getPayPrice().subtract(submitVo.getPayPrice()).abs();
             if (delta.compareTo(new BigDecimal("0.01")) > 0) {
@@ -276,9 +445,36 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             }
         }
 
+        // -------------------------------------------------------------------
+        // 用券排在【锁库存之前】—— 这个顺序是刻意的，理由是补偿的可靠性
+        // -------------------------------------------------------------------
+        // 直觉会想"先锁库存，因为缺货更常见，能少走一次补偿"。但反过来才对：
+        //
+        //   券在前：锁库存失败 -> 退券。退券是【同步 Feign 调用】，
+        //           不受本地事务回滚影响，而且 mall-coupon 侧幂等，立即生效。
+        //
+        //   券在后：用券失败 -> 要还库存。而这一刻 saveOrder 还没跑，
+        //           oms_order_item 里【没有任何明细】，
+        //           而 sendStockRelease 是从库里读明细来组消息的 —— 它会直接
+        //           空转返回，一个字节都不发。锁掉的库存只能等 mall-ware 的
+        //           StockRetryScheduler 去兜（它查订单状态拿到 ORDER_NOT_FOUND，
+        //           当成 CLOSED 再释放）。能兜住，但是延迟释放。
+        //
+        // 所以：让"能立即可靠补偿"的那个资源先被占用。多走几次退券没关系，
+        // 退券便宜且可靠；库存晚释放才是会影响别人下单的那一头。
+        if (couponHistoryId != null
+                && !useCoupon(couponHistoryId, userInfoTo.getUserId(),
+                        orderCreateTo.getOrder().getTotalAmount(),
+                        orderCreateTo.getOrder().getOrderSn())) {
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_COUPON_INVALID);
+            responseVo.setCode(5);
+            return responseVo;
+        }
+
         WareSkuLockVo lockVo = buildLockVo(orderCreateTo);
         R lockResp = wareFeignService.orderLockStock(lockVo);
         if (lockResp == null || lockResp.getCode() != 0) {
+            releaseCouponQuietly(couponHistoryId, orderCreateTo.getOrder().getOrderSn());
             businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_STOCK_LOCK_FAILED);
             responseVo.setCode(3);
             return responseVo;
@@ -290,6 +486,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             clearCartItems(orderCreateTo);
         } catch (Exception e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            // 【退券排在库存释放之前】补偿动作的顺序不是风格问题。
+            // releaseCouponQuietly 内部把所有异常都吃掉了，保证不抛；
+            // 而 sendStockRelease 要写 oms_order_outbox_message 表 ——
+            // 这个 catch 块历史上就是因为它抛异常（那张表当时根本不存在）
+            // 导致后面的补偿一个都没执行，锁定库存永久泄漏。
+            // 把"保证不抛"的放前面，两个补偿就都能跑到。
+            releaseCouponQuietly(couponHistoryId, orderCreateTo.getOrder().getOrderSn());
             sendStockRelease(orderCreateTo.getOrder().getOrderSn());
             businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_PERSIST_FAILED);
             responseVo.setCode(1);

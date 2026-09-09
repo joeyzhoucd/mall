@@ -27,4 +27,95 @@
         <result property="publish" column="publish"/>
     </resultMap>
 
+    <!-- 促销页 VO。【必须显式映射】：VO 里适用范围叫 scopeType 而列叫 use_type，
+         靠 map-underscore-to-camel-case 会映成 useType（VO 里没这个属性）→ 静默为 null，
+         前端拿到的适用范围全是"未知"。改名的理由见 PromotionCouponVo 的命名警告。 -->
+    <resultMap type="com.mall.coupon.vo.PromotionCouponVo" id="promotionCouponMap">
+        <id     property="id"              column="id"/>
+        <result property="couponName"      column="coupon_name"/>
+        <result property="couponImg"       column="coupon_img"/>
+        <result property="amount"          column="amount"/>
+        <result property="minPoint"        column="min_point"/>
+        <result property="scopeType"       column="use_type"/>
+        <result property="perLimit"        column="per_limit"/>
+        <result property="publishCount"    column="publish_count"/>
+        <result property="receiveCount"    column="receive_count"/>
+        <result property="endTime"         column="end_time"/>
+        <result property="enableEndTime"   column="enable_end_time"/>
+        <result property="note"            column="note"/>
+    </resultMap>
+
+    <!--
+      占一张名额 —— 总量不超发的唯一保证。
+
+      条件三个都不能少：
+        publish = 1                       未发布的券不能被领（草稿活动会被提前领走且无法撤回）
+        receive_count < publish_count     发行上限
+        id = ?                            目标券
+
+      单条 UPDATE 是原子的：InnoDB 先拿行锁再求值 WHERE，所以不会出现
+      "两个请求都看到还剩最后 1 张"。affected rows 就是结论，不需要再查一次。
+
+      【NULL 陷阱】publish_count / receive_count 必须 NOT NULL。
+      NULL 参与比较得到 UNKNOWN，这条 WHERE 就永远不成立，UPDATE 恒 affected 0，
+      表现是"一张都领不到"且无任何报错。建表时它们是 DEFAULT NULL，
+      migration-2026-09-08-coupon-claim.sql 改成了 NOT NULL DEFAULT 0。
+    -->
+    <update id="tryReserveOne">
+        UPDATE sms_coupon
+           SET receive_count = receive_count + 1
+         WHERE id = #{id}
+           AND publish = 1
+           AND receive_count &lt; publish_count
+    </update>
+
+    <!-- 归还名额。receive_count > 0 防止补偿重投把计数压成负数 ——
+         负数会让 receive_count < publish_count 永远成立，等于发行上限失效。 -->
+    <update id="releaseOne">
+        UPDATE sms_coupon
+           SET receive_count = receive_count - 1
+         WHERE id = #{id}
+           AND receive_count &gt; 0
+    </update>
+
+    <update id="incrementUseCount">
+        UPDATE sms_coupon
+           SET use_count = use_count + 1
+         WHERE id = #{id}
+    </update>
+
+    <update id="decrementUseCount">
+        UPDATE sms_coupon
+           SET use_count = use_count - 1
+         WHERE id = #{id}
+           AND use_count &gt; 0
+    </update>
+
+    <!--
+      促销页列表。
+
+      刻意【不加】 receive_count < publish_count：已抢光的券也要返回，
+      前端显示成"已抢光"。从列表里去掉会让用户以为活动不存在。
+
+      【member_level > 0 的券被排除掉，这是失败关闭，不是遗漏】
+      会员等级体系目前不存在：ums_member_level 实测 0 行，
+      而且没有任何接口能查到某个会员的等级（mall-coupon 的 MemberFeignService
+      只有地址相关的两个方法，mall-member 也没暴露等级）。
+      于是 member_level 这个限制【无法校验】，两个方向：
+        - 忽略它照发  -> 等级专属券被所有人领走，是真金白银的损失，且不可撤回
+        - 当作不可领  -> 活动暂时不可用，损失是零
+      选后者。领取接口里也会再拒一次（防御纵深，见 CouponClaimServiceImpl）。
+      等以后真做了等级体系，这里和领取校验一起放开。
+    -->
+    <select id="selectPromotionCoupons" resultMap="promotionCouponMap">
+        SELECT id, coupon_name, coupon_img, amount, min_point, use_type, per_limit,
+               publish_count, receive_count, end_time, enable_end_time, note
+          FROM sms_coupon
+         WHERE publish = 1
+           AND (member_level IS NULL OR member_level = 0)
+           AND (enable_start_time IS NULL OR enable_start_time &lt;= #{now})
+           AND (enable_end_time   IS NULL OR enable_end_time   &gt;= #{now})
+         ORDER BY min_point ASC, amount DESC, id ASC
+    </select>
+
 </mapper>
