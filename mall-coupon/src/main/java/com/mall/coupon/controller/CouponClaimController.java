@@ -2,12 +2,15 @@ package com.mall.coupon.controller;
 
 import com.mall.common.constant.ErrorCode;
 import com.mall.common.utils.R;
+import com.mall.coupon.config.CouponClaimBulkheadConfiguration;
+import com.mall.coupon.config.SeckillBulkhead;
 import com.mall.coupon.interceptor.CouponInterceptor;
 import com.mall.coupon.service.CouponClaimService;
 import com.mall.coupon.to.UserInfoTo;
 import com.mall.coupon.vo.MemberCouponVo;
 import com.mall.coupon.vo.PromotionCouponVo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -64,6 +67,17 @@ public class CouponClaimController {
     @Autowired
     private CouponClaimService couponClaimService;
 
+    /**
+     * 领券的并发闸门。
+     *
+     * <p><b>限定符不能省</b>：这个服务里有两个 {@code SeckillBulkhead} 类型的 bean
+     * （秒杀一个、领券一个），按类型注入会是歧义，编译通过但启动直接崩。
+     * 见 {@link com.mall.coupon.config.CouponClaimBulkheadConfiguration}。
+     */
+    @Autowired
+    @Qualifier(CouponClaimBulkheadConfiguration.BEAN)
+    private SeckillBulkhead claimBulkhead;
+
     @Value("${mall.seckill.internal-token}")
     private String internalToken;
 
@@ -91,6 +105,23 @@ public class CouponClaimController {
      *
      * <p>返回的 {@code code} 就是 {@link ErrorCode} 的码，每种失败一个 ——
      * 压测靠它区分"券发完了"(23002) 和"这个人领满了"(23003)。
+     *
+     * <h3>【外面套了并发闸门】过载时快速拒绝，而不是一起卡在连接池上</h3>
+     * 2026-09-09 压测实测：没有闸门时 200 rps 会产生 2064 次 Hikari 连接获取超时、
+     * 对应 2063 个 HTTP 500。池只有 5 个连接，而 600 个在途请求全都挤上去，
+     * 每个等满 3 秒再一起失败。
+     * <p>
+     * 闸门把这个失败模式换成：容量之内正常处理，超出的立刻返回
+     * {@code 23008 太忙}。三个好处：
+     * <ul>
+     *   <li>被拒的用户 <b>3 毫秒</b>就得到答复，而不是等 3 秒</li>
+     *   <li>返回的是一个语义正确、<b>可重试</b>的业务码，不是 500</li>
+     *   <li>拒绝次数有独立计数器，过载程度可观测</li>
+     * </ul>
+     *
+     * <h3>身份检查放在闸门【外面】</h3>
+     * 未登录的请求根本不消耗通行证 —— 它不碰数据库，没有理由占用为
+     * 真实业务准备的并发额度。反过来把它放进去，一波匿名流量就能把闸门占满。
      */
     @PostMapping("/receive/{couponId}")
     public R receive(@PathVariable("couponId") Long couponId) {
@@ -98,12 +129,16 @@ public class CouponClaimController {
         if (user == null || user.getUserId() == null) {
             return R.error(ErrorCode.COUPON_UNAUTHENTICATED);
         }
-        CouponClaimService.ClaimResult result =
-                couponClaimService.receive(couponId, user.getUserId(), user.getUsername());
-        if (!result.ok()) {
-            return R.error(result.code());
-        }
-        return R.ok().put("historyId", result.historyId());
+        return claimBulkhead.call(
+                () -> {
+                    CouponClaimService.ClaimResult result =
+                            couponClaimService.receive(couponId, user.getUserId(), user.getUsername());
+                    if (!result.ok()) {
+                        return R.error(result.code());
+                    }
+                    return R.ok().put("historyId", result.historyId());
+                },
+                () -> R.error(ErrorCode.COUPON_TOO_BUSY));
     }
 
     /**

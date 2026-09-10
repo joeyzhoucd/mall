@@ -1,12 +1,26 @@
 package com.mall.admin;
 
+import com.mall.testsupport.Containers;
 import com.mall.testsupport.MallIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * 上下文启动的集成测试。本服务需要的容器：MySQL（health 里只有 db）。
+ * 上下文启动的集成测试。本服务需要的容器：MySQL + Redis。
+ *
+ * <h3>【2026-09-09 加了 Redis】漏掉它会让服务起不来，而且编译期完全看不出</h3>
+ * 验证码从进程内存改到 Redis 之后（见 {@code CaptchaService}），
+ * mall-admin 多了一个 {@code StringRedisTemplate} 依赖，
+ * 而 {@code EagerConnectionWarmup} 会在启动时真的去开一条 Redis 连接。
+ * 没有 Redis 容器，上下文起不来。
+ * <p>
+ * 这正是 2026-09-08 mall-ware 踩过的坑的镜像版本：那次是 pom 里漏了
+ * {@code spring-boot-starter-data-redis}（mall-common 里它是 optional、不传递），
+ * 导致 classpath 上没有 {@code StringRedisTemplate}，
+ * {@code MultiLevelCacheAutoConfiguration} 里 {@code @ConditionalOnClass} 的一整块
+ * 被<b>静默跳过</b>，依赖它的 bean 造不出来 -> crashloop。
+ * 两次的共同点：<b>Redis 相关的装配问题只有真起一次容器才会暴露</b>。
  *
  * <h3>为什么用 AdminContainers 而不是共享的 Containers.Mysql</h3>
  * 共享容器起的是空库。加上定时任务之后 mall-admin <b>在启动时就要查表</b>
@@ -33,7 +47,7 @@ import org.springframework.test.context.TestPropertySource;
  * 这个差异是<b>有意的</b>，不是配置漂移。
  */
 @MallIntegrationTest
-@Import(AdminContainers.MysqlWithSchema.class)
+@Import({AdminContainers.MysqlWithSchema.class, Containers.Redis.class})
 @TestPropertySource(properties = {
         // 见类注释：测试容器是空库，让 Quartz 自己建它那 11 张表。
         // 生产是 never，因为表已经存在且带着历史数据。

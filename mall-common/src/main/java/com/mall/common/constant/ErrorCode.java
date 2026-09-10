@@ -30,6 +30,21 @@ public enum ErrorCode {
     COUPON_RECEIVE_WINDOW_CLOSED(23005, "不在领取时间内"),
     COUPON_MEMBER_LEVEL_NOT_MATCH(23006, "会员等级不满足领取条件"),
     COUPON_UNAUTHENTICATED(23007, "请先登录"),
+    /**
+     * 领取的人太多，被并发闸门挡下。
+     *
+     * <p>【为什么单独一个码，而不是复用 SOLD_OUT 或返回 500】
+     * 这三件事对用户和对客户端重试策略都完全不同：
+     * <ul>
+     *   <li>{@code 23002 已领完} —— 终态，<b>不要重试</b></li>
+     *   <li>{@code 23008 太忙}   —— 瞬时，<b>稍后重试有意义</b></li>
+     *   <li>{@code 500}          —— 服务出错，是缺陷，不该出现在正常过载路径上</li>
+     * </ul>
+     * 2026-09-09 压测实测：没有闸门时过载表现为 2063 个 500
+     * （Hikari 池耗尽 -> MyBatisSystemException），而那既不可重试也没有日志。
+     * 有了这个码，过载变成一个显式的、可计数的、语义正确的拒绝。
+     */
+    COUPON_TOO_BUSY(23008, "领取的人太多，请稍后再试"),
     // 以下三个是「用券」阶段的，由 mall-order 通过 Feign 触发
     COUPON_NOT_OWNED(23010, "优惠券不属于当前会员"),
     COUPON_ALREADY_USED(23011, "优惠券已被使用"),

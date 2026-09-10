@@ -31,6 +31,7 @@ public class SeckillGrabController {
     public static final String INTERNAL_TOKEN_HEADER = "X-Seckill-Internal-Token";
 
     @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("seckillBulkhead")
     private com.mall.coupon.config.SeckillBulkhead bulkhead;
 
     @Autowired

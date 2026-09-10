@@ -2,6 +2,7 @@ package com.mall.coupon.config;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -51,21 +52,21 @@ import org.springframework.context.annotation.Configuration;
 public class SeckillMetrics {
 
     @Bean
-    public Gauge seckillBulkheadAvailablePermits(MeterRegistry registry, SeckillBulkhead bulkhead) {
+    public Gauge seckillBulkheadAvailablePermits(MeterRegistry registry, @Qualifier("seckillBulkhead") SeckillBulkhead bulkhead) {
         return Gauge.builder("seckill.bulkhead.available.permits", bulkhead, SeckillBulkhead::availablePermits)
                 .description("秒杀闸门当前还能放进来多少个（上限减在途）。长期贴近 0 说明闸门已成为瓶颈")
                 .register(registry);
     }
 
     @Bean
-    public Gauge seckillBulkheadCapacity(MeterRegistry registry, SeckillBulkhead bulkhead) {
+    public Gauge seckillBulkheadCapacity(MeterRegistry registry, @Qualifier("seckillBulkhead") SeckillBulkhead bulkhead) {
         return Gauge.builder("seckill.bulkhead.capacity", bulkhead, SeckillBulkhead::capacity)
                 .description("秒杀闸门的并发上限。自适应模式下这是【当前】限额、会随延迟变化，那条曲线本身就是最有价值的观测量；静态模式下是常量。和 available.permits 一起算使用率")
                 .register(registry);
     }
 
     @Bean
-    public Gauge seckillBulkheadRejected(MeterRegistry registry, SeckillBulkhead bulkhead) {
+    public Gauge seckillBulkheadRejected(MeterRegistry registry, @Qualifier("seckillBulkhead") SeckillBulkhead bulkhead) {
         return Gauge.builder("seckill.bulkhead.rejected.total", bulkhead, SeckillBulkhead::rejectedCount)
                 .description("累计被闸门挡下的请求数（进程内计数，pod 重启归零）")
                 .register(registry);

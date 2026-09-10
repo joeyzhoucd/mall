@@ -53,6 +53,23 @@ spring:
       connection-timeout: 3000
       max-lifetime: 1800000
       keepalive-time: 300000
+  # ---------- Redis ----------
+  # 验证码存在这里（见 CaptchaService）。原来是进程内 ConcurrentHashMap，
+  # 多副本下会出现「在 A 实例取的码到 B 实例校验不到」，表现成随机的验证码错误。
+  #
+  # 【这不是理论问题，已经发生过】mall-admin 从 2026-09-01 到 2026-09-09
+  # 一直是 replicaCount=2，而 Service 的 sessionAffinity=None、Ingress 也没有
+  # sticky 注解、验证码走 lb://mall-admin 轮询 —— 取图和提交登录是两个独立请求、
+  # 各自独立负载均衡，所以那八天里后台登录大约有一半概率过不了验证码。
+  # 现在放 Redis，mall-admin 可以安全扩副本（HPA 的前置条件）。
+  #
+  # 拓扑和其它服务一致：一主二从 + 三哨兵，只连哨兵不连主节点地址。
+  data:
+    redis:
+      sentinel:
+        master: ${REDIS_SENTINEL_MASTER:mymaster}
+        nodes: ${REDIS_SENTINEL_NODES:redis-sentinel-0.redis-sentinel:26379,redis-sentinel-1.redis-sentinel:26379,redis-sentinel-2.redis-sentinel:26379}
+      database: 0
   # 请求/响应编码。注意前缀是 spring.servlet.encoding.*，不是 server.servlet.encoding.*
   # （后者从 Boot 3.0 起就不再绑定了，写了完全不生效——mall-order 踩过，中文直接乱码）。
   servlet:
@@ -108,6 +125,11 @@ mall:
       # 想要"登出即失效"需要额外做一个 Redis 黑名单，当前没做。
       expire-seconds: ${JWT_EXPIRE_SECONDS:43200}
     captcha:
-      # 验证码有效期。存在服务端内存里，多副本下会出现"在 A 实例取的码到 B 实例校验不到"，
-      # 所以 replicaCount>1 时必须改成放 Redis。当前单副本，先用内存实现并把这个限制写清楚。
+      # 验证码有效期，也是 Redis key 的 TTL（2026-09-09 起存 Redis，不再是进程内存，
+      # 见 CaptchaService 的类注释；原来的内存实现在 replicaCount=2 期间
+      # 让后台登录有一半概率过不了验证码）。
+      #
+      # 300 秒：够慢慢输，又不至于让一张图长期可用。
+      # 注意它同时是"一张图能被尝试的时间窗"——但因为校验用 GETDEL 取一次就没了，
+      # 实际每张图只能被试【一次】，这个时长不影响撞码难度。
       expire-seconds: 300

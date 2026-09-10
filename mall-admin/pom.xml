@@ -32,6 +32,22 @@
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
 
+        <!--
+          Redis。验证码要存在这里，不能再放进程内存 —— 见 CaptchaService 的类注释。
+
+          【必须显式声明，不能指望从 mall-common 传递过来】
+          mall-common 里这个 starter 是 <optional>true</optional>，optional 依赖
+          不会传递给下游模块。2026-09-08 mall-ware 就是漏了这一条：
+          classpath 上没有 StringRedisTemplate ->
+          MultiLevelCacheAutoConfiguration 里 @ConditionalOnClass 的那一整块被
+          静默跳过 -> 依赖它的 bean 造不出来 -> 服务 crashloop。
+          编译期完全看不出来，只有起容器才会暴露。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- Spring Security 7（随 Boot 4.1.1 的 BOM）。取代原来的 Shiro：
              Shiro 的 javax.servlet 绑定是 jakarta 迁移的主要障碍之一，而且社区活跃度和
              Spring 生态集成度都不如 Spring Security，重建时没有理由沿用。 -->
