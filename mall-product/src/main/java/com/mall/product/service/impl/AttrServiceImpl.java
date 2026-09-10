@@ -72,7 +72,7 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
         // 一处写对一处写错，而写错的那处没有任何报错。
         //
         // 0 表示不限是 gulimall 沿用下来的约定（前端筛选框的"全部"传 0）。
-        Long categoryId = positiveLongOrNull(params.get("categoryId"));
+        Long categoryId = FilterParams.positiveLongOrNull(params.get("categoryId"));
         wrapper.eq(categoryId != null, "category_id", categoryId);
 
         Integer type = (Integer) params.get("attr_type");
@@ -170,37 +170,6 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
         return queryAttrPage(params);
     }
 
-    /**
-     * 把查询参数里的分类 id 解析成"正数或 null"。
-     *
-     * <p>请求参数是 {@code Map<String, Object>}，同一个键可能是 String（走 HTTP 来的）
-     * 也可能是 Long（服务内部调用塞进去的），所以两种都要认。
-     *
-     * <p><b>0、负数、空串、解析不出来 一律当成"不限分类"（返回 null）</b>，
-     * 交给 {@code wrapper.eq(condition, ...)} 直接跳过这个条件。
-     * 解析失败时不抛异常：这只是一个筛选条件，前端传了个空串就变成 500 是不合理的
-     * （和 OrderServiceImpl.parseLong 的取舍一致）。
-     */
-    static Long positiveLongOrNull(Object raw) {
-        if (raw == null) {
-            return null;
-        }
-        long v;
-        if (raw instanceof Number number) {
-            v = number.longValue();
-        } else {
-            String s = String.valueOf(raw).trim();
-            if (s.isEmpty()) {
-                return null;
-            }
-            try {
-                v = Long.parseLong(s);
-            } catch (NumberFormatException e) {
-                return null;
-            }
-        }
-        return v > 0 ? v : null;
-    }
 
     @Transactional
     @Override

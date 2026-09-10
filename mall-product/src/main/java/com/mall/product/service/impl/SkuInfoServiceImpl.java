@@ -171,22 +171,24 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
         }
 
         // Filter by category and brand
-        Object categoryIdObj = params.get("categoryId");
-        if (categoryIdObj != null) {
-            try {
-                Long categoryId = Long.valueOf(String.valueOf(categoryIdObj));
-                wrapper.eq("category_id", categoryId);
-            } catch (Exception ignored) {
-            }
-        }
-        Object brandIdObj = params.get("brandId");
-        if (brandIdObj != null) {
-            try {
-                Long brandId = Long.valueOf(String.valueOf(brandIdObj));
-                wrapper.eq("brand_id", brandId);
-            } catch (Exception ignored) {
-            }
-        }
+        // ------------------------------------------------------------------
+        // 【0 表示"不限"，必须显式排除】这里原来只判了 != null
+        // ------------------------------------------------------------------
+        // 目前没有触发，因为前端 SkuQuery.categoryId 是可选的、两个调用点都不传它，
+        // 而 buildUrl 会把 undefined 的键丢掉。也就是说这一处是【靠调用方恰好
+        // 不传 0 才安全的】—— 谁给 SKU 列表加一个"全部 = 0"的分类筛选，
+        // 这一页立刻变成永远空白。
+        //
+        // 这不是假想：同模块的 AttrServiceImpl.queryAttrPage 就是这么坏的
+        // （2026-09-10，规格属性和销售属性两页的列表一直是空的，
+        //  而接口返回 code 0 / totalCount 0，看起来像"就是没数据"）。
+        // 两个文件之外的 SpuInfoServiceImpl 用的是正确写法（连 > 0 一起判），
+        // 同一个模块里三种写法并存，所以在这里对齐成正确的那一种。
+        Long categoryId = FilterParams.positiveLongOrNull(params.get("categoryId"));
+        wrapper.eq(categoryId != null, "category_id", categoryId);
+
+        Long brandId = FilterParams.positiveLongOrNull(params.get("brandId"));
+        wrapper.eq(brandId != null, "brand_id", brandId);
 
         // 分页必须有确定的排序，否则每一页都是一次独立的无序查询，
         // 行会在页与页之间重复或漏掉 —— 数据少于一页时完全看不出来。
