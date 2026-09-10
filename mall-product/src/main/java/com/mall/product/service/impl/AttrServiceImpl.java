@@ -52,9 +52,29 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
     }
 
     public PageUtils queryAttrPage(Map<String, Object> params) {
-        Object categoryId = params.getOrDefault("categoryId", 0L);
         QueryWrapper<AttrEntity> wrapper = new QueryWrapper<>();
-        wrapper.eq("category_id", categoryId);
+
+        // ------------------------------------------------------------------
+        // 【categoryId 缺失或为 0 表示"不限分类"，绝不能无条件加等值条件】
+        // ------------------------------------------------------------------
+        // 原来是：
+        //     Object categoryId = params.getOrDefault("categoryId", 0L);
+        //     wrapper.eq("category_id", categoryId);
+        //
+        // 前端的规格属性/销售属性页打开时不带 categoryId（那一页没有分类筛选），
+        // 于是 categoryId 取默认值 0，拼出 WHERE category_id = 0 ——
+        // 而【没有任何属性的 category_id 是 0】（2026-09-10 实测：
+        // pms_attr 里 category_id 的取值范围是 3..35，等于 0 的有 0 条）。
+        // 结果是这两个页面的列表【永远是空的】，而接口返回 code 0、totalCount 0，
+        // 看起来像"就是没有数据"，实际库里有 81 条规格属性和 54 条销售属性。
+        //
+        // 注意紧下面那行 attr_type 用的就是带条件的重载 —— 同一个方法里
+        // 一处写对一处写错，而写错的那处没有任何报错。
+        //
+        // 0 表示不限是 gulimall 沿用下来的约定（前端筛选框的"全部"传 0）。
+        Long categoryId = positiveLongOrNull(params.get("categoryId"));
+        wrapper.eq(categoryId != null, "category_id", categoryId);
+
         Integer type = (Integer) params.get("attr_type");
         wrapper.eq(type != null, "attr_type", type);
         String key = (String) params.get("key");
@@ -148,6 +168,38 @@ public class AttrServiceImpl extends ServiceImpl<AttrDao, AttrEntity> implements
     public PageUtils querySaleAttrPage(Map<String, Object> params) {
         params.put("attr_type", 0);
         return queryAttrPage(params);
+    }
+
+    /**
+     * 把查询参数里的分类 id 解析成"正数或 null"。
+     *
+     * <p>请求参数是 {@code Map<String, Object>}，同一个键可能是 String（走 HTTP 来的）
+     * 也可能是 Long（服务内部调用塞进去的），所以两种都要认。
+     *
+     * <p><b>0、负数、空串、解析不出来 一律当成"不限分类"（返回 null）</b>，
+     * 交给 {@code wrapper.eq(condition, ...)} 直接跳过这个条件。
+     * 解析失败时不抛异常：这只是一个筛选条件，前端传了个空串就变成 500 是不合理的
+     * （和 OrderServiceImpl.parseLong 的取舍一致）。
+     */
+    static Long positiveLongOrNull(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        long v;
+        if (raw instanceof Number number) {
+            v = number.longValue();
+        } else {
+            String s = String.valueOf(raw).trim();
+            if (s.isEmpty()) {
+                return null;
+            }
+            try {
+                v = Long.parseLong(s);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return v > 0 ? v : null;
     }
 
     @Transactional

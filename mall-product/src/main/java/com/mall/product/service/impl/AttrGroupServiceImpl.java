@@ -9,11 +9,14 @@ import com.mall.common.utils.Query;
 import com.mall.product.dao.AttrAttrgroupRelationDao;
 import com.mall.product.dao.AttrDao;
 import com.mall.product.dao.AttrGroupDao;
+import com.mall.product.dao.CategoryDao;
 import com.mall.product.entity.AttrAttrgroupRelationEntity;
 import com.mall.product.entity.AttrEntity;
 import com.mall.product.entity.AttrGroupEntity;
+import com.mall.product.entity.CategoryEntity;
 import com.mall.product.service.AttrGroupService;
 import org.apache.commons.lang3.StringUtils;
+import com.mall.product.vo.AttrGroupResponseVO;
 import com.mall.product.vo.AttrGroupWithAttrVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +37,9 @@ public class AttrGroupServiceImpl extends ServiceImpl<AttrGroupDao, AttrGroupEnt
 
     @Autowired
     AttrDao attrDao;
+
+    @Autowired
+    CategoryDao categoryDao;
 
     /**
      * 分页查询属性分组。
@@ -66,7 +72,51 @@ public class AttrGroupServiceImpl extends ServiceImpl<AttrGroupDao, AttrGroupEnt
         lqw.orderByAsc(AttrGroupEntity::getSort).orderByAsc(AttrGroupEntity::getAttrGroupId);
 
         IPage<AttrGroupEntity> page = this.page(new Query<AttrGroupEntity>().getPage(params), lqw);
-        return new PageUtils(page);
+        IPage<AttrGroupResponseVO> voPage = page.convert(entity -> {
+            AttrGroupResponseVO vo = new AttrGroupResponseVO();
+            BeanUtils.copyProperties(entity, vo);
+            return vo;
+        });
+        fillCategoryNames(voPage.getRecords());
+        return new PageUtils(voPage);
+    }
+
+    /**
+     * 给这一页的分组补上分类名。
+     *
+     * <h3>【一次批量查询，不是逐行 selectById】</h3>
+     * 界面上原来显示的是 {@code #3} 这种原始分类 id，因为这个接口只返回
+     * {@code categoryId}。前端为此留了注释，说"显示 id 而不是去逐行查名字" ——
+     * 那个取舍在"N+1"和"显示 id"之间选了后者，是合理的，但还有第三个选项：
+     * <b>把这一页用到的分类一次全查回来</b>。
+     * <p>
+     * 所以这里的成本是 1 次按主键的 IN 查询，和页大小无关。
+     * 同模块的 {@code AttrServiceImpl.queryAttrPage} 是在循环里逐行
+     * {@code categoryDao.selectById}，那才是真正的 N+1，<b>不要照抄那个写法</b>。
+     * <p>
+     * 缓存刻意不加：分类名极少变，但加一层缓存就多一处失效逻辑，
+     * 而收益只是省掉一次主键查询 —— 不值那个复杂度。
+     * <p>
+     * 分类不存在时 {@code categoryName} 留 null，前端回落显示 id。
+     * "分组挂在已删除的分类下"是脏数据，但它不该表现成"这一行什么都没有"。
+     */
+    private void fillCategoryNames(List<AttrGroupResponseVO> records) {
+        if (CollectionUtils.isEmpty(records)) {
+            return;
+        }
+        List<Long> categoryIds = records.stream()
+                .map(AttrGroupResponseVO::getCategoryId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (categoryIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> nameById = categoryDao.selectBatchIds(categoryIds).stream()
+                .collect(Collectors.toMap(CategoryEntity::getCatId, CategoryEntity::getName,
+                        // 主键查询不可能撞键，给个合并函数只是为了 toMap 不在意外情况下抛
+                        (a, b) -> a));
+        records.forEach(vo -> vo.setCategoryName(nameById.get(vo.getCategoryId())));
     }
 
     @Override
