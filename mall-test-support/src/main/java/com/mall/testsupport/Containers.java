@@ -34,11 +34,27 @@ import org.testcontainers.elasticsearch.ElasticsearchContainer;
  * 多给一个容器不会让测试失败，只是白等它启动；少给一个则是启动超时后一个
  * 看不出所以然的报错。所以宁可按实测的这张表来，别按「大概需要吧」。
  *
- * <h3>为什么不用 withReuse(true)</h3>
- * 容器复用要求跑测试的机器上有 {@code ~/.testcontainers.properties} 且写了
- * {@code testcontainers.reuse.enable=true}，CI runner 上没有。
- * 设了也不会报错，只是不生效 —— 又一个静默失效。所以不设，
- * 靠 Spring 的上下文缓存在同一个模块内复用即可。
+ * <h3>为什么要 withReuse(true)</h3>
+ * Spring 的上下文缓存只在<b>同一个模块内</b>有效：Maven 给每个模块起一个独立的
+ * surefire fork，进程一换，缓存和容器一起没了。于是 11 个模块各起一套中间件，
+ * {@code integration-test} 作业实测稳定跑 <b>23 分钟</b>（#99/#100/#101/#102 都是），
+ * 而作业超时是 30 分钟 —— 只剩 6 分钟余量，而且和改了多少代码完全无关。
+ *
+ * <p>{@code withReuse(true)} 让容器在 JVM 退出后【继续活着】，下一个模块的 fork
+ * 按容器配置的哈希命中同一个容器，直接连上去。相同配置的容器只启动一次。
+ *
+ * <h3>它有一个静默失效的前提，必须在 CI 里显式满足</h3>
+ * 复用要求跑测试的机器上有 {@code ~/.testcontainers.properties} 且写了
+ * {@code testcontainers.reuse.enable=true}。<b>没有这个文件时 withReuse(true)
+ * 不报错，只是完全不生效</b> —— 又一个"配了但没生效"。
+ * 所以 workflow 里有一步专门写这个文件，还有一步<b>断言日志里出现
+ * {@code Reusing container}</b>：前提没满足时 CI 红，而不是悄悄慢回 23 分钟。
+ *
+ * <h3>为什么跨模块共用一个 MySQL 是安全的</h3>
+ * 这个容器起的是<b>空库</b>，不灌任何表（见下面 mysqlContainer 的注释），
+ * 这些测试也只验证上下文能不能起来。唯一需要真实表的 mall-admin
+ * 用的是自己那个 {@code withInitScript} 的容器 —— 配置不同、哈希不同，
+ * 复用不会把它和这个混到一起。
  */
 public final class Containers {
 
@@ -50,7 +66,7 @@ public final class Containers {
         @Bean
         @ServiceConnection
         MySQLContainer mysqlContainer() {
-            return new MySQLContainer(TestImages.MYSQL)
+            MySQLContainer container = new MySQLContainer(TestImages.MYSQL)
                     // 库名随便取一个：这个容器起的是【空库】，不灌任何表。
                     //
                     // 【这条假设对 mall-admin 不成立，它有自己的容器】
@@ -70,6 +86,11 @@ public final class Containers {
                     .withDatabaseName("mall_test")
                     .withUsername("mall")
                     .withPassword("mall");
+            // 复用要用语句而不是链式：withReuse 声明在 GenericContainer 上返回 SELF，
+            // 而这里用的是原始类型 MySQLContainer，SELF 会被擦除成 GenericContainer，
+            // 链在末尾就接不回方法的返回类型了。下面三个容器同理。
+            container.withReuse(true);
+            return container;
         }
     }
 
@@ -84,7 +105,9 @@ public final class Containers {
             // 只是没有连接详情被注入，然后应用去连 localhost:6379 并超时。
             // 有专门的类型就用类型，让编译期而不是运行期来管这件事。
             // 这个依赖的版本由 Boot 4.1.1 的 BOM 管理，不用自己钉。
-            return new RedisContainer(TestImages.REDIS);
+            RedisContainer container = new RedisContainer(TestImages.REDIS);
+            container.withReuse(true);
+            return container;
         }
 
         /**
@@ -130,7 +153,9 @@ public final class Containers {
         @Bean
         @ServiceConnection
         RabbitMQContainer rabbitContainer() {
-            return new RabbitMQContainer(TestImages.RABBITMQ);
+            RabbitMQContainer container = new RabbitMQContainer(TestImages.RABBITMQ);
+            container.withReuse(true);
+            return container;
         }
     }
 
@@ -158,12 +183,14 @@ public final class Containers {
          */
         @Bean
         ElasticsearchContainer elasticsearchContainer() {
-            return new ElasticsearchContainer(TestImages.ELASTICSEARCH)
+            ElasticsearchContainer container = new ElasticsearchContainer(TestImages.ELASTICSEARCH)
                     // 单节点、关安全，否则要配证书和账号，对「上下文能不能起来」毫无价值。
                     .withEnv("discovery.type", "single-node")
                     .withEnv("xpack.security.enabled", "false")
                     // 默认堆对 CI runner 偏大，容易把 2 核 7G 的机器压到 OOM。
                     .withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m");
+            container.withReuse(true);
+            return container;
         }
 
         /**

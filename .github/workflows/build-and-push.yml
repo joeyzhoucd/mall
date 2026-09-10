@@ -170,10 +170,17 @@ jobs:
   # 挂了就说明镜像发出去也起不来，没有理由放行。
   integration-test:
     runs-on: ubuntu-latest
-    # 比 test 作业宽松：要拉四个中间件镜像 + 起 8 个 Spring 上下文。
-    # 但也不能太宽松 —— Testcontainers 连不上 Docker 时会重试到超时，
-    # 30 分钟足够正常跑完，卡住的话早点失败。
-    timeout-minutes: 30
+    # 比 test 作业宽松：要拉四个中间件镜像 + 起 11 个 Spring 上下文。
+    # 但也不能太宽松 —— Testcontainers 连不上 Docker 时会重试到超时。
+    #
+    # 【为什么从 30 提到 45】30 分钟原本是"足够正常跑完"，但实测不是：
+    # #99/#100/#101/#102 四次运行都稳定在 23 分钟左右（而且和改了多少模块无关），
+    # 只剩 6 分钟余量 —— runner 慢一点就是一次和代码毫无关系的红。
+    #
+    # 同一个提交里加了容器复用（见下面那两步），预期会大幅低于 23 分钟。
+    # 但超时是【安全网】，不该按乐观预期收紧：先留出余量，等复用的实测数字
+    # 稳定几轮之后再往回收，而不是反过来。
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -190,10 +197,65 @@ jobs:
       # -Pintegration 负责把根 pom 里默认的 <excludedGroups>integration</excludedGroups> 清空，
       # 两个都要 —— 只加 -Dgroups 的话仍然会被 excludedGroups 排除掉，
       # 结果是「一个测试都没跑」而 Maven 照常 BUILD SUCCESS。
+      # ------------------------------------------------------------------
+      # 打开 Testcontainers 的容器复用
+      # ------------------------------------------------------------------
+      # Spring 的上下文缓存只在【同一个模块内】有效：Maven 给每个模块起一个独立的
+      # surefire fork，进程一换，缓存和容器一起没了。于是 11 个模块各起一套
+      # MySQL/Redis/RabbitMQ —— 这就是这个作业稳定跑 23 分钟的原因，
+      # 而且和改了多少代码完全无关（#99/#100/#101/#102 都是 23 分钟）。
+      #
+      # withReuse(true)（见 Containers.java）让容器在 JVM 退出后继续活着，
+      # 下一个模块的 fork 按容器配置的哈希命中同一个容器、直接连上去。
+      #
+      # 【但 withReuse 单靠代码不生效】它要求机器上有这个属性文件。
+      # 没有的时候【不报错，只是完全不生效】—— 又一个"配了但没生效"，
+      # 表现是作业悄悄地慢回 23 分钟，没有任何提示。所以下一步要断言它生效了。
+      #
+      # runner 是一次性的，容器留着不清理没有代价（Ryuk 也不会去回收
+      # 标了复用的容器，这是 Testcontainers 有意的行为，不是泄漏）。
+      - name: Enable Testcontainers container reuse
+        run: |
+          echo 'testcontainers.reuse.enable=true' >> ~/.testcontainers.properties
+          echo "~/.testcontainers.properties:"
+          cat ~/.testcontainers.properties | sed 's/^/  /'
+
       - name: Run integration tests (Testcontainers)
         # -fae（--fail-at-end）：一次看到所有失败的模块，而不是在第一个就停。
         # 失败仍然会让这一步非零退出、作业失败，只是诊断信息更全。
-        run: mvn -B test -Pintegration -Dgroups=integration -fae
+        #
+        # 输出同时落一份文件，给下一步做复用的阳性对照用。
+        # 【必须靠 pipefail 保住退出码】管道的退出码默认是最后一条命令（tee）的，
+        # 不加的话 mvn 失败会被 tee 的成功盖掉 —— 集成测试挂了而作业绿。
+        # GitHub 的 run 默认是 `bash -e {0}`，没有 pipefail，所以显式加。
+        run: |
+          set -o pipefail
+          mvn -B test -Pintegration -Dgroups=integration -fae 2>&1 | tee /tmp/integration.log
+
+      # 断言容器复用【真的生效了】。
+      #
+      # 没有这一步的话，复用失效是完全静默的（属性文件路径写错、Testcontainers
+      # 换了属性名、某次重构把 withReuse 删了）—— 作业照样绿，只是又变回 23 分钟。
+      # 而"CI 慢了几分钟"这种信号没人会去追。
+      #
+      # 命中复用时 Testcontainers 会打 "Reusing container with ID"。
+      # 第一个模块必然是创建而不是复用，所以门槛是"至少出现一次"。
+      #
+      # 【为什么 continue-on-error】复用失效不是正确性问题：最坏就是退回 23 分钟，
+      # 而现在超时是 45 分钟，容得下。拿它挡住镜像发布就是个假门禁 ——
+      # 一个和代码正确性无关的退化不该让部署停下来。
+      # 但也不能只打 ::warning::，那种没人看。
+      # continue-on-error 两头都要到了：这一步在 UI 里是红的、::error:: 注解也在，
+      # 而 build 照常继续。
+      - name: Assert container reuse actually took effect
+        continue-on-error: true
+        run: |
+          hits=$(grep -c "Reusing container" /tmp/integration.log || true)
+          echo "命中容器复用的次数: $hits"
+          if [ "$hits" -lt 1 ]; then
+            echo "::error::日志里没有一次 «Reusing container» —— 容器复用没生效（这不会让测试失败，只会让这个作业悄悄慢回 23 分钟）。检查 ~/.testcontainers.properties 那一步和 Containers.java 里的 withReuse(true)"
+            exit 1
+          fi
 
       # 断言【确实跑了】。上面那条命令如果因为标签/profile 配错而一个测试都没匹配上，
       # Maven 会安安静静地成功 —— 这正是这个项目已经踩过的坑

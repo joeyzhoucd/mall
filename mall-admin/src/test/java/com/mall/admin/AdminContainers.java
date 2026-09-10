@@ -46,6 +46,16 @@ public final class AdminContainers {
     @TestConfiguration(proxyBeanMethods = false)
     public static class MysqlWithSchema {
 
+        /**
+         * 【刻意不加 withReuse(true)，和共享的 Containers.Mysql 不一样】
+         *
+         * <p>共享那个加复用是为了让 11 个模块只启动一次容器。而这个容器
+         * <b>只有 mall-admin 一个模块用</b>，跨模块复用买不到任何东西。
+         *
+         * <p>加了反而有代价：它带 {@code withInitScript}，本地反复跑时会复用一个
+         * 已经建过表的容器 —— 建表脚本第二次执行的结果取决于它写得多幂等，
+         * 而那是一个不必要的变量。
+         */
         @Bean
         @ServiceConnection
         MySQLContainer mysqlContainer() {
