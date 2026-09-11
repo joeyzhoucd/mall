@@ -349,12 +349,34 @@ jobs:
                   | sed 's/Time elapsed: //' | awk '{s+=$1} END {printf "%.0f", s+0}')
           echo ""
           echo "纯测试时间合计:    ${total:-0}s"
+          overhead=0
           if [ "$wall" -gt 0 ] && [ -n "$total" ]; then
-            echo "Maven 自身开销:    $(( wall - total ))s  <- reactor 解析 + 18 个模块编译 + 容器启动等待"
+            overhead=$(( wall - total ))
+            echo "Maven 自身开销:    ${overhead}s  <- reactor 解析 + 18 个模块编译 + 容器启动等待"
             echo ""
             echo "（拉镜像不在这个数里 —— 它在上面 Pre-pull 那一步，单独计时）"
           fi
           echo "===================================================="
+
+          # ----------------------------------------------------------------
+          # 同一份数字再发一条 ::notice:: annotation
+          # ----------------------------------------------------------------
+          # 【为什么要重复一遍】作业日志要仓库 admin 权限才能通过 API 取
+          # （实测 GET /actions/runs/{id}/logs 无鉴权是 403），
+          # 而 check-runs 的 annotations 无鉴权就能读（实测 200）。
+          # 也就是说上面那张表只有在 GitHub 界面上看得到；
+          # 要让它能被脚本/外部读到，必须走 annotation 这条路。
+          # 这和下面 "Surface test failures as annotations" 那一步是同一个理由。
+          #
+          # annotation 是单行的，换行要用 %0A 转义。
+          top3=$(find . -path '*/surefire-reports/*.txt' 2>/dev/null | while read -r f; do
+                   mod=$(echo "$f" | sed -E 's|^\./([^/]+)/.*|\1|')
+                   t=$(grep -m1 -oE "Time elapsed: [0-9.]+" "$f" 2>/dev/null | sed 's/Time elapsed: //')
+                   [ -n "$t" ] && printf "%.0f %s\n" "$t" "$mod"
+                 done | sort -rn | head -3 | awk '{printf "%s=%ss ", $2, $1}')
+          reuse=$(grep -c "Reusing container" /tmp/integration.log 2>/dev/null || echo 0)
+          created=$(grep -cE "Creating container for image" /tmp/integration.log 2>/dev/null || echo 0)
+          echo "::notice title=集成测试耗时拆解::mvn墙钟=${wall}s%0A纯测试合计=${total:-0}s%0AMaven开销=${overhead}s%0A容器复用命中=${reuse} 新建=${created}%0A最慢三个模块: ${top3}%0A（拉镜像时间见 Pre-pull 那一步的步骤耗时）"
 
       # 断言【确实跑了】。上面那条命令如果因为标签/profile 配错而一个测试都没匹配上，
       # Maven 会安安静静地成功 —— 这正是这个项目已经踩过的坑
