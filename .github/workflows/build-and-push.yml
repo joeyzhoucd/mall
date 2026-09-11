@@ -220,6 +220,37 @@ jobs:
           echo "~/.testcontainers.properties:"
           cat ~/.testcontainers.properties | sed 's/^/  /'
 
+      # ------------------------------------------------------------------
+      # 显式预拉中间件镜像 —— 目的是【把拉取时间从 mvn 那一步里摘出来单独计时】
+      # ------------------------------------------------------------------
+      # 这一步不改变总耗时（镜像早晚都要拉），改变的是【能不能看见它花了多久】。
+      #
+      # 为什么需要看见：2026-09-10 加了容器复用之后，这个作业还是 23 分钟，
+      # 和加之前一模一样。当时的解释是"11 个模块各起一套容器"，
+      # 而复用断言明确显示复用生效了 —— 也就是说那个解释【是错的】，
+      # 时间花在别处。在没有这个拆解之前，任何进一步的优化都是在猜。
+      #
+      # 拆成三段：这一步（拉镜像）+ mvn（测试执行 + Maven 开销）
+      # + 下面的 breakdown（从 surefire 报告里加总纯测试时间）。
+      # mvn 墙钟 - 纯测试时间 = Maven 自身开销（reactor 解析 / 编译 / 上下文启动）。
+      - name: Pre-pull middleware images (timed separately)
+        run: |
+          # 版本必须和 mall-test-support 的 TestImages 完全一致，否则这里拉的是
+          # 另一个 tag、Testcontainers 还是要自己再拉一遍 —— 那样这一步的读数
+          # 变成"多拉了一次"，比没有还糟。
+          # 【刻意不预拉 testcontainers/ryuk】它的 tag 跟着 Testcontainers 库的版本走，
+          # 在这里写死一个版本号迟早对不上，而对不上的表现是这一步打一行"拉取失败" ——
+          # 一个纯属误导的读数。ryuk 很小（十几 MB），漏掉它不影响结论。
+          IMAGES="mysql:8.0.29 redis:7-alpine rabbitmq:3.12-management-alpine elasticsearch:8.11.1"
+          for img in $IMAGES; do
+            s=$(date +%s)
+            docker pull -q "$img" >/dev/null 2>&1 || echo "  !! $img 拉取失败（Testcontainers 会自己重试，不让这一步挡住测试）"
+            echo "  $img  $(( $(date +%s) - s ))s"
+          done
+          echo ""
+          echo "镜像大小："
+          docker images --format '  {{.Repository}}:{{.Tag}}  {{.Size}}' | grep -E "mysql|redis|rabbitmq|elasticsearch|ryuk" || true
+
       - name: Run integration tests (Testcontainers)
         # -fae（--fail-at-end）：一次看到所有失败的模块，而不是在第一个就停。
         # 失败仍然会让这一步非零退出、作业失败，只是诊断信息更全。
@@ -228,9 +259,18 @@ jobs:
         # 【必须靠 pipefail 保住退出码】管道的退出码默认是最后一条命令（tee）的，
         # 不加的话 mvn 失败会被 tee 的成功盖掉 —— 集成测试挂了而作业绿。
         # GitHub 的 run 默认是 `bash -e {0}`，没有 pipefail，所以显式加。
+        #
+        # 【结束时间必须无论成败都记下来】直接把 `date > mvn-end` 写在 mvn 后面是错的：
+        # mvn 失败时 `bash -e` 当场中断，这一行不会执行，而失败那一次恰恰最想看
+        # 时间分布（是卡在拉镜像、还是卡在某个模块的上下文起不来）。
+        # 所以显式接住退出码、记完时间再按原退出码退出。
         run: |
           set -o pipefail
-          mvn -B test -Pintegration -Dgroups=integration -fae 2>&1 | tee /tmp/integration.log
+          date +%s > /tmp/mvn-start
+          rc=0
+          mvn -B test -Pintegration -Dgroups=integration -fae 2>&1 | tee /tmp/integration.log || rc=$?
+          date +%s > /tmp/mvn-end
+          exit $rc
 
       # 断言容器复用【真的生效了】。
       #
@@ -249,13 +289,72 @@ jobs:
       # 而 build 照常继续。
       - name: Assert container reuse actually took effect
         continue-on-error: true
+        if: always()
         run: |
           hits=$(grep -c "Reusing container" /tmp/integration.log || true)
-          echo "命中容器复用的次数: $hits"
+          created=$(grep -cE "Creating container for image" /tmp/integration.log || true)
+          echo "命中容器复用: $hits 次"
+          echo "新建容器:     $created 次"
+          echo ""
+          # 【"至少一次"这个门槛太松，不足以说明复用真的在省时间】
+          # 2026-09-10 那轮：断言 success（确实有 Reusing container），
+          # 而作业时长 23 分钟、和加复用之前一模一样。
+          # 也就是说"有命中"和"省到了时间"是两件事，门槛只能说明前者。
+          # 所以这里把两个数都打出来：11 个模块理想情况下
+          # 新建 ≈ 3-4 个（每种配置一次）、复用 ≈ 20+ 次。
+          # 如果 created 和模块数同量级，说明大部分容器仍在重复创建。
+          echo "各种容器分别创建了几次（看是不是某一种一直没复用）："
+          grep -oE "Creating container for image: [^ ]+" /tmp/integration.log 2>/dev/null \
+            | sed 's/.*image: //' | sort | uniq -c | sed 's/^/  /' || true
+          echo ""
           if [ "$hits" -lt 1 ]; then
-            echo "::error::日志里没有一次 «Reusing container» —— 容器复用没生效（这不会让测试失败，只会让这个作业悄悄慢回 23 分钟）。检查 ~/.testcontainers.properties 那一步和 Containers.java 里的 withReuse(true)"
+            echo "::error::日志里没有一次 «Reusing container» —— 容器复用没生效（这不会让测试失败，只会让这个作业慢回 23 分钟）。检查 ~/.testcontainers.properties 那一步和 Containers.java 里的 withReuse(true)"
             exit 1
           fi
+
+      # ------------------------------------------------------------------
+      # 时间去哪了 —— 三段拆解
+      # ------------------------------------------------------------------
+      # 加这一步的直接原因：容器复用生效了，而作业时长一点没变（23 分钟）。
+      # 那说明我对耗时来源的判断是错的，而"错的判断"会一直指挥错的优化。
+      #
+      # surefire 报告里每个测试类都有 "Time elapsed: N s"，加总得到【纯测试时间】。
+      # mvn 那一步的墙钟减掉它，剩下的就是 Maven 自身开销：
+      # reactor 解析、18 个模块的编译/测试编译、以及【被算进测试时间之外的】
+      # 容器启动等待（Testcontainers 起容器发生在 @BeforeAll/上下文初始化里，
+      # 不同版本记不记进 elapsed 不一定，所以这两段要一起看，别单看一个数）。
+      - name: Where did the time go
+        if: always()
+        continue-on-error: true
+        run: |
+          s=$(cat /tmp/mvn-start 2>/dev/null || echo 0)
+          e=$(cat /tmp/mvn-end 2>/dev/null || echo 0)
+          wall=0
+          if [ "$s" != "0" ] && [ "$e" != "0" ]; then wall=$(( e - s )); fi
+
+          echo "===================== 时间拆解 ====================="
+          echo "mvn 这一步的墙钟:  ${wall}s"
+          echo ""
+          echo "各模块的测试耗时（surefire 报告里的 Time elapsed，降序）："
+          # 文件名形如 target/surefire-reports/com.mall.product.MallProductApplicationTests.txt
+          # 模块名从路径第一段取，比类名可靠（类名里的模块段不总是和目录同名）。
+          find . -path '*/surefire-reports/*.txt' 2>/dev/null | while read -r f; do
+            mod=$(echo "$f" | sed -E 's|^\./([^/]+)/.*|\1|')
+            cls=$(basename "$f" .txt | sed 's/.*\.//')
+            t=$(grep -m1 -oE "Time elapsed: [0-9.]+" "$f" 2>/dev/null | sed 's/Time elapsed: //')
+            [ -n "$t" ] && printf "%8.1f  %s  %s\n" "$t" "$mod" "$cls"
+          done | sort -rn | head -25 | sed 's/^/  /'
+
+          total=$(find . -path '*/surefire-reports/*.txt' 2>/dev/null -exec grep -m1 -oE "Time elapsed: [0-9.]+" {} \; \
+                  | sed 's/Time elapsed: //' | awk '{s+=$1} END {printf "%.0f", s+0}')
+          echo ""
+          echo "纯测试时间合计:    ${total:-0}s"
+          if [ "$wall" -gt 0 ] && [ -n "$total" ]; then
+            echo "Maven 自身开销:    $(( wall - total ))s  <- reactor 解析 + 18 个模块编译 + 容器启动等待"
+            echo ""
+            echo "（拉镜像不在这个数里 —— 它在上面 Pre-pull 那一步，单独计时）"
+          fi
+          echo "===================================================="
 
       # 断言【确实跑了】。上面那条命令如果因为标签/profile 配错而一个测试都没匹配上，
       # Maven 会安安静静地成功 —— 这正是这个项目已经踩过的坑
