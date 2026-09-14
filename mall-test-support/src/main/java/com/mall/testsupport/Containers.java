@@ -157,6 +157,58 @@ public final class Containers {
             container.withReuse(true);
             return container;
         }
+
+        /**
+         * 把容器地址额外写进 {@code mall.mq.connection.*}。
+         *
+         * <h3>为什么 @ServiceConnection 在这里不够用（和 Redis 那处是同一个病）</h3>
+         * {@code @ServiceConnection} 提供的是 {@code RabbitConnectionDetails} bean，
+         * 只有 Boot 自己的 {@code RabbitAutoConfiguration} 会消费它。
+         * 而这个项目的 {@code MallMqAutoConfiguration} <b>自己建 ConnectionFactory</b>，
+         * 取的是 {@code mall.mq.connection.*}，并且带
+         * {@code @ConditionalOnMissingBean(ConnectionFactory.class)} ——
+         * 自动配置按类名排序，{@code MallMq...} 排在 {@code Rabbit...} 前面，
+         * 于是<b>它先注册、Boot 那个退让</b>，容器地址一路走到底都没被用上。
+         *
+         * <h3>它的代价：整整 23 分钟的 CI，而且测试全是绿的</h3>
+         * {@code mall.mq.connection.host/port} 的代码默认值是 {@code localhost:5672}，
+         * 各模块的 yml 里都没有覆盖（生产值在 config-repo，而测试关掉了 config server）。
+         * 所以监听容器一启动就去连 {@code localhost:5672}，每次卡满
+         * RabbitMQ 客户端 60 秒的默认 {@code connectionTimeout}。
+         *
+         * <p>2026-09-13 在 CI 上实测到的证据：
+         * <pre>
+         *   java.net.SocketTimeoutException: Connect timed out
+         *     at com.rabbitmq.client.ConnectionFactory.newConnection(..)
+         *     at SimpleMessageListenerContainer$AsyncMessageProcessingConsumer.run(..)
+         *
+         *   上下文启动耗时   mall-ware 427s(约 7 x 60s)、mall-order 248s(约 4 x 60s)
+         *                    其余 9 个模块全部 <= 20s
+         * </pre>
+         * 唯二慢的两个模块，正是唯二有 {@code @RabbitListener} 的。
+         * mall-coupon 也引了 mq-starter 却很快 —— 它只发消息，
+         * 而 {@code CachingConnectionFactory} 是懒连接的，不发就不连。
+         *
+         * <p><b>而这一切不会让任何测试失败</b>：重试耗尽之后应用照常启动，
+         * 上下文测试照常通过。表现只有"CI 很慢"，没有任何东西指向 MQ。
+         *
+         * <h3>为什么修在这里，而不是去改 MallMqAutoConfiguration</h3>
+         * 改生产代码（比如让它优先用 RabbitConnectionDetails）会改变生产行为：
+         * 生产用的是 {@code mall.mq.connection.*}，而 Boot 会给出一个基于
+         * {@code spring.rabbitmq.*} 默认值的 ConnectionDetails ——
+         * 分不清"真的服务连接"和"属性兜底"就会把生产指到 localhost。
+         * 这里只是把测试容器的地址喂给应用本来就在读的那几个 key，
+         * 生产一行代码不动。
+         */
+        @Bean
+        DynamicPropertyRegistrar rabbitRawProperties(RabbitMQContainer rabbit) {
+            return (registry) -> {
+                registry.add("mall.mq.connection.host", rabbit::getHost);
+                registry.add("mall.mq.connection.port", () -> rabbit.getMappedPort(5672));
+                registry.add("mall.mq.connection.username", rabbit::getAdminUsername);
+                registry.add("mall.mq.connection.password", rabbit::getAdminPassword);
+            };
+        }
     }
 
     @TestConfiguration(proxyBeanMethods = false)

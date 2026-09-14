@@ -64,6 +64,33 @@ class ContainersPropertyBridgeTest {
     }
 
     @Test
+    @DisplayName("Rabbit 桥：写的是 mall.mq.connection.* —— 应用读的那几个键")
+    void rabbitBridgeRegistersTheKeysMallMqActuallyReads() {
+        org.testcontainers.rabbitmq.RabbitMQContainer rabbit =
+                mock(org.testcontainers.rabbitmq.RabbitMQContainer.class);
+        Map<String, Supplier<Object>> p =
+                capture(new Containers.Rabbit().rabbitRawProperties(rabbit)::accept);
+
+        // 【不是 spring.rabbitmq.*】@ServiceConnection 提供的 RabbitConnectionDetails
+        // 只有 Boot 的 RabbitAutoConfiguration 会消费，而 MallMqAutoConfiguration
+        // 自己建 ConnectionFactory、读的是 mall.mq.connection.*，
+        // 并且靠 @ConditionalOnMissingBean 抢在 Boot 前面注册 ——
+        // 所以容器地址必须写进这几个键，写进 spring.rabbitmq.* 是没用的。
+        //
+        // 这一条挡住的具体代价：2026-09-13 实测，地址没喂进去时监听容器去连
+        // localhost:5672，每次卡满 60 秒默认超时，mall-ware 427s / mall-order 248s，
+        // 而【所有测试照常通过】—— 只表现为 CI 慢，没有任何东西指向 MQ。
+        assertThat(p.keySet()).containsExactlyInAnyOrder(
+                "mall.mq.connection.host",
+                "mall.mq.connection.port",
+                "mall.mq.connection.username",
+                "mall.mq.connection.password");
+        assertThat(p.keySet())
+                .as("写 spring.rabbitmq.* 不会被 MallMqAutoConfiguration 读到")
+                .noneMatch(k -> k.startsWith("spring.rabbitmq"));
+    }
+
+    @Test
     @DisplayName("ES 桥：写的是 elasticsearch.host/port —— 应用读的那个顶级自定义属性")
     void elasticsearchBridgeRegistersTheCustomTopLevelProperties() {
         ElasticsearchContainer es = mock(ElasticsearchContainer.class);
