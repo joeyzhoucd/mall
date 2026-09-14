@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -36,6 +37,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service("skuInfoService")
 public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> implements SkuInfoService {
+
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(SkuInfoServiceImpl.class);
 
     private static final TypeReference<SkuInfoEntity> SKU_INFO_TYPE = new TypeReference<>() {
     };
@@ -388,12 +392,40 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
                 PRODUCT_COMPONENT_CACHE_OPTIONS);
     }
 
+    /**
+     * 销售属性。返回的列表保证<b>不含 null 元素</b> —— 详情页模板会直接
+     * {@code th:each} 迭代它，一个 null 元素就是一次 500。
+     * <p>
+     * 【为什么过滤放在缓存外面而不是只改 SQL】
+     * 产生 null 元素的根因在 mapper 里（LEFT JOIN 造出全 NULL 行，
+     * MyBatis 把它映射成 null，见 SkuSaleAttrValueDao.xml 的注释），
+     * 那里已经改成 INNER JOIN 了。但**旧的坏数据已经进了缓存**
+     * （本地 + Redis 两层），只改 SQL 的话，已缓存的 spu 会继续 500
+     * 直到 TTL 到期 —— 也就是"代码已经修好了，但线上还在坏"。
+     * 过滤放在缓存读出口，坏数据一被读到就被无害化，不用手工清缓存。
+     * <p>
+     * 它同时也是一道长期的防线：这个列表要喂给模板，
+     * 而模板里的异常是在<b>视图渲染阶段</b>抛的，全局异常兜底
+     * （{@code @ExceptionHandler}）<b>管不到</b>，
+     * 所以这里比别处更值得把不变量守死。
+     */
     private List<SkuItemSaleAttrVo> getSaleAttrsBySpuIdCached(Long spuId) {
-        return multiLevelCacheClient.get(ProductHotCacheInvalidator.SPU_SALE_ATTRS_CACHE_NAME,
+        List<SkuItemSaleAttrVo> saleAttrs = multiLevelCacheClient.get(
+                ProductHotCacheInvalidator.SPU_SALE_ATTRS_CACHE_NAME,
                 ProductHotCacheInvalidator.key(spuId),
                 SPU_SALE_ATTRS_TYPE,
                 () -> skuSaleAttrValueDao.getSaleAttrsBySpuId(spuId),
                 PRODUCT_COMPONENT_CACHE_OPTIONS);
+        if (saleAttrs == null || saleAttrs.isEmpty()) {
+            return List.of();
+        }
+        // 不含 null 时返回原列表，避免给每次详情页请求都多拷一份
+        if (!saleAttrs.contains(null)) {
+            return saleAttrs;
+        }
+        log.warn("spu {} 的销售属性缓存里含 null 元素，已过滤。"
+                + "这通常意味着缓存是 INNER JOIN 修复前写入的旧数据", spuId);
+        return saleAttrs.stream().filter(Objects::nonNull).toList();
     }
 
     private SpuInfoDescEntity getSpuDescCached(Long spuId) {

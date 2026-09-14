@@ -14,7 +14,15 @@
     </resultMap>
 
     <resultMap id="SkuItemSaleAttrVo" type="com.mall.product.vo.SkuItemSaleAttrVo">
-        <result column="attr_id" property="attrId"/>
+        <!--
+          【id 不能省】它是 MyBatis 做嵌套结果分组的依据。
+          不写 id 时 MyBatis 退化成"用本层所有 result 列的值组合当行标识"，
+          这里恰好是 attr_id + attr_name，结果凑巧也对；但那是碰巧，
+          一旦以后给这层再加一个会变的列（比如排序字段），同一个 attr_id
+          就会被拆成多个分组，表现为"同一个属性出现两次、每次只有一部分选项"。
+          显式声明 id 让分组依据变成一件确定的事。
+        -->
+        <id column="attr_id" property="attrId"/>
         <result column="attr_name" property="attrName"/>
         <collection property="attrValues" ofType="com.mall.product.vo.AttrValueWithSkuIdVo">
             <result column="attr_value" property="attrValue"/>
@@ -22,6 +30,34 @@
         </collection>
     </resultMap>
 
+    <!--
+      ===========================================================================
+      【JOIN 必须是 INNER，不能是 LEFT】否则商品详情页 500
+      ===========================================================================
+      2026-09-14 的真实故障：item.html 第 85 行 `attr.attrName` 报
+        EL1007E: Property or field 'attrName' cannot be found on null
+      —— 也就是这个方法返回的 List 里有一个 **null 元素**。
+
+      成因是 MyBatis 的一个默认行为：
+      当一行里**被本 resultMap 映射的列全部为 NULL** 时，MyBatis 不会返回
+      一个"字段都是 null 的空对象"，而是直接返回 **null**
+      （对应设置 returnInstanceForEmptyRow，默认 false）。
+
+      而 LEFT JOIN 正好会造出这样一行：某个 SKU 在 pms_sku_sale_attr_value
+      里一条记录都没有时，join 结果是 attr_id / attr_name / attr_value /
+      sku_ids 全 NULL，GROUP BY 把它们聚成一个"全 NULL 的分组"，
+      于是 List 里多出一个 null。实测：sku 1001~1004 都没有销售属性行，
+      原查询对它们所属的 spu 返回的就是一行 `NULL NULL NULL NULL`。
+
+      "SPU 没有销售属性"是**合法**的（单规格商品就没有颜色/尺码可选），
+      所以正确的语义是：没有属性行就返回空列表，而不是返回一个 null 元素。
+      INNER JOIN 表达的就是这个语义 —— 这个查询要的本来就是属性行本身，
+      没有属性行就什么都不该有。
+
+      注意这个 bug 为什么一直没被发现：异常是在 **Thymeleaf 视图渲染阶段**
+      抛的，@ExceptionHandler 管不到模板渲染，所以全局兜底也捕获不到它，
+      日志里只看得见 /error 上的二次异常。
+    -->
     <select id="getSaleAttrsBySpuId" resultMap="SkuItemSaleAttrVo">
         SELECT
             ssav.attr_id,
@@ -29,7 +65,7 @@
             ssav.attr_value,
             GROUP_CONCAT(DISTINCT ssav.sku_id ORDER BY ssav.sku_id ASC SEPARATOR ',') as sku_ids
         FROM pms_sku_info si
-        LEFT JOIN pms_sku_sale_attr_value ssav ON si.sku_id = ssav.sku_id
+        INNER JOIN pms_sku_sale_attr_value ssav ON si.sku_id = ssav.sku_id
         WHERE si.spu_id = #{spuId}
         GROUP BY ssav.attr_id, ssav.attr_name, ssav.attr_value
     </select>
