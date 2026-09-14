@@ -48,6 +48,19 @@ public class StorageProperties {
     /** 预签名链接的有效期（秒）。默认 10 分钟：够上传，又不至于泄漏后长期可用。 */
     private long presignExpireSeconds = 600;
 
+    /**
+     * 单个上传的字节上限。<b>这个值会被签进预签名 URL</b>，不是一个前端提示。
+     *
+     * <p>默认 20MiB：和 ingress 上 {@code proxy-body-size: 20m} 取同一个数，
+     * 免得"走网关的上传"和"直传对象存储的上传"两条路有两个不同的上限
+     * —— 那种不一致排查起来很费劲。
+     *
+     * <p>白名单里有 {@code mp4}，20MiB 只够很短的片子。真要传商品视频，
+     * 该做的是把视频单独走一条链路（转码 + 分片上传），
+     * 而不是把这个上限调大 —— 调大等于给所有类型都开了口子。
+     */
+    private long maxUploadBytes = 20L * 1024 * 1024;
+
     public String getEndpoint() { return endpoint; }
     public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
 
@@ -71,4 +84,7 @@ public class StorageProperties {
 
     public long getPresignExpireSeconds() { return presignExpireSeconds; }
     public void setPresignExpireSeconds(long presignExpireSeconds) { this.presignExpireSeconds = presignExpireSeconds; }
+
+    public long getMaxUploadBytes() { return maxUploadBytes; }
+    public void setMaxUploadBytes(long maxUploadBytes) { this.maxUploadBytes = maxUploadBytes; }
 }

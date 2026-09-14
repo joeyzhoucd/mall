@@ -44,18 +44,32 @@ import java.util.UUID;
  * 比如把别人刚传的商品图换掉。现在 key 完全由服务端生成
  * （日期目录 + UUID + 扩展名），前端只能传它拿到的那一个，覆盖不了任何东西。
  *
- * <h3>一个必须说明的能力回退：大小限制</h3>
- * OSS 的 PostObject policy 支持 {@code content-length-range}，可以在签名里限死
- * 文件大小；而<b>预签名 PUT 做不到这件事</b> —— 签名里没有描述 body 长度的位置。
- * 所以这里只能：
+ * <h3>大小限制（2026-09-14 补上，之前这里写的结论是错的）</h3>
+ * 原来这段写的是「预签名 PUT 做不到这件事 —— 签名里没有描述 body 长度的位置」，
+ * <b>那句话不准确</b>。SigV4 会把<b>显式设置的头</b>列进 {@code X-Amz-SignedHeaders}
+ * 并纳入签名计算，而 {@code contentLength} 对应的就是 {@code Content-Length} 头。
+ * 签进去之后，S3 端拿<b>实际收到的</b> Content-Length 重算签名，对不上就是
+ * 403 {@code SignatureDoesNotMatch}。
+ *
+ * <p>所以现在 {@code /presign} 的 {@code size} 参数是<b>必填</b>的，并且会被签进 URL。
+ * 它不是范围限制而是<b>精确匹配</b>：这个 URL 只能上传恰好 {@code size} 字节 ——
+ * 比 OSS 那个 {@code content-length-range} 还严。而浏览器在上传前就知道
+ * {@code File.size}，对调用方没有额外负担。
+ *
+ * <p><b>只在服务端校验 size 是不够的</b>：那只是拒绝为一个大文件发 URL；
+ * 拿到 URL 之后往里塞多少字节，服务端管不着 —— 不签进去的话，
+ * 一个为 1KB 申请的 URL 可以用来传 1GB。
+ *
+ * <p>仍然<b>建议在存储侧再加一道</b> bucket policy 的
+ * {@code s3:content-length-range}：这里这道防的是"拿着合法 URL 超量上传"，
+ * bucket policy 防的是"这套代码以外的任何路径"。两者不重叠，都该有。
+ * 那一道要在云上配，不在本仓库里。
+ *
+ * <p>另外两道仍然在：
  * <ul>
- *   <li>限制扩展名白名单（防的是「上传 .html/.svg 到同源域名下」这类问题，
- *       不是大小）；</li>
- *   <li>把有效期压到 10 分钟，缩小链接泄漏后的可用窗口。</li>
+ *   <li>扩展名白名单（防的是「上传 .html/.svg 到同源域名下」这类问题，不是大小）；</li>
+ *   <li>有效期 10 分钟，缩小链接泄漏后的可用窗口。</li>
  * </ul>
- * <b>真正的大小限制要放在存储侧</b>：bucket policy 的
- * {@code s3:content-length-range} 条件，或者前面挂的网关 / CDN 的请求体上限。
- * 这一条没有做，属于已知缺口，不要以为换完就等价了。
  */
 @Slf4j
 @RestController
@@ -83,14 +97,22 @@ public class ObjectStorageController {
 
     /**
      * @param filename 原始文件名，只用来取扩展名，不作为对象名的一部分
+     * @param size     文件字节数。<b>必填，而且会被签进 URL</b>，见下面的说明
      */
     @GetMapping("/presign")
     public R presign(@RequestParam("filename") String filename,
+                     @RequestParam("size") long size,
                      @RequestParam(value = "contentType", required = false) String contentType) {
         String ext = extensionOf(filename);
         if (!ALLOWED_EXTENSIONS.contains(ext)) {
             return R.error("不支持的文件类型: " + (ext.isEmpty() ? "(无扩展名)" : ext)
                     + "，允许的是 " + ALLOWED_EXTENSIONS);
+        }
+        if (size <= 0) {
+            return R.error("size 必须是正数（浏览器侧取 File.size）");
+        }
+        if (size > properties.getMaxUploadBytes()) {
+            return R.error("文件太大：" + size + " 字节，上限 " + properties.getMaxUploadBytes() + " 字节");
         }
 
         String key = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
@@ -98,7 +120,28 @@ public class ObjectStorageController {
 
         PutObjectRequest.Builder put = PutObjectRequest.builder()
                 .bucket(properties.getBucket())
-                .key(key);
+                .key(key)
+                // ------------------------------------------------------------------
+                // 【这一行才是大小限制，上面那两个 if 只是提前给个好错误信息】
+                // ------------------------------------------------------------------
+                // 类注释里原来写着"预签名 PUT 做不到限制大小，签名里没有描述 body 长度
+                // 的位置"—— 那句话不准确。SigV4 会把【显式设置的头】列进
+                // X-Amz-SignedHeaders 并纳入签名计算，而 contentLength 对应的就是
+                // Content-Length 头。签进去之后，S3 端会拿【实际收到的】Content-Length
+                // 重算签名，对不上就是 403 SignatureDoesNotMatch。
+                //
+                // 所以它不是"范围限制"而是【精确匹配】：这个 URL 只能上传恰好 size 字节。
+                // 这比 OSS 那个 content-length-range 还严 —— 而浏览器在上传前就知道
+                // File.size，所以对调用方没有额外负担。
+                //
+                // 【只做前两个 if 是不够的】那只是服务端拒绝发一个大文件的 URL；
+                // 拿到 URL 之后往里塞多少字节，服务端管不着 ——
+                // 不签进去的话，一个为 1KB 申请的 URL 可以用来传 1GB。
+                //
+                // 【仍然建议在存储侧再加一道】bucket policy 的 s3:content-length-range。
+                // 这里这道防的是"拿着合法 URL 超量上传"，
+                // bucket policy 防的是"这套代码以外的任何路径"。两者不重叠。
+                .contentLength(size);
         // Content-Type 一旦签进去，浏览器上传时就必须带一模一样的值，否则签名不匹配。
         // 所以下面的响应里把它一起回给前端，让前端照着设，而不是让前端自己猜。
         if (contentType != null && !contentType.isBlank()) {
@@ -117,6 +160,11 @@ public class ObjectStorageController {
         data.put("key", key);
         data.put("publicUrl", publicUrlOf(key));
         data.put("expiresInSeconds", properties.getPresignExpireSeconds());
+        // 这两个回给前端不是"提示"，是【契约】：上传时的 Content-Length 必须
+        // 恰好等于 signedContentLength，否则 S3 端重算签名对不上，返回 403。
+        // 前端照着设即可，不用自己算。
+        data.put("signedContentLength", size);
+        data.put("maxUploadBytes", properties.getMaxUploadBytes());
         if (contentType != null && !contentType.isBlank()) {
             data.put("requiredHeaders", Map.of("Content-Type", contentType));
         }
@@ -226,6 +274,8 @@ public class ObjectStorageController {
         data.put("publicBaseUrl", properties.getPublicBaseUrl());
         data.put("presignExpireSeconds", properties.getPresignExpireSeconds());
         data.put("allowedExtensions", ALLOWED_EXTENSIONS);
+        // 前端在选文件那一刻就能拦住超大的，不用先换一趟 presign 才知道超了。
+        data.put("maxUploadBytes", properties.getMaxUploadBytes());
         // 只说明凭据是否已注入，不回任何片段 —— 连前 4 位都不回：
         // AccessKeyId 的前缀本身就能透露云厂商和账号族。
         data.put("credentialsConfigured",
