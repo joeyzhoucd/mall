@@ -5,12 +5,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.core.Ordered;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
@@ -87,11 +90,9 @@ public class UnhandledExceptionAdvice {
         String traceId = traceId();
 
         // ---- ① 有确定 HTTP 语义的异常：按它自己的状态码返回，不当成故障 ----
-        if (e instanceof ErrorResponse errorResponse) {
-            HttpStatus status = HttpStatus.resolve(errorResponse.getStatusCode().value());
-            if (status == null) {
-                status = HttpStatus.INTERNAL_SERVER_ERROR;
-            }
+        HttpStatus declared = declaredStatus(e);
+        if (declared != null) {
+            HttpStatus status = declared;
             // 客户端错误用 WARN 且【不带栈】：4xx 是调用方的问题，
             // 带栈只会让日志里全是噪音，把真正的 5xx 淹掉。
             if (status.is4xxClientError()) {
@@ -110,6 +111,53 @@ public class UnhandledExceptionAdvice {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(R.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), CLIENT_MESSAGE)
                         .put("traceId", traceId));
+    }
+
+    /**
+     * 这个异常有没有「自带的 HTTP 语义」。有就返回那个状态码，没有返回 {@code null}
+     * （= 它是真正未处理的故障，按 500 处理）。
+     *
+     * <h3>为什么不能只认 {@link ErrorResponse}</h3>
+     * 第一版只判了 {@code ErrorResponse}，结果<b>把一批本该 4xx 的变成了 500</b>。
+     * 2026-09-15 实测发现的：{@code http://mall.com/promotion.html} 返回 500。
+     * 成因是 mall-product 的 {@code ItemController} 映射了 {@code /{skuId}.html}
+     * 而参数是 {@code Long}，非数字的路径段会抛
+     * {@code MethodArgumentTypeMismatchException} —— 它
+     * {@code extends TypeMismatchException}（一个 {@code BeansException}），
+     * <b>并没有实现 ErrorResponse</b>，于是掉进了下面的 500 分支。
+     * <p>
+     * 而 {@code ExceptionHandlerExceptionResolver} 排在
+     * {@code DefaultHandlerExceptionResolver} 前面，所以 Spring 本来会给的
+     * 400 根本没有机会发生。这正是类注释第 ① 条警告过的那种倒退，
+     * 只是当初只堵了 {@code ErrorResponse} 这一半。
+     * <p>
+     * 后果不只是状态码难看：500 会进服务端错误率指标、会触发告警，
+     * 而爬虫和失效链接会源源不断地打这类地址。
+     *
+     * <h3>三条规则的来源</h3>
+     * 都是 Spring 自己判定状态码的依据，不是我们自己发明的分类：
+     * <ol>
+     *   <li>{@code ErrorResponse} —— Spring 6 起大部分 MVC 异常都实现了它</li>
+     *   <li>异常类上的 {@code @ResponseStatus} —— 业务自定义异常常用这个</li>
+     *   <li>{@code TypeMismatchException} —— 参数/路径变量类型不匹配，
+     *       {@code DefaultHandlerExceptionResolver} 对它就是判 400</li>
+     * </ol>
+     * 都不匹配才算「没人处理」。
+     */
+    private static HttpStatus declaredStatus(Exception e) {
+        if (e instanceof ErrorResponse errorResponse) {
+            HttpStatus status = HttpStatus.resolve(errorResponse.getStatusCode().value());
+            return status == null ? HttpStatus.INTERNAL_SERVER_ERROR : status;
+        }
+        ResponseStatus annotated = AnnotatedElementUtils.findMergedAnnotation(
+                e.getClass(), ResponseStatus.class);
+        if (annotated != null) {
+            return annotated.code();
+        }
+        if (e instanceof TypeMismatchException) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        return null;
     }
 
     /**

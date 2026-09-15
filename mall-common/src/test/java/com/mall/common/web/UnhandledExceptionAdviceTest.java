@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.web.ErrorResponseException;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.SQLException;
@@ -91,6 +93,67 @@ class UnhandledExceptionAdviceTest {
         assertThat(body).doesNotContain("jdbc:mysql");
         assertThat(body).doesNotContain("mysql-0.mysql");
         assertThat(body).doesNotContain("root");
+    }
+
+    /**
+     * <b>这一条对应一个真实的倒退（2026-09-15 发现并修）。</b>
+     *
+     * <p>{@code http://mall.com/promotion.html} 返回 500。成因：mall-product 的
+     * {@code ItemController} 映射了 {@code /{skuId}.html} 而参数是 {@code Long}，
+     * 非数字路径段抛 {@code MethodArgumentTypeMismatchException} ——
+     * 它 {@code extends TypeMismatchException}（一个 {@code BeansException}），
+     * <b>没有实现 ErrorResponse</b>，于是被这个 advice 当成未处理异常变成了 500。
+     * <p>
+     * Spring 本来会给 400（{@code DefaultHandlerExceptionResolver} 的判定），
+     * 但 {@code ExceptionHandlerExceptionResolver} 排在它前面，根本轮不到。
+     * <p>
+     * 后果不只是状态码难看：500 会进服务端错误率、会触发告警，
+     * 而爬虫和失效链接会源源不断打这类地址。
+     */
+    @Test
+    @DisplayName("【负控】参数类型不匹配是 400，不能变成 500")
+    void typeMismatchStays400() {
+        // /promotion.html 打到 @GetMapping("/{skuId}.html") 上，skuId 是 Long
+        TypeMismatchException e = new TypeMismatchException("promotion", Long.class);
+
+        ResponseEntity<R> res = advice.handle(e, get("/promotion.html"));
+
+        assertThat(res.getStatusCode().value())
+                .as("参数类型不匹配是调用方的问题，Spring 判 400；变成 500 会污染错误率并触发告警")
+                .isEqualTo(400);
+        assertThat(res.getBody()).isNotNull();
+        assertThat(res.getBody().getCode()).isEqualTo(400);
+    }
+
+    /**
+     * 业务自定义异常常用 {@code @ResponseStatus} 声明语义，
+     * 它同样不是 {@code ErrorResponse}，不认的话也会被变成 500。
+     */
+    @Test
+    @DisplayName("【负控】异常类上的 @ResponseStatus 要被尊重")
+    void responseStatusAnnotationIsHonoured() {
+        ResponseEntity<R> res = advice.handle(new ConflictException(), get("/order/submit"));
+
+        assertThat(res.getStatusCode().value()).isEqualTo(409);
+        assertThat(res.getBody()).isNotNull();
+        assertThat(res.getBody().getCode()).isEqualTo(409);
+    }
+
+    @ResponseStatus(HttpStatus.CONFLICT)
+    static class ConflictException extends RuntimeException {
+    }
+
+    /**
+     * 正控：上面两条放宽了判定，但不能宽到把真正的故障也放过。
+     * 没有这一条的话，「一律按 400 返回」也能让上面两条通过。
+     */
+    @Test
+    @DisplayName("正控：没有 HTTP 语义的异常仍然必须是 500")
+    void plainExceptionStill500() {
+        ResponseEntity<R> res = advice.handle(
+                new RuntimeException("boom", new SQLException("pool exhausted")), get("/product/list"));
+
+        assertThat(res.getStatusCode().value()).isEqualTo(500);
     }
 
     @Test
