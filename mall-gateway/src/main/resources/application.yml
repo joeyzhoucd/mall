@@ -68,43 +68,53 @@ spring:
       server:
         webflux:
           # ===================================================================
-          # 【不配这一行，下游服务就拿不到 X-Forwarded-*，跳转会指向 pod 内网 IP】
+          # 【PreserveHostHeader 不能去掉】否则下单成功后会跳到 pod 内网 IP
           # ===================================================================
-          # Spring Cloud Gateway 5.x 的安全加固：X-Forwarded-* 是【客户端可伪造】
-          # 的头，所以只有当请求的对端地址匹配 trusted-proxies 这个正则时才采信。
-          # 不配的话对端一律视为不可信，网关会调
-          # RemoveXForwardedHeadersFilter.removeXForwardedHeaders(...)
-          # 把进来的 X-Forwarded-* 【全部删掉】，而且自己也不再追加。
+          # 默认情况下网关把请求转给下游时，Netty 客户端会把 Host 头换成
+          # 【解析出来的下游地址】（比如 192.168.48.9:9000）。
+          # 加上这个过滤器，下游收到的 Host 仍然是浏览器发来的那个
+          # （cart.mall.com）。
           #
-          # 2026-09-15 实测的后果（走完整下单链路才会暴露）：
-          #   ingress-nginx 设了 X-Forwarded-Host: cart.mall.com
-          #   → 网关删掉它
-          #   → Netty 客户端把 Host 换成解析出的 pod 地址（没开 PreserveHostHeader）
-          #   → mall-order 的 externalBase() 读不到 X-Forwarded-Host，回退到 Host
-          #   → 提交订单后跳转到 http://192.168.48.9:9000/order/payment.html
-          #   → 浏览器打不开，下单成功了但用户看到的是错误页
+          # 【为什么这件事要紧】mall-order 的 OrderWebController.externalBase()
+          # 要拼一个【浏览器能打开的】绝对地址出来做 302 跳转。
+          # 它先读 X-Forwarded-Host，读不到就回退到 Host。
+          # 两个都不对的话，提交订单后会跳到
+          #   http://192.168.48.9:9000/order/payment.html
+          # —— 订单是真的创建了，用户看到的却是一个打不开的页面。
+          # 2026-09-15 实测就是这样，走完整下单链路才暴露出来。
           #
-          # 证据是网关自己的 DEBUG 日志，它打印了要发给下游的头：
-          #   New headers are [Host:"cart.mall.com", X-Request-ID:…, X-Real-IP:…,
-          #    X-Scheme:"http", …] —— 旁边 ingress 加的 X-Real-IP/X-Scheme 都在，
-          #   唯独 X-Forwarded-* 一个不剩。
+          # -------------------------------------------------------------------
+          # 【为什么不是去修 X-Forwarded-Host —— 试过，此路不通】
+          # -------------------------------------------------------------------
+          # X-Forwarded-Host 之所以丢，是 Spring Cloud Gateway 5.x 的安全加固：
+          # 这些头客户端可以伪造，所以只有请求的对端地址匹配
+          # spring.cloud.gateway.server.webflux.trusted-proxies 时才采信；
+          # 不匹配就调 RemoveXForwardedHeadersFilter 把它们【全部删掉】。
+          # （xForwardedHeadersFilter 和 removeXForwardedHeadersFilter 这两个
+          #  bean 是互斥的，由 TrustedProxies 里的条件二选一。）
           #
-          # 【这是一次升级引入的静默回归】这条链路原来是好的（见 mall-order
-          # OrderWebController.externalBase 的注释，那里记着上一次 pod IP 跳转的坑）。
-          # 应用代码一行没改，是 Spring Cloud 升到 2025.x 之后默认值变了。
-          # 和上面 routes 前缀改名那件事是同一类问题：不报错、不告警、健康检查全绿。
+          # 第一次尝试是配 trusted-proxies 为 Pod 网段 192.168.0.0/16，
+          # 想的是"对端就是 ingress-nginx 的 Pod IP"。部署后【毫无变化】。
+          # 开 TRACE 日志才看到真相：
+          #   XForwardedHeadersFilter: Remote address not trusted.
+          #                            remote address /172.19.176.1:38160
+          # 也就是说网关拿去做信任判断的地址是【原始客户端 IP】（宿主机），
+          # 不是 ingress 的 Pod IP —— 它和 ingress 设的
+          # X-Forwarded-For: $remote_addr 一模一样，是从那个头推导出来的。
           #
-          # 【值为什么是整个 Pod 网段】这里匹配的是【连到网关的对端地址】，
-          # 也就是 ingress-nginx 的 Pod IP（实测 192.168.48.54），
-          # 而集群 --cluster-cidr=192.168.0.0/16。
-          # 不写死那个 IP 是因为 ingress 的 pod 一重建就会变。
+          # 于是这条路在逻辑上就不成立：要让它匹配，就得把【客户端自己的 IP】
+          # 列为可信代理，而客户端 IP 恰恰是客户端能伪造的东西 ——
+          # 等于把这道防护整个关掉。而 FrontendSecurityFilter 的 IP 维度限流
+          # 正是按客户端 IP 算的，关掉它意味着伪造 IP 就能绕过限流。
           #
-          # 【代价，上云前必须重新审】信任整个 Pod 网段 = 集群内【任何】pod 都能
-          # 伪造 X-Forwarded-For。而 FrontendSecurityFilter 的 IP 维度限流就是按
-          # 客户端 IP 算的，也就是说一个恶意 pod 能靠伪造 IP 绕开限流。
-          # 本地集群里没有不受控的 pod，可以接受；上云后应该收窄到
-          # ingress 控制器所在的网段或专门的 Service CIDR。
-          trusted-proxies: '192\.168\.\d{1,3}\.\d{1,3}'
+          # PreserveHostHeader 不依赖任何信任判断：它只是不去改写 Host。
+          # 而且这里本来就是【按 Host 路由】的（下面一堆 Host=xxx.mall.com 的
+          # 谓词），让下游看到同一个 Host 在语义上也更自洽。
+          #
+          # 上云时如果要恢复标准的 X-Forwarded-* 链路，要先搞清楚为什么
+          # remoteAddress 会等于 X-Forwarded-For，那是这条路的前提。
+          default-filters:
+            - PreserveHostHeader
           routes:
             - id: product_route
               uri: lb://mall-product
