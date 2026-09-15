@@ -67,6 +67,44 @@ spring:
       # 所有 /api/** 请求全部 404。前端整站等于挂了，而每一层监控都显示绿色。
       server:
         webflux:
+          # ===================================================================
+          # 【不配这一行，下游服务就拿不到 X-Forwarded-*，跳转会指向 pod 内网 IP】
+          # ===================================================================
+          # Spring Cloud Gateway 5.x 的安全加固：X-Forwarded-* 是【客户端可伪造】
+          # 的头，所以只有当请求的对端地址匹配 trusted-proxies 这个正则时才采信。
+          # 不配的话对端一律视为不可信，网关会调
+          # RemoveXForwardedHeadersFilter.removeXForwardedHeaders(...)
+          # 把进来的 X-Forwarded-* 【全部删掉】，而且自己也不再追加。
+          #
+          # 2026-09-15 实测的后果（走完整下单链路才会暴露）：
+          #   ingress-nginx 设了 X-Forwarded-Host: cart.mall.com
+          #   → 网关删掉它
+          #   → Netty 客户端把 Host 换成解析出的 pod 地址（没开 PreserveHostHeader）
+          #   → mall-order 的 externalBase() 读不到 X-Forwarded-Host，回退到 Host
+          #   → 提交订单后跳转到 http://192.168.48.9:9000/order/payment.html
+          #   → 浏览器打不开，下单成功了但用户看到的是错误页
+          #
+          # 证据是网关自己的 DEBUG 日志，它打印了要发给下游的头：
+          #   New headers are [Host:"cart.mall.com", X-Request-ID:…, X-Real-IP:…,
+          #    X-Scheme:"http", …] —— 旁边 ingress 加的 X-Real-IP/X-Scheme 都在，
+          #   唯独 X-Forwarded-* 一个不剩。
+          #
+          # 【这是一次升级引入的静默回归】这条链路原来是好的（见 mall-order
+          # OrderWebController.externalBase 的注释，那里记着上一次 pod IP 跳转的坑）。
+          # 应用代码一行没改，是 Spring Cloud 升到 2025.x 之后默认值变了。
+          # 和上面 routes 前缀改名那件事是同一类问题：不报错、不告警、健康检查全绿。
+          #
+          # 【值为什么是整个 Pod 网段】这里匹配的是【连到网关的对端地址】，
+          # 也就是 ingress-nginx 的 Pod IP（实测 192.168.48.54），
+          # 而集群 --cluster-cidr=192.168.0.0/16。
+          # 不写死那个 IP 是因为 ingress 的 pod 一重建就会变。
+          #
+          # 【代价，上云前必须重新审】信任整个 Pod 网段 = 集群内【任何】pod 都能
+          # 伪造 X-Forwarded-For。而 FrontendSecurityFilter 的 IP 维度限流就是按
+          # 客户端 IP 算的，也就是说一个恶意 pod 能靠伪造 IP 绕开限流。
+          # 本地集群里没有不受控的 pod，可以接受；上云后应该收窄到
+          # ingress 控制器所在的网段或专门的 Service CIDR。
+          trusted-proxies: '192\.168\.\d{1,3}\.\d{1,3}'
           routes:
             - id: product_route
               uri: lb://mall-product
