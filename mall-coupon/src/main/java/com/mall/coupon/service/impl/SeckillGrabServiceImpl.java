@@ -165,7 +165,12 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         return result;
     }
 
-    private SeckillGrabResultVo grabInternal(Long relationId, Long memberId, String username) {
+    /**
+     * 包级可见（不是 private）是为了 {@link SeckillJitWarmup} 能直接调它做 JIT 预热。
+     * 预热刻意绕开外层 {@code grab()} 的 businessMetrics 统计 ——
+     * 否则每次启动都会往业务指标里灌几百条"秒杀失败"，把面板和告警搞脏。
+     */
+    SeckillGrabResultVo grabInternal(Long relationId, Long memberId, String username) {
         SeckillGrabResultVo result = new SeckillGrabResultVo();
 
         Long soldOutUntil = localSoldOutUntil.get(relationId);
