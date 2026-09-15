@@ -255,6 +255,24 @@ spring:
               predicates:
                 - Path=/payment/**
 
+            # 促销页。和上面几条一样用 Path 而不是 Host，这样它在
+            # 【所有 *.mall.com 上都可达】—— 首页、商品页、购物车页的
+            # 导航栏都能直接链过去，不用把用户甩到另一个域名。
+            #
+            # 【为什么需要这条】2026-09-15 实测发现：促销页写在项目的目标范围里
+            #（"前台有首页、促销、PLP、PDP、购物车、结算"），但
+            # http://mall.com/promotion.html 是打不开的 —— 主站的
+            # Host=**.mall.com 兜底路由把它转给了 mall-product，那儿没有这个页面。
+            # 它此前只在 seckill.mall.com 上能打开（那个 Host 整个指向 mall-coupon），
+            # 而首页上没有任何入口，等于范围里的一项实际是缺的。
+            #
+            # 注意必须排在 Host 类路由【前面】，否则会被 Host=**.mall.com 先接走——
+            # 这和 order_route 要排在 mall_cart_route 前面是同一个道理。
+            - id: promotion_page_route
+              uri: lb://mall-coupon
+              predicates:
+                - Path=/promotion.html
+
             - id: mall_auth_route
               uri: lb://mall-auth
               predicates:

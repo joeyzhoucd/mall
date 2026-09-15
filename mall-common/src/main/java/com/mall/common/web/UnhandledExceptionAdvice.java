@@ -80,9 +80,26 @@ public class UnhandledExceptionAdvice {
     private static final Logger log = LoggerFactory.getLogger(UnhandledExceptionAdvice.class);
 
     /**
-     * 回给调用方的固定文案。<b>刻意不含任何异常细节</b>，见类注释第 ③ 条。
+     * 服务端故障的文案。<b>刻意不含任何异常细节</b>，见类注释第 ③ 条。
      */
-    private static final String CLIENT_MESSAGE = "服务暂时不可用，请稍后重试";
+    private static final String SERVER_MESSAGE = "服务暂时不可用，请稍后重试";
+
+    /**
+     * 客户端错误的文案。
+     *
+     * <h3>为什么 4xx 不能共用「服务暂时不可用，请稍后重试」</h3>
+     * 那句话对 4xx 是<b>假的</b>：服务好好的，是请求本身不对，
+     * 再重试一百次也还是同一个结果。2026-09-15 实测
+     * {@code mall.com/promotion.html} 返回的就是
+     * {@code {"code":400,"msg":"服务暂时不可用，请稍后重试"}} ——
+     * 状态码是对的，话是错的。
+     * <p>
+     * 这不只是措辞问题：它会把人往错的方向引（去看服务端有没有挂），
+     * 也会让客户端写出「4xx 也自动重试」这种逻辑。
+     * <p>
+     * 同样<b>不含任何异常细节</b>，要查具体原因拿 traceId 去日志系统。
+     */
+    private static final String CLIENT_MESSAGE = "请求无效，请检查后重试";
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<R> handle(Exception e, HttpServletRequest request) {
@@ -95,21 +112,24 @@ public class UnhandledExceptionAdvice {
             HttpStatus status = declared;
             // 客户端错误用 WARN 且【不带栈】：4xx 是调用方的问题，
             // 带栈只会让日志里全是噪音，把真正的 5xx 淹掉。
+            String message;
             if (status.is4xxClientError()) {
                 log.warn("请求被拒绝 {} status={} type={} traceId={}",
                         where, status.value(), e.getClass().getSimpleName(), traceId);
+                message = CLIENT_MESSAGE;
             } else {
                 log.error("请求失败 {} status={} traceId={}", where, status.value(), traceId, e);
+                message = SERVER_MESSAGE;
             }
             return ResponseEntity.status(status)
-                    .body(R.error(status.value(), CLIENT_MESSAGE).put("traceId", traceId));
+                    .body(R.error(status.value(), message).put("traceId", traceId));
         }
 
         // ---- ② 真正没人处理的异常：这才是当初那 2063 个 500 ----
         // 【整条链路上唯一会打出它的地方】所以这里必须带栈。
         log.error("未处理的异常 {} traceId={}", where, traceId, e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(R.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), CLIENT_MESSAGE)
+                .body(R.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), SERVER_MESSAGE)
                         .put("traceId", traceId));
     }
 

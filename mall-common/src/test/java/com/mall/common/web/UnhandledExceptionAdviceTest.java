@@ -156,6 +156,53 @@ class UnhandledExceptionAdviceTest {
         assertThat(res.getStatusCode().value()).isEqualTo(500);
     }
 
+    /**
+     * 4xx 不能说「服务暂时不可用，请稍后重试」——那句话对客户端错误是<b>假的</b>。
+     *
+     * <p>2026-09-15 上线后实测到的：{@code mall.com/promotion.html} 返回
+     * {@code {"code":400,"msg":"服务暂时不可用，请稍后重试"}}。
+     * 状态码是对的，话是错的：服务好好的，是请求本身不对，重试多少次都一样。
+     * <p>
+     * 这不只是措辞：它会把人往错的方向引（去查服务端有没有挂），
+     * 也会诱导客户端写出「4xx 也自动重试」的逻辑。
+     */
+    @Test
+    @DisplayName("4xx 的文案不能说「服务暂时不可用」——重试解决不了客户端错误")
+    void clientErrorsDoNotClaimServiceIsDown() {
+        ResponseEntity<R> res = advice.handle(
+                new TypeMismatchException("promotion", Long.class), get("/promotion.html"));
+
+        String msg = String.valueOf(res.getBody().get("msg"));
+        assertThat(msg)
+                .as("400 说「服务暂时不可用，请稍后重试」是假的，会把排查引向服务端")
+                .doesNotContain("服务暂时不可用");
+        assertThat(msg).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("正控：5xx 仍然说「服务暂时不可用」")
+    void serverErrorsStillSayServiceUnavailable() {
+        // 没有这一条的话，「两边都改成同一句新文案」也能让上面那条通过。
+        ResponseEntity<R> res = advice.handle(new RuntimeException("boom"), get("/product/list"));
+
+        assertThat(String.valueOf(res.getBody().get("msg"))).contains("服务暂时不可用");
+    }
+
+    @Test
+    @DisplayName("4xx 的文案同样不能泄漏异常细节")
+    void clientErrorMessageDoesNotLeakEither() {
+        // 换文案时最容易顺手把 e.getMessage() 拼进去 —— 那正是类注释第 ③ 条禁止的。
+        // 这里用一个消息里带表名和连接串的 4xx 异常来盯住它。
+        ResponseEntity<R> res = advice.handle(
+                new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Table 'mall_wms.wms_ware_order_task_detail'; jdbc:mysql://mysql-0.mysql:3306"),
+                get("/ware/lock"));
+
+        String body = String.valueOf(res.getBody());
+        assertThat(body).doesNotContain("wms_ware_order_task_detail");
+        assertThat(body).doesNotContain("jdbc:mysql");
+    }
+
     @Test
     @DisplayName("traceId 取不到时是空串，不是 null")
     void traceIdIsEmptyStringWhenAbsent() {
