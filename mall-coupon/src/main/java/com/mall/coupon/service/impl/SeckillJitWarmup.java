@@ -82,6 +82,18 @@ public class SeckillJitWarmup implements ApplicationRunner {
     private int iterations;
 
     /**
+     * 只读热路径的预热轮数，<b>刻意比上面少得多</b>。
+     *
+     * <p>那一段里有一次<b>跨服务 Feign 调用</b>（查默认地址）。
+     * 跟本地 Redis 的 Lua 不是一个量级：400 轮 Lua 是几毫秒一次的本地往返，
+     * 400 轮 Feign 就是在每个 pod 每次启动时给 mall-member 砸 400 个请求 ——
+     * 两个副本就是 800 个，而且正好发生在发版滚动时（那时 mall-member
+     * 自己可能也在滚）。50 轮足够让 JIT 把它编译出来。
+     */
+    @Value("${mall.warmup.seckill.readonly-iterations:50}")
+    private int readOnlyIterations;
+
+    /**
      * 时间预算。Redis 慢或者不通的时候，预热不能把启动无限拖住 ——
      * pod 起不来比没预热严重得多。
      */
@@ -103,7 +115,16 @@ public class SeckillJitWarmup implements ApplicationRunner {
                     break;
                 }
                 // memberId 也变着来：Lua 里有 SISMEMBER，固定值会让它一直走同一个分支。
-                grabService.grabInternal(WARMUP_RELATION_ID, (long) -(i + 1), "warmup");
+                long syntheticMember = -(i + 1);
+                grabService.grabInternal(WARMUP_RELATION_ID, syntheticMember, "warmup");
+                // 【第二版加的】只跑 grabInternal 实测毫无效果 —— 冷代价在 doGrab
+                // 那一段（MQ + 写库 + Feign 查地址），不在前面的 Redis Lua。
+                // 这里补上 doGrab 里只读的三步，尤其是那次跨服务 Feign 调用。
+                // 次数单独控制，理由见 readOnlyIterations 的注释。
+                // 详见 SeckillGrabServiceImpl.warmupReadOnlyHotPath 的注释和实测数字。
+                if (i < readOnlyIterations) {
+                    grabService.warmupReadOnlyHotPath(syntheticMember);
+                }
                 done++;
             }
         } catch (Exception e) {

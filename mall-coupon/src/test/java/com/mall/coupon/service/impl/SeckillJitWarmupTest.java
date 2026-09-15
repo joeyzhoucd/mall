@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,6 +49,7 @@ class SeckillJitWarmupTest {
         SeckillJitWarmup w = new SeckillJitWarmup(service);
         ReflectionTestUtils.setField(w, "iterations", iterations);
         ReflectionTestUtils.setField(w, "budgetMillis", budgetMillis);
+        ReflectionTestUtils.setField(w, "readOnlyIterations", iterations);
         return w;
     }
 
@@ -143,6 +145,44 @@ class SeckillJitWarmupTest {
         assertThat(distinct)
                 .as("%d 次调用只用了 %d 个不同的 memberId", calls.size(), distinct)
                 .isGreaterThan(1);
+    }
+
+    /**
+     * 只读热路径也必须被预热到，而且用的是合成 memberId。
+     *
+     * <p>第一版预热只跑 {@code grabInternal}，**实测毫无效果**：
+     * 带预热的 pod 刚 Ready 时抢中 184、系统繁忙 277、p95 8923ms，
+     * 同一个 pod 被真实流量跑过之后抢中 726、系统繁忙 66、p95 6276ms ——
+     * 吞吐还是涨 3.9 倍，说明热错了地方。
+     * <p>
+     * {@code 系统繁忙} 是 {@code doGrab} 抛异常的计数，从 277 降到 66 指得很清楚：
+     * 冷代价在 doGrab 那一段（尤其是那次跨服务 Feign 查地址），
+     * 不在前面的 Redis Lua。所以补了 {@code warmupReadOnlyHotPath}。
+     * <p>
+     * 这条测试防的是它被误删或被跳过 —— 那样预热又会退回"热错地方"的状态，
+     * 而且完全静默。
+     */
+    @Test
+    @DisplayName("只读热路径（含跨服务查地址）必须也被预热到")
+    void alsoWarmsTheReadOnlyHotPath() {
+        List<Long> members = new ArrayList<>();
+        SeckillGrabServiceImpl service = mock(SeckillGrabServiceImpl.class);
+        when(service.grabInternal(anyLong(), anyLong(), anyString()))
+                .thenReturn(new SeckillGrabResultVo());
+        doAnswer(inv -> {
+            members.add(inv.getArgument(0));
+            return null;
+        }).when(service).warmupReadOnlyHotPath(anyLong());
+
+        warmup(service, 10, 5000).run(null);
+
+        assertThat(members)
+                .as("warmupReadOnlyHotPath 一次都没被调 —— 冷代价最大的那一段没被预热")
+                .isNotEmpty();
+        assertThat(members).allSatisfy(m ->
+                assertThat(m)
+                        .as("只读预热也必须用合成 memberId（负数），不能碰真实会员")
+                        .isNegative());
     }
 
     /**

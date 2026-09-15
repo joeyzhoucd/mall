@@ -442,6 +442,56 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         }
     }
 
+    /**
+     * 把 {@link #doGrab} 里<b>只读的那几步</b>各跑一遍，供 {@link SeckillJitWarmup} 预热用。
+     *
+     * <h3>为什么需要它（有实测）</h3>
+     * 第一版预热只调 {@link #grabInternal}，用一个不存在的 relationId 让 Lua 返回 -2。
+     * 那条路径确实被跑热了，但**实测毫无效果**：
+     * <pre>
+     *   带预热的 pod，刚 Ready      抢中 184  系统繁忙 277  p95 8923 ms
+     *   同一个 pod 被真实流量跑过后  抢中 726  系统繁忙 66   p95 6276 ms
+     * </pre>
+     * 第二轮吞吐还是涨 3.9 倍 —— 说明热错了地方。
+     * 而 {@code 系统繁忙}（= {@code doGrab} 抛异常）从 277 降到 66 指得很清楚：
+     * <b>冷的代价在 doGrab 这一段，不在前面的 Redis Lua。</b>
+     *
+     * <h3>这里只做只读的三步，写的两步做不了</h3>
+     * <ul>
+     *   <li>Redis hash 读秒杀信息 —— 只读，安全</li>
+     *   <li>查本地消息表 —— 只读的 DB 查询，安全</li>
+     *   <li><b>Feign 调 mall-member 查默认地址</b> —— 只读，而且它自己 catch 了所有异常。
+     *       这一步很可能是冷代价的大头：首次 Feign 调用要做 Consul 服务发现、
+     *       负载均衡器初始化、熔断器注册、建立 HTTP 连接、Jackson 类型绑定</li>
+     * </ul>
+     * 剩下两步<b>没有安全的空跑方式</b>：{@code createPending} 会真的插一行，
+     * MQ 发布会产生假订单。这是取舍，不是遗漏。
+     *
+     * <h3>参数必须是不可能存在的值</h3>
+     * 三步都靠"查不到"来提前结束。memberId 用负数、relationId 用
+     * {@code Long.MAX_VALUE}，都不会撞上真实数据。
+     */
+    void warmupReadOnlyHotPath(long syntheticMemberId) {
+        long relationId = Long.MAX_VALUE;
+        // 每一步各自 try：任何一步不可用都不该影响别的步骤的预热，
+        // 更不该让启动失败（调用方还有一层兜底，这里是为了"坏一步不影响其余"）。
+        try {
+            redisTemplate.opsForHash().entries(infoKey(relationId));
+        } catch (Exception ignored) {
+            // 预热失败只是没热到，不记日志免得每次启动刷屏
+        }
+        try {
+            seckillLocalMessageService.getByRelationAndMember(relationId, syntheticMemberId);
+        } catch (Exception ignored) {
+            // 同上
+        }
+        try {
+            lookupDefaultAddressId(syntheticMemberId);
+        } catch (Exception ignored) {
+            // lookupDefaultAddressId 自己已经 catch 了，这层是防它将来改掉
+        }
+    }
+
     private void rollbackRedisGrab(Long relationId, Long memberId) {
         redisTemplate.opsForValue().increment(stockKey(relationId));
         redisTemplate.opsForSet().remove(userKey(relationId), String.valueOf(memberId));
