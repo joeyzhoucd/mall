@@ -3,6 +3,7 @@ package com.mall.gateway.security;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.PathContainer;
@@ -26,6 +27,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Service
 public class DefaultFrontendSecurityService implements FrontendSecurityService {
@@ -48,6 +50,14 @@ public class DefaultFrontendSecurityService implements FrontendSecurityService {
     public Mono<FrontendAccessDecision> check(ServerWebExchange exchange) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
+
+        // 【必须在 properties.isEnabled() 之前】把整套前台风控关掉是运维动作，
+        // 不该顺带把 actuator 重新暴露到公网上。这两件事的开关要分开。
+        if (blocksManagementEndpoint(path, request)) {
+            // 返回 404 而不是 403：403 等于承认"这儿确实有个端点"。
+            return Mono.just(FrontendAccessDecision.reject(HttpStatus.NOT_FOUND, "Not Found"));
+        }
+
         if (!properties.isEnabled() || shouldSkip(path, request.getMethod())) {
             return Mono.just(FrontendAccessDecision.allow(null));
         }
@@ -82,6 +92,66 @@ public class DefaultFrontendSecurityService implements FrontendSecurityService {
                         ? FrontendAccessDecision.allow(identity)
                         : FrontendAccessDecision.reject(HttpStatus.TOO_MANY_REQUESTS, "请求过于频繁，请稍后再试"));
     }
+
+    /**
+     * 该不该把这个 {@code /actuator/**} 请求挡回去。
+     *
+     * <h3>两道判据，合起来才既安全又不误伤监控</h3>
+     * <ol>
+     *   <li><b>这个过滤器本来就只对"被路由命中的请求"生效。</b>
+     *       Prometheus 直连 pod 抓 {@code podIP:port/actuator/prometheus} 时，
+     *       Host 头是 IP（实测 {@code 192.168.99.194:88}），
+     *       没有任何 {@code Host=**.mall.com} 路由能匹配，请求走的是 actuator
+     *       自己的 handler mapping，<b>根本不经过 GlobalFilter</b>。</li>
+     *   <li>但上一条是<b>路由配置的副产品</b>，不是契约 —— 哪天有人加一条能匹配
+     *       IP 的兜底路由，监控就会被这里悄悄掐断。所以再加一道双保险：
+     *       <b>Host 是裸 IP 或 localhost 时放行</b>。</li>
+     * </ol>
+     * 也就是说：从域名进来的一律挡，直连 pod 的一律放。
+     */
+    private boolean blocksManagementEndpoint(String path, ServerHttpRequest request) {
+        if (!properties.getAccess().isBlockManagementEndpoints()) {
+            return false;
+        }
+        if (!path.equals("/actuator") && !path.startsWith("/actuator/")) {
+            return false;
+        }
+        return !isDirectPodAddress(hostWithoutPort(request));
+    }
+
+    /** 取 Host 头并去掉端口。IPv6 形如 {@code [::1]:88}，要先把方括号那段整体取出来。 */
+    private String hostWithoutPort(ServerHttpRequest request) {
+        String host = request.getHeaders().getFirst(HttpHeaders.HOST);
+        if (!StringUtils.hasText(host)) {
+            // 没有 Host 头（HTTP/1.0 或构造的请求）——按"不是直连 pod"处理，挡掉。
+            // 这里的默认值必须偏保守：判断不了的时候宁可挡，不可放。
+            return "";
+        }
+        host = host.trim();
+        if (host.startsWith("[")) {
+            int end = host.indexOf(']');
+            return end > 0 ? host.substring(0, end + 1) : host;
+        }
+        int colon = host.indexOf(':');
+        return colon >= 0 ? host.substring(0, colon) : host;
+    }
+
+    /** 裸 IP 或 localhost = 集群内直连 pod 的访问方式，放行。域名一律视为外部。 */
+    private boolean isDirectPodAddress(String host) {
+        if (!StringUtils.hasText(host)) {
+            return false;
+        }
+        if ("localhost".equalsIgnoreCase(host)) {
+            return true;
+        }
+        if (host.startsWith("[") && host.endsWith("]")) {   // IPv6 字面量
+            return true;
+        }
+        return IPV4.matcher(host).matches();
+    }
+
+    private static final Pattern IPV4 =
+            Pattern.compile("^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}$");
 
     private boolean shouldSkip(String path, HttpMethod method) {
         return HttpMethod.OPTIONS.equals(method)
