@@ -17,6 +17,7 @@ import co.elastic.clients.elasticsearch.core.search.Highlight;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.SourceConfig;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
+import com.mall.search.client.EmbeddingClient;
 import com.mall.search.service.SearchService;
 import com.mall.search.vo.SearchParam;
 import com.mall.search.vo.SearchResult;
@@ -44,8 +45,26 @@ public class SearchServiceImpl implements SearchService {
     private static final int DEFAULT_PAGE_SIZE = 16;
     private static final int PAGE_NAV_SIZE = 5;
 
+    /** 商品标题的向量字段，由 mall-deploy 的建索引脚本写入，维度必须和模型一致（bge-small-zh-v1.5 = 512）。 */
+    private static final String VECTOR_FIELD = "titleVector";
+    /**
+     * knn 的 k 上限。翻页越深 k 越大，而 HNSW 的开销随 k 上升，
+     * 所以设个天花板：翻到第 13 页之后语义召回不再加深，只靠关键词那一路补。
+     * 真实用户几乎不会翻到那么深，为此让前面每一页都变慢不划算。
+     */
+    private static final int MAX_KNN_K = 200;
+    /** num_candidates 的上限，ES 本身也限制在 10000。 */
+    private static final int MAX_KNN_CANDIDATES = 1000;
+
     @Autowired
     private ElasticsearchClient esClient;
+
+    /**
+     * 查询词向量化。<b>它的 embed() 失败时返回 null 而不抛异常</b>，
+     * 所以这里不需要任何 try/catch —— 拿到 null 就退回纯关键词检索。
+     */
+    @Autowired
+    private EmbeddingClient embeddingClient;
 
     @Override
     public SearchResult search(SearchParam param) throws IOException {
@@ -84,8 +103,15 @@ public class SearchServiceImpl implements SearchService {
             ));
         }
 
+        // 【筛选条件单独收集，不直接挂到 bool 上】
+        // 因为向量检索（下面的 knn）有它自己的 filter 参数，必须喂【同一批】条件。
+        // 只加在 bool 上的话，用户选了「厨房电器」分类，关键词那一路会守规矩，
+        // 而向量那一路照样召回全品类的商品 —— 表现为「筛选了但没筛干净」，
+        // 而且只在语义命中时才出现，很难复现。
+        List<Query> filters = new ArrayList<>();
+
         if (param.getCategoryId() != null) {
-            bool.filter(f -> f.term(t -> t.field("categoryId").value(param.getCategoryId())));
+            filters.add(Query.of(f -> f.term(t -> t.field("categoryId").value(param.getCategoryId()))));
         }
 
         if (!CollectionUtils.isEmpty(param.getBrandId())) {
@@ -94,13 +120,13 @@ public class SearchServiceImpl implements SearchService {
                     .map(FieldValue::of)
                     .collect(Collectors.toList());
             if (!brandValues.isEmpty()) {
-                bool.filter(f -> f.terms(t -> t.field("brandId").terms(new TermsQueryField.Builder().value(brandValues).build())));
+                filters.add(Query.of(f -> f.terms(t -> t.field("brandId").terms(new TermsQueryField.Builder().value(brandValues).build()))));
             }
         }
 
         if (param.getHasStock() != null) {
             boolean hasStock = param.getHasStock() == 1;
-            bool.filter(f -> f.term(t -> t.field("hasStock").value(hasStock)));
+            filters.add(Query.of(f -> f.term(t -> t.field("hasStock").value(hasStock))));
         }
 
         if (StringUtils.hasText(param.getSkuPrice())) {
@@ -120,7 +146,7 @@ public class SearchServiceImpl implements SearchService {
                 String min = param.getSkuPrice().substring(0, param.getSkuPrice().length() - 1);
                 range.gte(co.elastic.clients.json.JsonData.of(toNumber(min)));
             }
-            bool.filter(f -> f.range(range.build()));
+            filters.add(Query.of(f -> f.range(range.build())));
         }
 
         if (!CollectionUtils.isEmpty(param.getAttr())) {
@@ -134,19 +160,72 @@ public class SearchServiceImpl implements SearchService {
                 }
                 String attrId = split[0];
                 String attrValue = split[1];
-                bool.filter(f -> f.nested(n -> n
+                filters.add(Query.of(f -> f.nested(n -> n
                         .path("attrs")
                         .query(q -> q.bool(b -> b
                                 .must(m -> m.term(t -> t.field("attrs.attrId").value(attrId)))
                                 .must(m -> m.term(t -> t.field("attrs.attrValue").value(attrValue)))
                         ))
-                ));
+                )));
             }
         }
 
+        bool.filter(filters);
         builder.query(q -> q.bool(bool.build()));
 
-        // sort
+        // =====================================================================
+        // 语义检索：把查询词变成向量，和上面的关键词检索一起交给 ES
+        // =====================================================================
+        // 【为什么是同一个请求，而不是查两次再自己合并】
+        // ES 8.x 的 top-level knn 和 query 会在同一次检索里合并打分，
+        // 而且【knn 召回的文档也参与聚合】（实测：纯 BM25 命中 0 条时聚合是空的，
+        // 加上 knn 后聚合变成「厨房电器×10」）。自己查两次再合并的话，
+        // 左侧的品牌/分类/属性筛选面板就得自己重算一遍，得不偿失。
+        //
+        // 【只在有关键词时才做】没有关键词就是按分类浏览，没有「查询意图」可以向量化，
+        // 白调一次 TEI 还给每个请求加 10ms。
+        //
+        // 【embed 返回 null 是正常路径】TEI 挂了/熔断中就退回纯关键词检索，
+        // 搜索照常可用，只是「电饭锅」又搜不到「厨房电器」了。
+        // 这条降级是静默的，靠 mall.search.embedding.calls 指标才看得见。
+        float[] queryVector = param.hasKeyword() ? embeddingClient.embed(param.getKeyword()) : null;
+        if (queryVector != null) {
+            List<Float> vector = new ArrayList<>(queryVector.length);
+            for (float v : queryVector) {
+                vector.add(v);
+            }
+            // 【k 必须覆盖到当前页】knn 只返回最近的 k 个，k 小于 from+size 时
+            // 翻到后面的页会凭空少结果 —— 而且是「第 1 页正常、第 3 页变少」这种
+            // 不容易被发现的少。
+            int k = Math.min(from + pageSize, MAX_KNN_K);
+            // num_candidates 是 HNSW 实际遍历的候选数，必须 >= k。给足倍数换准确率：
+            // 这是近似检索，候选太少会漏掉真正最近的那些。
+            int numCandidates = Math.min(MAX_KNN_CANDIDATES, Math.max(100, k * 5));
+            builder.knn(kn -> kn
+                    .field(VECTOR_FIELD)
+                    .queryVector(vector)
+                    .k(k)
+                    .numCandidates(numCandidates)
+                    .filter(filters)
+            );
+        }
+
+        // =====================================================================
+        // 排序
+        // =====================================================================
+        // 【这里改过，而且不改的话上面的向量检索等于白做】
+        // ES 里只要指定了 sort，_score 就不参与排序了。原先的代码在用户没选排序时
+        // 一律按 hotScore 降序 —— 那么无论 BM25 还是 kNN 算出多高的相关性，
+        // 结果顺序都只看热度，语义检索的效果一点都体现不出来。
+        //
+        // 改成：用户显式选了排序就听用户的；没选时，
+        //   - 有关键词 -> 不设 sort，走 ES 默认的 _score 降序（相关性优先，搜索的标准语义）
+        //   - 无关键词 -> 仍按 hotScore（这时是分类浏览，没有相关性可言，保持原行为）
+        //
+        // 【为什么不是"拿到向量才按相关性排"】那样排序方式会随 TEI 的可用性跳变：
+        // TEI 抖一下，用户刷新页面就看到完全不同的商品顺序。
+        // 顺序不是最优，比顺序会无缘无故变化要好得多 —— 降级应该让结果变差，
+        // 不该让行为变得不可预测。
         if (StringUtils.hasText(param.getSort())) {
             String[] sortInfo = param.getSort().split("_");
             if (sortInfo.length == 2) {
@@ -154,7 +233,7 @@ public class SearchServiceImpl implements SearchService {
                 SortOrder order = "asc".equalsIgnoreCase(sortInfo[1]) ? SortOrder.Asc : SortOrder.Desc;
                 builder.sort(s -> s.field(f -> f.field(field).order(order)));
             }
-        } else {
+        } else if (!param.hasKeyword()) {
             builder.sort(s -> s.field(f -> f.field("hotScore").order(SortOrder.Desc)));
         }
 

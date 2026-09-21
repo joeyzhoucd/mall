@@ -21,10 +21,12 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 向量化调用的降级行为测试。
@@ -267,6 +269,88 @@ class EmbeddingClientTest {
         assertThat(counter("fail"))
                 .as("空查询不是故障，混进 fail 会让熔断被无搜索词的请求误触发")
                 .isZero();
+    }
+
+    // ---------- embedAll：上架路径，语义和 embed 相反 ----------
+
+    @Test
+    @DisplayName("embedAll 失败时【抛异常】，不像 embed 那样降级")
+    void embedAllThrowsInsteadOfDegrading() {
+        // 这是整组测试里最重要的一条语义差异：
+        // 上架时静默跳过向量 = 这个商品永久搜不到，比让上架失败糟糕得多。
+        respondServerError();
+        EmbeddingClient c = client(defaults());
+
+        assertThatThrownBy(() -> c.embedAll(List.of("电饭锅")))
+                .as("上架路径不可降级，必须让调用方知道失败了")
+                .isInstanceOf(RuntimeException.class);
+        assertThat(counter("batch_fail")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("embedAll 在功能关闭时返回 null，且不发请求")
+    void embedAllReturnsNullWhenDisabled() {
+        respondOk();
+        EmbeddingProperties off = new EmbeddingProperties(false, null,
+                Duration.ofMillis(200), Duration.ofMillis(300), null, null, null, null, null);
+
+        assertThat(client(off).embedAll(List.of("电饭锅")))
+                .as("null 表示「功能关掉了，不需要向量」，调用方应正常上架")
+                .isNull();
+        assertThat(received.get()).isZero();
+    }
+
+    @Test
+    @DisplayName("超过 32 条时自动分批——TEI 的 max_client_batch_size 就是 32")
+    void splitsIntoBatchesOf32() {
+        behavior = exchange -> {
+            // 按请求里的条数原样返回同样多的向量
+            int n = countInputs(exchange);
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < n; i++) {
+                sb.append(i > 0 ? "," : "").append("[0.1,0.2,0.3]");
+            }
+            write(exchange, 200, sb.append("]").toString());
+        };
+        List<String> texts = new java.util.ArrayList<>();
+        for (int i = 0; i < 70; i++) {
+            texts.add("商品" + i);
+        }
+
+        List<float[]> out = client(defaults()).embedAll(texts);
+
+        assertThat(out).hasSize(70);
+        assertThat(received.get())
+                .as("70 条应该切成 32+32+6 三个请求；一次发 70 条会被 TEI 拒绝")
+                .isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("返回条数和入参对不上时必须抛异常——错位比没有向量更糟")
+    void throwsWhenResponseCountMismatches() {
+        // 如果这里不校验，3 个商品拿到 2 个向量，后面按下标一一对应就会【错位】：
+        // 商品 B 带上了商品 A 的向量，搜索时出现完全无关的结果，而且查不出原因。
+        behavior = exchange -> write(exchange, 200, "[[0.1,0.2,0.3]]");   // 只回 1 条
+
+        assertThatThrownBy(() -> client(defaults()).embedAll(List.of("甲", "乙", "丙")))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("条数不符");
+    }
+
+    /** 数一下请求体里 inputs 数组有几个元素 */
+    private static int countInputs(HttpExchange exchange) {
+        try (var is = exchange.getRequestBody()) {
+            String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            int start = body.indexOf('[');
+            int end = body.lastIndexOf(']');
+            if (start < 0 || end <= start) {
+                return 0;
+            }
+            String inner = body.substring(start + 1, end).trim();
+            return inner.isEmpty() ? 0 : inner.split("\",\"|\", \"").length;
+        } catch (IOException e) {
+            throw new UncheckedIOExceptionWrapper(e);
+        }
     }
 
     // ---------- 默认值 ----------

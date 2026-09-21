@@ -1,5 +1,6 @@
 package com.mall.search.service.impl;
 
+import com.mall.search.client.EmbeddingClient;
 import com.mall.search.service.ProductSaveService;
 import com.mall.search.vo.SkuEsModel;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -30,6 +31,8 @@ public class ProductSaveServiceImpl implements ProductSaveService {
     private ElasticsearchClient esClient;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private EmbeddingClient embeddingClient;
 
     private static final String INDEX_NAME = "product";
 
@@ -37,9 +40,15 @@ public class ProductSaveServiceImpl implements ProductSaveService {
     public boolean productUp(List<Object> skuEsModels) throws IOException {
         ensureIndexExists();
 
-        List<BulkOperation> ops = new ArrayList<>();
+        List<SkuEsModel> models = new ArrayList<>(skuEsModels.size());
         for (Object obj : skuEsModels) {
-            SkuEsModel model = objectMapper.convertValue(obj, SkuEsModel.class);
+            models.add(objectMapper.convertValue(obj, SkuEsModel.class));
+        }
+
+        fillTitleVectors(models);
+
+        List<BulkOperation> ops = new ArrayList<>();
+        for (SkuEsModel model : models) {
             IndexOperation<SkuEsModel> indexOp = IndexOperation.of(b -> b
                 .index(INDEX_NAME)
                 .id(String.valueOf(model.getSkuId()))
@@ -66,6 +75,57 @@ public class ProductSaveServiceImpl implements ProductSaveService {
         return hasFailures;
     }
 
+    /**
+     * 给待上架的商品补上标题向量。
+     *
+     * <h3>这里【不】降级，拿不到向量就让整个上架失败</h3>
+     * 和搜索时的处理正好相反。搜索拿不到向量，代价是这一次结果差；
+     * 上架跳过向量，代价是<b>这个商品从此再也不出现在语义搜索里</b>，
+     * 而且没有任何报错——只有用户搜不到时才会发现，那时早就查不出原因了。
+     * 让上架失败，调用方（商品服务的上架流程）会重试或报错给运营，
+     * 这比留一条永久性的静默数据缺失好得多。
+     *
+     * <p>{@code embedAll} 返回 null 是唯一的例外：那表示语义搜索被整体关闭
+     * （{@code mall.search.embedding.enabled=false}），此时搜索侧也不用向量，
+     * 不生成才是一致的。代价是关闭期间上架的商品需要在重新开启后补灌一次。
+     *
+     * <p><b>标题为空的商品会被跳过</b>而不是让整批失败：那是数据问题，
+     * 不是 TEI 的问题，不该因此挡住同一批里其它正常商品的上架。
+     */
+    private void fillTitleVectors(List<SkuEsModel> models) {
+        List<Integer> positions = new ArrayList<>();
+        List<String> titles = new ArrayList<>();
+        for (int i = 0; i < models.size(); i++) {
+            String title = models.get(i).getSkuTitle();
+            if (title != null && !title.isBlank()) {
+                positions.add(i);
+                titles.add(title);
+            }
+        }
+        if (titles.isEmpty()) {
+            return;
+        }
+
+        List<float[]> vectors = embeddingClient.embedAll(titles);
+        if (vectors == null) {
+            log.info("语义搜索已关闭，本次上架不生成标题向量，数量={}", models.size());
+            return;
+        }
+
+        for (int i = 0; i < positions.size(); i++) {
+            float[] v = vectors.get(i);
+            List<Float> boxed = new ArrayList<>(v.length);
+            for (float f : v) {
+                boxed.add(f);
+            }
+            models.get(positions.get(i)).setTitleVector(boxed);
+        }
+        if (positions.size() < models.size()) {
+            log.warn("有 {} 个商品没有标题，跳过向量生成（它们仍会上架，但搜不到语义结果）",
+                    models.size() - positions.size());
+        }
+    }
+
     private void ensureIndexExists() throws IOException {
         boolean exists = esClient.indices().exists(ExistsRequest.of(r -> r.index(INDEX_NAME))).value();
         if (!exists) {
@@ -75,6 +135,14 @@ public class ProductSaveServiceImpl implements ProductSaveService {
                     "      \"skuId\": { \"type\": \"long\" },\n" +
                     "      \"spuId\": { \"type\": \"keyword\" },\n" +
                     "      \"skuTitle\": { \"type\": \"text\", \"analyzer\": \"ik_smart\" },\n" +
+                    // 语义检索用的标题向量。
+                    //   dims=512    必须和模型输出一致（bge-small-zh-v1.5），写错的文档会被 ES 直接拒绝
+                    //   index=true  建 HNSW 近似最近邻索引；false 的话只能全量暴力扫，而且用不了 knn 语法
+                    //   dot_product TEI 返回的向量已归一化（实测 ‖v‖=1.0000），
+                    //               此时点乘 ≡ 余弦相似度，但省掉每次算模长再相除的开销。
+                    //               注意 ES 会校验归一化，不满足会拒绝写入。
+                    // 【换模型就要重建索引】维度是建索引时固定的，改不了。
+                    "      \"titleVector\": { \"type\": \"dense_vector\", \"dims\": 512, \"index\": true, \"similarity\": \"dot_product\" },\n" +
                     "      \"skuPrice\": { \"type\": \"scaled_float\", \"scaling_factor\": 100 },\n" +
                     "      \"skuImg\": { \"type\": \"keyword\", \"index\": false, \"doc_values\": false },\n" +
                     "      \"saleCount\": { \"type\": \"long\" },\n" +
