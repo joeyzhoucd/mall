@@ -24,3 +24,21 @@ spring:
 elasticsearch:
   host: ${ES_HOST:192.168.77.102}
   port: ${ES_PORT:9200}
+
+# 向量化服务（TEI），语义搜索用。
+#
+# 【这是一个可降级依赖】拿不到向量就退回纯关键词检索，搜索仍然可用，
+# 只是「电饭锅」搜不到「厨房电器」这类语义结果。所以这里的超时和熔断参数
+# 是按「降级代价小」来定的 —— 每个值的理由写在 EmbeddingProperties 里，
+# 改之前先读那段注释，不要凭感觉调大超时。
+#
+# 【要临时关掉语义搜索】把 enabled 设成 false，或者在 Config Server 里覆盖
+# mall.search.embedding.enabled —— 比改代码或缩容 TEI 都快，
+# 而且 mall.search.embedding.calls{result="disabled"} 会如实反映出来。
+#
+# 其余参数（连接/读超时、熔断窗口等）都有默认值，只在需要偏离时才写在这里。
+mall:
+  search:
+    embedding:
+      enabled: ${SEARCH_EMBEDDING_ENABLED:true}
+      base-url: ${EMBEDDING_URI:http://embedding}
