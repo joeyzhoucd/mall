@@ -13,6 +13,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+// 融合模式属于检索层的配置，和 ES 客户端放一处
+@org.springframework.boot.context.properties.EnableConfigurationProperties(SearchFusionProperties.class)
 public class ElasticSearchConfig {
 
     @Value("${elasticsearch.host}")

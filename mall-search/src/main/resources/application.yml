@@ -42,3 +42,21 @@ mall:
     embedding:
       enabled: ${SEARCH_EMBEDDING_ENABLED:true}
       base-url: ${EMBEDDING_URI:http://embedding}
+    # 关键词检索和向量检索怎么合并。
+    #
+    # score-sum（默认）：ES 原生 query + knn 单请求，两路分数相加。
+    # rrf：应用层 Reciprocal Rank Fusion，只看排名不看分数，发三路 _msearch。
+    #
+    # 【默认选 score-sum 是量出来的】2026-09-21 在真实 14941 条商品上对照
+    # 5 组查询（看 top8 里「品类+品牌都对」的条数）：
+    #     窗口 50  -> score-sum 38/40, rrf 30/40
+    #     窗口 200 -> score-sum 38/40, rrf 34/40
+    #     窗口 500 -> score-sum 38/40, rrf 34/40
+    # RRF 随窗口变大而改善但追不上，还要付出双倍数据传输。
+    # 原因见 SearchFusionProperties 的类注释。
+    #
+    # 【那为什么留着开关】上面的结论依赖当前的数据特征——商品标题是模板生成的，
+    # 品牌和品类都是精确词，BM25 在这种数据上几乎无敌。换成真实电商数据
+    # （口语化、错别字、同义词）之后应该重新量一次，那时不用改代码。
+    fusion:
+      mode: ${SEARCH_FUSION_MODE:score-sum}

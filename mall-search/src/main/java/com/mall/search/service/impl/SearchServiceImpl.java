@@ -3,7 +3,9 @@ package com.mall.search.service.impl;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.KnnQuery;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.aggregations.LongTermsBucket;
 import co.elastic.clients.elasticsearch._types.aggregations.NestedAggregate;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
@@ -11,6 +13,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermsQueryField;
+import co.elastic.clients.elasticsearch.core.MsearchResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Highlight;
@@ -18,6 +21,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.SourceConfig;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import com.mall.search.client.EmbeddingClient;
+import com.mall.search.config.SearchFusionProperties;
 import com.mall.search.service.SearchService;
 import com.mall.search.vo.SearchParam;
 import com.mall.search.vo.SearchResult;
@@ -31,6 +35,7 @@ import org.springframework.util.StringUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,8 +61,19 @@ public class SearchServiceImpl implements SearchService {
     /** num_candidates 的上限，ES 本身也限制在 10000。 */
     private static final int MAX_KNN_CANDIDATES = 1000;
 
+    /**
+     * 返回给页面的字段白名单。
+     * <p><b>刻意不含 {@code titleVector}</b>：512 个浮点数按 JSON 文本传回来，
+     * 每页 16 条就是 8000 多个数字，白白撑大响应体和反序列化开销，而页面一个都用不上。
+     */
+    private static final List<String> SOURCE_FIELDS = List.of(
+            "skuId", "skuTitle", "skuPrice", "skuImg", "saleCount", "brandName", "brandImg", "categoryName");
+
     @Autowired
     private ElasticsearchClient esClient;
+
+    @Autowired
+    private SearchFusionProperties fusionProperties;
 
     /**
      * 查询词向量化。<b>它的 embed() 失败时返回 null 而不抛异常</b>，
@@ -68,46 +84,210 @@ public class SearchServiceImpl implements SearchService {
 
     @Override
     public SearchResult search(SearchParam param) throws IOException {
-        SearchResult result = null;
         try {
-            // 1. 构建检索请求
-            SearchRequest request = buildSearchRequest(param);
-            log.info("搜索请求DSL: {}", request);
+            // 【向量化放在这里，不在 buildSearchRequest 里】RRF 模式要发三路请求，
+            // 同一个向量得用三次；放在构建请求里会变成调三次 TEI。
+            float[] queryVector = param.hasKeyword() ? embeddingClient.embed(param.getKeyword()) : null;
 
-            // 2. 执行检索
-            SearchResponse<SkuEsModel> response = esClient.search(request, SkuEsModel.class);
-
-            // 3. 分析响应结果
-            log.info("搜索响应: 总命中数={}, 耗时={}ms", response.hits().total().value(), response.took());
-            result = buildSearchResult(response, param);
+            // queryVector == null 时两种模式没有区别（都退化成纯关键词检索），
+            // 走默认路径即可，省掉 RRF 那两路多余的请求。
+            if (fusionProperties.isRrf() && queryVector != null) {
+                return searchWithRrf(param, queryVector);
+            }
+            return searchWithScoreSum(param, queryVector);
         } catch (Exception e) {
             log.error("ES检索异常", e);
             throw e;
         }
-        return result;
     }
 
-    private SearchRequest buildSearchRequest(SearchParam param) {
+    /**
+     * 默认模式：ES 原生 {@code query} + {@code knn} 单请求，两路分数相加。
+     *
+     * <p>实测在当前数据上优于 RRF（38/40 vs 34/40，见 {@link SearchFusionProperties}）。
+     * 原因是它对<b>并集里每个文档</b>都算两个分数，而 RRF 只看各自 top-window 内的排名。
+     */
+    private SearchResult searchWithScoreSum(SearchParam param, float[] queryVector) throws IOException {
+        SearchRequest request = buildSearchRequest(param, queryVector);
+        log.info("搜索请求DSL: {}", request);
+        SearchResponse<SkuEsModel> response = esClient.search(request, SkuEsModel.class);
+        TotalHits totalHits = response.hits().total();
+        long total = totalHits != null ? totalHits.value() : 0L;
+        log.info("搜索响应: 模式=score-sum, 总命中数={}, 耗时={}ms", total, response.took());
+        return buildSearchResult(response.hits().hits(), total, response.aggregations(), param);
+    }
+
+    /**
+     * RRF 模式：两路各自检索，按<b>排名</b>融合。默认不启用，理由见
+     * {@link SearchFusionProperties}。
+     *
+     * <h3>为什么要发三路，而不是两路</h3>
+     * 前两路是融合用的（关键词一路、向量一路，各取排名）。
+     * <b>第三路专门取聚合</b>，因为左侧筛选面板必须覆盖两路的并集：
+     * 只用关键词那一路的聚合，会出现「搜电饭锅有 16 个结果，但筛选面板是空的」
+     * —— 那些结果全是向量召回的，关键词一路命中 0 条。
+     * 第三路用 {@code size: 0}，不取文档只取聚合，开销很小。
+     * <p>
+     * 三路装在一个 {@code _msearch} 里，<b>网络往返仍然是 1 次</b>。
+     *
+     * <h3>代价</h3>
+     * 要把两路各 window 条文档传回应用层再融合。window=200 时是 400 条，
+     * 而 score-sum 模式只传当前页的 16 条。这也是它默认关闭的原因之一。
+     */
+    private SearchResult searchWithRrf(SearchParam param, float[] queryVector) throws IOException {
         int pageSize = param.resolvePageSize(DEFAULT_PAGE_SIZE);
-        int pageNum = param.resolvePageNum();
-        int from = (pageNum - 1) * pageSize;
+        int from = (param.resolvePageNum() - 1) * pageSize;
+        // 【窗口至少要够到当前页】不然翻到后面会凭空少结果，
+        // 而且是「第 1 页正常、第 3 页变少」这种不容易发现的少。
+        int window = Math.max(fusionProperties.rrfWindow(), from + pageSize);
+        int rrfK = fusionProperties.rrfK();
 
-        SearchRequest.Builder builder = new SearchRequest.Builder();
-        builder.index(INDEX_NAME);
+        List<Query> filters = buildFilters(param);
+        List<Float> vector = toFloatList(queryVector);
+        SourceConfig source = SourceConfig.of(sc -> sc.filter(f -> f.includes(SOURCE_FIELDS)));
+        Highlight highlight = new Highlight.Builder()
+                .fields("skuTitle", h -> h.preTags("<span class='keyword'>").postTags("</span>"))
+                .build();
 
-        BoolQuery.Builder bool = new BoolQuery.Builder();
-        if (param.hasKeyword()) {
-            bool.must(m -> m.multiMatch(mm -> mm
-                    .fields("skuTitle", "brandName", "categoryName")
-                    .query(param.getKeyword())
-            ));
+        Query keywordQuery = Query.of(q -> q.bool(b -> b
+                .must(m -> m.multiMatch(mm -> mm
+                        .fields("skuTitle", "brandName", "categoryName")
+                        .query(param.getKeyword())))
+                .filter(filters)));
+        // num_candidates 必须 >= k，否则 ES 直接报 400
+        int numCandidates = Math.max(window, Math.min(MAX_KNN_CANDIDATES, window * 2));
+        KnnQuery knn = KnnQuery.of(kn -> kn
+                .field(VECTOR_FIELD)
+                .queryVector(vector)
+                .k(window)
+                .numCandidates(numCandidates)
+                .filter(filters));
+
+        MsearchResponse<SkuEsModel> resp = esClient.msearch(m -> m
+                .index(INDEX_NAME)
+                // 路 1：纯关键词，拿 BM25 排名。带高亮——融合后展示要用它
+                .searches(s -> s.header(h -> h).body(b -> b
+                        .size(window).query(keywordQuery).highlight(highlight).source(source)))
+                // 路 2：纯向量，拿 kNN 排名
+                .searches(s -> s.header(h -> h).body(b -> b
+                        .size(window).knn(knn).source(source)))
+                // 路 3：只为聚合，size=0 不取文档
+                .searches(s -> s.header(h -> h).body(b -> b
+                        .size(0).query(keywordQuery).knn(knn).aggregations(buildAggregations())))
+        , SkuEsModel.class);
+
+        List<Hit<SkuEsModel>> keywordHits = itemHits(resp, 0);
+        List<Hit<SkuEsModel>> vectorHits = itemHits(resp, 1);
+        Map<String, Aggregate> aggregations = resp.responses().size() > 2 && resp.responses().get(2).isResult()
+                ? resp.responses().get(2).result().aggregations()
+                : Collections.emptyMap();
+
+        // ---- RRF：score(d) = Σ 1/(k + 该文档在第 i 路里的名次) ----
+        // 只看名次不看分数，所以 BM25 的 4.14 和 kNN 的 0.82 这种尺度差异
+        // 完全不参与计算 —— 这正是 RRF 想解决的问题。
+        Map<String, RrfEntry> fused = new LinkedHashMap<>();
+        accumulateRrf(fused, keywordHits, rrfK);
+        accumulateRrf(fused, vectorHits, rrfK);
+
+        List<RrfEntry> ranked = new ArrayList<>(fused.values());
+        ranked.sort((a, b) -> Double.compare(b.score, a.score));
+
+        List<Hit<SkuEsModel>> page = ranked.stream()
+                .skip(from).limit(pageSize)
+                .map(e -> e.hit)
+                .collect(Collectors.toList());
+
+        // 【total 取两者的较大值】关键词那一路的 total 是真实的匹配总数（可能上千），
+        // 而融合列表受 window 限制。纯语义命中时关键词 total 是 0，
+        // 这时只能用融合列表的大小 —— 分页导航会偏保守，但不会给出点进去是空的页。
+        long keywordTotal = totalOf(resp, 0);
+        long total = Math.max(keywordTotal, ranked.size());
+        log.info("搜索响应: 模式=rrf, 关键词召回={}, 向量召回={}, 融合后={}, total={}",
+                keywordHits.size(), vectorHits.size(), ranked.size(), total);
+
+        return buildSearchResult(page, total, aggregations, param);
+    }
+
+    /** 融合中的一条：文档本身 + 累计的 RRF 得分。 */
+    private static final class RrfEntry {
+        private final Hit<SkuEsModel> hit;
+        private double score;
+
+        private RrfEntry(Hit<SkuEsModel> hit) {
+            this.hit = hit;
         }
+    }
 
-        // 【筛选条件单独收集，不直接挂到 bool 上】
-        // 因为向量检索（下面的 knn）有它自己的 filter 参数，必须喂【同一批】条件。
-        // 只加在 bool 上的话，用户选了「厨房电器」分类，关键词那一路会守规矩，
-        // 而向量那一路照样召回全品类的商品 —— 表现为「筛选了但没筛干净」，
-        // 而且只在语义命中时才出现，很难复现。
+    /**
+     * 把一路的排名累加进融合表。
+     *
+     * <p><b>同一个文档已存在时不替换 hit</b>：关键词那一路先加，它带高亮，
+     * 而向量那一路没有。替换掉的话，明明关键词命中了，页面上却不显示高亮。
+     */
+    private void accumulateRrf(Map<String, RrfEntry> fused, List<Hit<SkuEsModel>> hits, int k) {
+        for (int i = 0; i < hits.size(); i++) {
+            Hit<SkuEsModel> hit = hits.get(i);
+            if (hit.source() == null) {
+                continue;
+            }
+            RrfEntry entry = fused.computeIfAbsent(hit.id(), id -> new RrfEntry(hit));
+            entry.score += 1.0d / (k + i + 1);
+        }
+    }
+
+    private List<Hit<SkuEsModel>> itemHits(MsearchResponse<SkuEsModel> resp, int index) {
+        if (resp.responses().size() <= index || !resp.responses().get(index).isResult()) {
+            // 某一路失败时不让整个搜索垮掉：另一路的结果仍然可用，
+            // 效果等同于退化成单路检索。
+            log.warn("msearch 第 {} 路没有结果，本次融合退化为单路", index);
+            return Collections.emptyList();
+        }
+        return resp.responses().get(index).result().hits().hits();
+    }
+
+    private long totalOf(MsearchResponse<SkuEsModel> resp, int index) {
+        if (resp.responses().size() <= index || !resp.responses().get(index).isResult()) {
+            return 0L;
+        }
+        TotalHits t = resp.responses().get(index).result().hits().total();
+        return t != null ? t.value() : 0L;
+    }
+
+    /**
+     * 左侧筛选面板的三组聚合（品牌 / 分类 / 规格）。
+     *
+     * <p>抽成 Map 是为了让 score-sum 的单请求和 RRF 的第三路请求共用同一份定义 ——
+     * 两边各写一遍的话，改了一处忘了另一处，表现是「切换融合模式后筛选面板少了一栏」。
+     */
+    private Map<String, Aggregation> buildAggregations() {
+        return Map.of(
+                "brand_agg", Aggregation.of(a -> a.terms(t -> t.field("brandId"))
+                        .aggregations("brand_name_agg", sub -> sub.terms(ts -> ts.field("brandName.keyword")))
+                        .aggregations("brand_img_agg", sub -> sub.terms(ts -> ts.field("brandImg")))),
+                "category_agg", Aggregation.of(a -> a.terms(t -> t.field("categoryId"))
+                        .aggregations("category_name_agg", sub -> sub.terms(ts -> ts.field("categoryName.keyword")))),
+                "attr_agg", Aggregation.of(agg -> agg.nested(n -> n.path("attrs"))
+                        .aggregations("attr_id_agg", sub -> sub.terms(ts -> ts.field("attrs.attrId"))
+                                .aggregations("attr_name_agg", sub2 -> sub2.terms(ts -> ts.field("attrs.attrName")))
+                                .aggregations("attr_value_agg", sub3 -> sub3.terms(ts -> ts.field("attrs.attrValue")))))
+        );
+    }
+
+    /** ES 的 knn 要 {@code List<Float>}，而 TEI 给的是 {@code float[]}。 */
+    private List<Float> toFloatList(float[] vector) {
+        List<Float> list = new ArrayList<>(vector.length);
+        for (float v : vector) {
+            list.add(v);
+        }
+        return list;
+    }
+
+    /**
+     * 构建筛选条件。<b>单独抽出来是因为它有三个使用方</b>：
+     * bool 查询、knn 的 filter，以及 RRF 模式下的三路请求。
+     * 任何一路漏掉，都会表现成「筛选了但没筛干净」，而且只在特定检索路径上出现。
+     */
+    private List<Query> buildFilters(SearchParam param) {
         List<Query> filters = new ArrayList<>();
 
         if (param.getCategoryId() != null) {
@@ -170,6 +350,32 @@ public class SearchServiceImpl implements SearchService {
             }
         }
 
+        return filters;
+    }
+
+    private SearchRequest buildSearchRequest(SearchParam param, float[] queryVector) {
+        int pageSize = param.resolvePageSize(DEFAULT_PAGE_SIZE);
+        int pageNum = param.resolvePageNum();
+        int from = (pageNum - 1) * pageSize;
+
+        SearchRequest.Builder builder = new SearchRequest.Builder();
+        builder.index(INDEX_NAME);
+
+        BoolQuery.Builder bool = new BoolQuery.Builder();
+        if (param.hasKeyword()) {
+            bool.must(m -> m.multiMatch(mm -> mm
+                    .fields("skuTitle", "brandName", "categoryName")
+                    .query(param.getKeyword())
+            ));
+        }
+
+        // 【筛选条件单独收集，不直接挂到 bool 上】
+        // 因为向量检索（下面的 knn）有它自己的 filter 参数，必须喂【同一批】条件。
+        // 只加在 bool 上的话，用户选了「厨房电器」分类，关键词那一路会守规矩，
+        // 而向量那一路照样召回全品类的商品 —— 表现为「筛选了但没筛干净」，
+        // 而且只在语义命中时才出现，很难复现。
+        List<Query> filters = buildFilters(param);
+
         bool.filter(filters);
         builder.query(q -> q.bool(bool.build()));
 
@@ -185,10 +391,9 @@ public class SearchServiceImpl implements SearchService {
         // 【只在有关键词时才做】没有关键词就是按分类浏览，没有「查询意图」可以向量化，
         // 白调一次 TEI 还给每个请求加 10ms。
         //
-        // 【embed 返回 null 是正常路径】TEI 挂了/熔断中就退回纯关键词检索，
+        // 【queryVector 为 null 是正常路径】TEI 挂了/熔断中就退回纯关键词检索，
         // 搜索照常可用，只是「电饭锅」又搜不到「厨房电器」了。
         // 这条降级是静默的，靠 mall.search.embedding.calls 指标才看得见。
-        float[] queryVector = param.hasKeyword() ? embeddingClient.embed(param.getKeyword()) : null;
         if (queryVector != null) {
             List<Float> vector = new ArrayList<>(queryVector.length);
             for (float v : queryVector) {
@@ -247,35 +452,32 @@ public class SearchServiceImpl implements SearchService {
             builder.highlight(highlight);
         }
 
-        builder.source(SourceConfig.of(sc -> sc.filter(f -> f.includes("skuId", "skuTitle", "skuPrice", "skuImg", "saleCount", "brandName", "brandImg", "categoryName"))));
+        builder.source(SourceConfig.of(sc -> sc.filter(f -> f.includes(SOURCE_FIELDS))));
 
         // 聚合
-        builder.aggregations("brand_agg", a -> a.terms(t -> t.field("brandId"))
-                .aggregations("brand_name_agg", sub -> sub.terms(ts -> ts.field("brandName.keyword")))
-                .aggregations("brand_img_agg", sub -> sub.terms(ts -> ts.field("brandImg")))
-        );
-
-        builder.aggregations("category_agg", a -> a.terms(t -> t.field("categoryId"))
-                .aggregations("category_name_agg", sub -> sub.terms(ts -> ts.field("categoryName.keyword")))
-        );
-
-        builder.aggregations("attr_agg", agg -> agg.nested(n -> n.path("attrs"))
-                .aggregations("attr_id_agg", sub -> sub.terms(ts -> ts.field("attrs.attrId"))
-                        .aggregations("attr_name_agg", sub2 -> sub2.terms(ts -> ts.field("attrs.attrName")))
-                        .aggregations("attr_value_agg", sub3 -> sub3.terms(ts -> ts.field("attrs.attrValue")))
-                )
-        );
+        builder.aggregations(buildAggregations());
 
         return builder.build();
     }
 
-    private SearchResult buildSearchResult(SearchResponse<SkuEsModel> response, SearchParam param) {
+    /**
+     * 把检索结果装配成页面模型。
+     *
+     * <p><b>入参刻意不是 {@code SearchResponse}</b>：score-sum 模式只有一个响应，
+     * 而 RRF 模式要把三路响应融合之后才能得到最终的命中列表和聚合，
+     * 手工拼一个 {@code SearchResponse} 出来既别扭又容易出错。
+     * 这里只要它真正用到的三样东西，两种模式就能共用同一套装配逻辑。
+     */
+    private SearchResult buildSearchResult(List<Hit<SkuEsModel>> hits,
+                                           long total,
+                                           Map<String, Aggregate> aggregations,
+                                           SearchParam param) {
         SearchResult result = new SearchResult();
         int pageSize = param.resolvePageSize(DEFAULT_PAGE_SIZE);
 
         // 商品列表
         List<SkuEsModel> products = new ArrayList<>();
-        for (Hit<SkuEsModel> hit : response.hits().hits()) {
+        for (Hit<SkuEsModel> hit : hits) {
             SkuEsModel source = hit.source();
             if (source == null) {
                 continue;
@@ -290,8 +492,6 @@ public class SearchServiceImpl implements SearchService {
         }
         result.setProducts(products);
 
-        TotalHits totalHits = response.hits().total();
-        long total = totalHits != null ? totalHits.value() : 0L;
         int totalPages = (int) Math.ceil((double) total / pageSize);
 
         result.setTotal(total);
@@ -299,7 +499,6 @@ public class SearchServiceImpl implements SearchService {
         result.setPageNum(param.resolvePageNum());
         result.setPageNavs(buildPageNav(result.getPageNum(), totalPages));
 
-        Map<String, Aggregate> aggregations = response.aggregations();
         if (aggregations != null) {
             parseBrandAgg(result, aggregations.get("brand_agg"));
             parseCategoryAgg(result, aggregations.get("category_agg"));
