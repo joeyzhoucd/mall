@@ -135,6 +135,25 @@
             <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
         </dependency>
 
+        <!-- Config Server 拉取失败时的重试。
+             【为什么需要】spring.config.import 用的是 optional:configserver:，
+             拉不到配置【不会失败，而是静默退回 jar 里的默认值继续启动】。
+             2026-09-21 实测过这个代价：宿主机网络抖动后节点集体恢复，
+             业务服务和 Config Server 在同一秒被重建，服务启动时它还没 ready，
+             于是 8 个服务的新副本全部带着默认的 hikari 参数跑起来，
+             和老副本行为不一致，而且没有任何报错——只有 mall_config_info 的
+             source 标签能看出来（老 pod 是 configserver:，新 pod 是 <unset>）。
+
+             加上 retry 之后，拉不到会先重试一段时间而不是立刻降级，
+             足以覆盖「同时重建」这种启动竞争。
+             重试参数见 mall-common-default.properties 里的 spring.cloud.config.retry.*。
+
+             版本交给 spring-boot-dependencies 管，不在这里钉死。 -->
+        <dependency>
+            <groupId>org.springframework.retry</groupId>
+            <artifactId>spring-retry</artifactId>
+        </dependency>
+
         <!-- Feign 的 Apache HttpClient 5 客户端实现，为了连接池。
              原来是靠 httpclient 4.5.13 + feign.httpclient.enabled=true 启用 HC4 池化的
              （200 连接 / 每路由 50）。新版 OpenFeign 已经完全移除 HttpClient 4 支持，
