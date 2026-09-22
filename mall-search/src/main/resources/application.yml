@@ -6,13 +6,25 @@ spring:
   # 从 Config Server 拉配置。用 spring.config.import 而不是旧的 bootstrap.yml——
   # Boot 2.4 起这就是官方推荐的方式（Config Data API），不需要 bootstrap 上下文。
   #
-  # 【2026-09-22 去掉了 optional: 前缀，这是本服务的试点】
+  # 【2026-09-22 试点：前缀保持 optional:，靠 fail-fast 来决定行为】
   #
-  # 原来写的是 optional:configserver:...，语义是「拉不到也照常启动」。
-  # 当初那么写是为了避免 crashloop：Helm chart 里没有启动顺序编排，
-  # Config Server 慢一点，十几个服务会一起起不来。
+  # 先走过一次弯路：一开始是把前缀改成 configserver:（去掉 optional:），
+  # 结果 CI 的集成测试全挂 ——
+  #   Unable to load config data from 'configserver:http://localhost:8888'
+  #   Incorrect ConfigDataLocationResolver chosen ...
+  # 因为 MallIntegrationTest 设了 spring.cloud.config.enabled=false，
+  # 那会连 configserver: 的【解析器】一起禁掉，于是 Spring 把它当文件路径解析，
+  # 而非 optional 的 import 解析失败是要报错的。测试环境根本没有 Config Server，
+  # 这个矛盾无解。
   #
-  # 但它的代价在 2026-09-21 被实测到了：宿主机网络抖动后三个 worker 同时恢复，
+  # 正确的做法是【不动前缀，动 fail-fast】。实测（ConfigServerRetryTest）：
+  #   optional: + fail-fast=true   -> 拉不到照样报错（fail-fast 压过 optional:）
+  #   optional: + fail-fast=false  -> 拉不到就跳过，静默降级
+  # 于是生产开 fail-fast（配合下面的 retry），测试关掉它，两边各取所需，
+  # 而 import 这一行对所有环境都一样。
+  #
+  # 原来只有 optional: 而没有 fail-fast，代价在 2026-09-21 被实测到了：
+  # 宿主机网络抖动后三个 worker 同时恢复，
   # 业务服务和 Config Server 在【同一秒】被重建，服务启动时它还没 ready，
   # 于是 8 个服务的新副本全部带着 jar 里的默认 hikari 参数跑起来，
   # 和老副本行为不一致——而且【没有任何报错】，只有 mall_config_info 的
@@ -30,24 +42,27 @@ spring:
   # 地址直接用 K8s 的 Service DNS，不走服务发现——配置中心是启动阶段就要用的东西，
   # 再加一层"先查注册中心"只是多一个启动顺序依赖，而 Service 名本身就是稳定入口。
   config:
-    import: configserver:${CONFIG_SERVER_URI:http://localhost:8888}
+    import: optional:configserver:${CONFIG_SERVER_URI:http://localhost:8888}
   cloud:
     config:
       # =====================================================================
       # 【这组配置刻意【只】放在 mall-search，不放 mall-common】
       # =====================================================================
-      # 因为 fail-fast 的作用域是全局的，而它有一个反直觉的行为：
+      # fail-fast 的作用域是全局的，而它有一个反直觉但这里正好用得上的行为：
       #
       #   **fail-fast=true 会压过 optional: 前缀。**
       #
       # 实测（ConfigServerRetryTest）：配了 optional:configserver: 的应用，
-      # 只要 fail-fast=true，拉不到配置照样抛 ConfigClientFailFastException
-      # 启动失败。也就是说把这两行写进 mall-common，会让【其余 11 个仍带
-      # optional: 的服务】一起变成 fail-fast —— Config Server 慢几秒就全体
-      # crashloop。那不是试点，是一次全局改动。
+      # 只要 fail-fast=true，拉不到配置照样抛 ConfigClientFailFastException。
+      # 这正是本服务要的：前缀不用动，靠这个开关决定「拉不到要不要报错」。
       #
-      # 所以：先在 mall-search 上跑一段时间，确认重试窗口足够、
-      # 没有意外的 crashloop，再逐个推广。
+      # 但也因此，把这两行写进 mall-common 就等于【一次全局改动】——
+      # 其余 11 个服务会跟着变成 fail-fast，Config Server 慢几秒就全体 crashloop。
+      # 所以先在 mall-search 上跑一段时间，确认重试窗口足够、没有意外的
+      # crashloop，再逐个推广。
+      #
+      # 【测试环境要显式关掉它】MallIntegrationTest 里设了 fail-fast=false，
+      # 否则集成测试会因为连不上 Config Server 而全部起不来。
       #
       # 【retry 依赖 fail-fast】Spring Cloud Config 只在 fail-fast=true 时
       # 注册 RetryTemplate（见 ConfigClientRetryBootstrapper），

@@ -41,18 +41,21 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Tag("integration")
 @SpringBootTest(properties = {
-        // 【必须清空 import，不能只靠 config.enabled=false】
-        // 原来只关了 config client，靠的是各服务写的 optional:configserver:——
-        // 加载不了就跳过。2026-09-22 mall-search 把前缀改成 configserver:
-        // （非 optional，为了不再静默降级）之后，这里当场就挂了：
-        // Spring 找不到能处理 configserver: 的加载器，而非 optional 的 import
-        // 加载失败是要报错的，上下文直接起不来。
-        // 症状在 CI 上是 integration-test 整个作业失败，而单元测试全绿——
-        // 因为本地 mvn package 带 -DskipITs，根本没跑到。
+        // 【必须显式关掉 fail-fast】2026-09-22 被 CI 教会的。
+        // mall-search 为了不再静默降级，开了 spring.cloud.config.fail-fast=true。
+        // 而 fail-fast 有个反直觉的行为：**它会压过 optional: 前缀** ——
+        // 即使 import 写的是 optional:configserver:，拉不到照样抛
+        // ConfigClientFailFastException 让上下文起不来。
+        // 测试环境根本没有 Config Server，于是 mall-search 的集成测试全挂。
         //
-        // 清空它才是对的：集成测试验证的是「这个服务自己的上下文能不能拼起来」，
-        // 本来就不该依赖配置中心。这样无论各服务用哪种前缀，这里的行为都一致。
-        "spring.config.import=",
+        // 注意不能靠 "spring.config.import=" 清空来解决：空值会被当成「未设置」，
+        // 各服务 application.yml 里的值照样生效（试过，CI 又挂了一次）。
+        // 关掉 fail-fast 才是对症的 —— 它一关，optional: 就恢复成真正的「可选」。
+        //
+        // 【为什么本地跑不出这个问题】mvn package 带 -DskipITs，
+        // 根 pom 又默认 excludedGroups=integration，两层都排除了它；
+        // 而本机没有 Docker，也跑不了 Testcontainers。这类改动只能靠 CI 兜底。
+        "spring.cloud.config.fail-fast=false",
         "spring.cloud.consul.enabled=false",
         "spring.cloud.consul.discovery.enabled=false",
         "spring.cloud.config.enabled=false",

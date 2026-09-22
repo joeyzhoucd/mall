@@ -202,27 +202,58 @@ class ConfigServerRetryTest {
     }
 
     @Test
-    @DisplayName("修复验证：清空 spring.config.import 后，两种前缀的服务都能起来")
-    void emptyImportWorksForBothPrefixStyles() {
-        // MallIntegrationTest 现在设的是 spring.config.import=（空）。
-        // 这条确认空值是合法的、且能盖住服务自己 application.yml 里写的前缀——
-        // 无论那里是 configserver: 还是 optional:configserver:。
+    @DisplayName("【对着 CI 场景】MallIntegrationTest 的属性组合能让上下文起来")
+    void integrationTestPropertyCombinationStartsUp() {
+        // 这条直接复刻 MallIntegrationTest 现在设的那几项。
+        // 集成测试环境没有 Config Server，服务的 import 又是 optional:configserver:，
+        // 只要 fail-fast 关着，optional: 就是真正的「可选」，上下文正常起来。
         //
-        // 【为什么要专门测空值】"清空一个属性"看着无害，但如果 Spring 把空串
-        // 当成一个要解析的位置，就会报 "Unable to load config data from ''"，
-        // 那样 CI 会以另一种方式再挂一次。
+        // 反过来如果哪天有人把 fail-fast=false 这行删了（或者在 mall-common 里
+        // 全局打开 fail-fast），所有服务的集成测试会一起挂 —— 这条就是防它的。
         try (ConfigurableApplicationContext ctx = new SpringApplicationBuilder(TestApp.class)
                 .web(WebApplicationType.NONE)
                 .properties(
-                        "spring.config.import=",
+                        "spring.config.import=optional:configserver:http://127.0.0.1:" + port,
                         "spring.cloud.config.enabled=false",
                         "spring.cloud.config.import-check.enabled=false",
+                        "spring.cloud.config.fail-fast=false",
                         "spring.cloud.consul.enabled=false")
                 .run()) {
             assertThat(ctx.isRunning())
-                    .as("清空 import 之后上下文应该正常起来")
+                    .as("这是 CI 里集成测试的实际配置组合，起不来的话 integration-test 全挂")
                     .isTrue();
         }
-        assertThat(received.get()).as("不该有任何 Config Server 请求").isZero();
+        assertThat(received.get())
+                .as("config client 被禁用了，不该真的发出请求")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("config.enabled=false 时 optional: 直接跳过，fail-fast 根本没机会介入")
+    void failFastIsIrrelevantWhenResolverIsDisabled() {
+        // 这条纠正了一个我一开始搞错的因果。fail-fast 压过 optional: 是【有前提】的：
+        //   config.enabled=true  -> resolver 存在，真去连，连不上时 fail-fast 决定报不报错
+        //   config.enabled=false -> resolver 根本不注册，optional: 让 Spring 直接跳过，
+        //                           fail-fast 是什么值都无所谓
+        // 所以 MallIntegrationTest（设了 config.enabled=false）本来就不会被
+        // 生产侧的 fail-fast=true 影响 —— 2026-09-22 那次 CI 失败的唯一原因是
+        // 【把 optional: 去掉了】，不是 fail-fast。
+        //
+        // 它设 fail-fast=false 是防御性的：万一哪天有人打开 config.enabled，
+        // 集成测试不会因此集体起不来。
+        try (ConfigurableApplicationContext ctx = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties(
+                        "spring.config.import=optional:configserver:http://127.0.0.1:" + port,
+                        "spring.cloud.config.enabled=false",
+                        "spring.cloud.config.import-check.enabled=false",
+                        "spring.cloud.config.fail-fast=true",
+                        "spring.cloud.consul.enabled=false")
+                .run()) {
+            assertThat(ctx.isRunning())
+                    .as("resolver 都没注册，fail-fast 不该让它起不来")
+                    .isTrue();
+        }
+        assertThat(received.get()).isZero();
     }
 }
