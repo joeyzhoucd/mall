@@ -41,6 +41,18 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Tag("integration")
 @SpringBootTest(properties = {
+        // 【必须清空 import，不能只靠 config.enabled=false】
+        // 原来只关了 config client，靠的是各服务写的 optional:configserver:——
+        // 加载不了就跳过。2026-09-22 mall-search 把前缀改成 configserver:
+        // （非 optional，为了不再静默降级）之后，这里当场就挂了：
+        // Spring 找不到能处理 configserver: 的加载器，而非 optional 的 import
+        // 加载失败是要报错的，上下文直接起不来。
+        // 症状在 CI 上是 integration-test 整个作业失败，而单元测试全绿——
+        // 因为本地 mvn package 带 -DskipITs，根本没跑到。
+        //
+        // 清空它才是对的：集成测试验证的是「这个服务自己的上下文能不能拼起来」，
+        // 本来就不该依赖配置中心。这样无论各服务用哪种前缀，这里的行为都一致。
+        "spring.config.import=",
         "spring.cloud.consul.enabled=false",
         "spring.cloud.consul.discovery.enabled=false",
         "spring.cloud.config.enabled=false",

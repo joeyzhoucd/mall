@@ -163,4 +163,66 @@ class ConfigServerRetryTest {
                     .isTrue();
         }
     }
+
+    @Test
+    @DisplayName("复现 CI 失败：config.enabled=false 时，非 optional 的 import 会让上下文起不来")
+    void nonOptionalImportFailsWhenConfigClientDisabled() {
+        // MallIntegrationTest 给所有集成测试设了 spring.cloud.config.enabled=false
+        // （测试环境没有 Config Server）。带 optional: 时这没问题——加载不了就跳过；
+        // 去掉 optional: 之后，Spring 找不到能处理 configserver: 的加载器就直接报错。
+        // 这正是 ec4c935 那次 CI 里 integration-test 挂掉的原因。
+        assertThatThrownBy(() -> new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties(
+                        "spring.config.import=configserver:http://127.0.0.1:" + port,
+                        "spring.cloud.config.enabled=false",
+                        "spring.cloud.config.import-check.enabled=false",
+                        "spring.cloud.consul.enabled=false")
+                .run())
+                .as("如果这里没抛异常，说明 CI 的失败另有原因，不要照着改")
+                .isNotNull();
+        assertThat(received.get())
+                .as("config client 被禁用了，不该真的发出请求")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("对照：同样条件下带 optional: 前缀能正常启动")
+    void optionalImportSurvivesDisabledConfigClient() {
+        try (ConfigurableApplicationContext ctx = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties(
+                        "spring.config.import=optional:configserver:http://127.0.0.1:" + port,
+                        "spring.cloud.config.enabled=false",
+                        "spring.cloud.config.import-check.enabled=false",
+                        "spring.cloud.consul.enabled=false")
+                .run()) {
+            assertThat(ctx.isRunning()).isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("修复验证：清空 spring.config.import 后，两种前缀的服务都能起来")
+    void emptyImportWorksForBothPrefixStyles() {
+        // MallIntegrationTest 现在设的是 spring.config.import=（空）。
+        // 这条确认空值是合法的、且能盖住服务自己 application.yml 里写的前缀——
+        // 无论那里是 configserver: 还是 optional:configserver:。
+        //
+        // 【为什么要专门测空值】"清空一个属性"看着无害，但如果 Spring 把空串
+        // 当成一个要解析的位置，就会报 "Unable to load config data from ''"，
+        // 那样 CI 会以另一种方式再挂一次。
+        try (ConfigurableApplicationContext ctx = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties(
+                        "spring.config.import=",
+                        "spring.cloud.config.enabled=false",
+                        "spring.cloud.config.import-check.enabled=false",
+                        "spring.cloud.consul.enabled=false")
+                .run()) {
+            assertThat(ctx.isRunning())
+                    .as("清空 import 之后上下文应该正常起来")
+                    .isTrue();
+        }
+        assertThat(received.get()).as("不该有任何 Config Server 请求").isZero();
+    }
 }
