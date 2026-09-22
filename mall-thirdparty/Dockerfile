@@ -2,7 +2,8 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace/mall-backend
 COPY . .
-RUN --mount=type=cache,target=/root/.m2/repository \n    mvn -pl mall-thirdparty -am -DskipTests package -q
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -pl mall-thirdparty -am -DskipTests package -q
 
 # ---------------------------------------------------------------------------
 # CDS（Class Data Sharing）训练阶段
