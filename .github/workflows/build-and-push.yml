@@ -484,13 +484,35 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}-v2
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}-v2
 
-  # build 是矩阵 job，矩阵里的服务全部成功（任何一个失败，build 整体就是
-  # failure）才会跑到这一步——不会出现"某个服务没构建成功，却把整个 tag 往前推"
-  # 导致集群拉不到镜像的情况。mall-deploy 只在 Gitee 上，这个仓库的 CI 跑在
-  # GitHub 上，两边够不着，所以用 GITEE_TOKEN 直接 git clone/push，不走
-  # actions/checkout（它只认 GitHub 仓库）。
+  # 把构建好的镜像 tag 写回 mall-deploy。mall-deploy 只在 Gitee 上，这个仓库的
+  # CI 跑在 GitHub 上，两边够不着，所以用 GITEE_TOKEN 直接 git clone/push，
+  # 不走 actions/checkout（它只认 GitHub 仓库）。
+  #
+  # ===========================================================================
+  # 【2026-09-22 改成按服务粒度，原来是「全有或全无」】
+  # ===========================================================================
+  # 原来是 needs: [plan, build] 且没有 if，也就是【矩阵里任何一个服务失败，
+  # 这一步整个 skip】。那条注释当时写的理由是对的——不能把 tag 推到一个
+  # 不存在的镜像上，否则集群会 ImagePullBackOff。
+  #
+  # 但「全有或全无」带来一个更隐蔽的后果，实测发生过两次：
+  #   mall-auth（或 mall-thirdparty）偶发失败
+  #     -> 同一轮里其余【已经构建成功并推到 ghcr.io】的服务也拿不到 tag
+  #     -> 下一轮推送如果没碰到它们，plan 又不会重新构建
+  #     -> 它们的改动【静默留在 ghcr.io 里、永远不上线，而 CI 是绿的】
+  # 两次都是靠人盯着 tag 才发现的，第二次还查出 8 个服务的 tag
+  # 已经停在很旧的 commit，好几轮 mall-common 的改动一个都没拿到。
+  #
+  # 现在的做法：这一步【总是运行】，但对每个服务先查 ghcr.io 上的 manifest，
+  # 【镜像确实存在才更新它的 tag】。安全属性没丢——判据甚至比原来更强，
+  # 因为它验证的是「镜像真的在」这个事实，而不是「job 报告了 success」。
+  # 被跳过的服务会显式列出来并让这一步失败，让「有东西没上线」变成响的。
+  #
+  # if 用 !cancelled() 而不是 always()：并发组取消旧运行是正常操作，
+  # 那种情况不该还去改 mall-deploy。
   update-deploy:
     needs: [plan, build]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     runs-on: ubuntu-latest
     # 只是 clone + 改 values.yaml + push，分钟级。
     timeout-minutes: 10
@@ -507,15 +529,38 @@ jobs:
       # 【为什么用 yq 的 strenv 而不是字符串插值】
       # 服务名里有连字符（mall-product），yq 的路径表达式必须加引号才能取到那个 key；
       # 而 sha 用 strenv 传进去，避免 40 位十六进制被 yq 当成数字或表达式解析。
-      - name: Bump per-service image tags
+      # 【按服务判断，判据是「镜像真的在 ghcr.io 上」】
+      # 不用 job 状态，因为拿不到矩阵里单个 job 的结果（needs.build.result 是聚合的），
+      # 而且「镜像存在」本来就是更强的判据——job 报 success 但推送失败之类的情况，
+      # 查 manifest 能发现，查 job 状态发现不了。
+      #
+      # 匿名 token 就够：这些包是公开的，而且只做 HEAD 查询不拉取。
+      # 用 GITHUB_TOKEN 反而要多处理一层权限。
+      - name: Bump image tags for services whose image actually exists
+        id: bump
         env:
           SHA: ${{ github.sha }}
         run: |
           cd mall-deploy
+          updated=""
+          skipped=""
           for svc in $(echo '${{ needs.plan.outputs.services }}' | jq -r '.[]'); do
-            echo "  $svc -> $SHA"
-            SVC="$svc" yq e '.imageTags[strenv(SVC)] = strenv(SHA)' -i charts/mall/values.yaml
+            token=$(curl -sS -m 20 "https://ghcr.io/token?scope=repository:${{ github.repository_owner }}/$svc:pull&service=ghcr.io" | jq -r '.token // empty')
+            code=$(curl -sS -o /dev/null -m 30 -w '%{http_code}' \
+              -H "Authorization: Bearer $token" \
+              -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.docker.distribution.manifest.list.v2+json" \
+              "https://ghcr.io/v2/${{ github.repository_owner }}/$svc/manifests/$SHA" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "  ✓ $svc -> $SHA"
+              SVC="$svc" yq e '.imageTags[strenv(SVC)] = strenv(SHA)' -i charts/mall/values.yaml
+              updated="$updated $svc"
+            else
+              echo "  ✗ $svc 跳过：ghcr.io 上没有这个 tag（HTTP $code）"
+              skipped="$skipped $svc"
+            fi
           done
+          echo "updated=${updated# }" >> "$GITHUB_OUTPUT"
+          echo "skipped=${skipped# }" >> "$GITHUB_OUTPUT"
           echo "改动后的 imageTags:"
           yq e '.imageTags' charts/mall/values.yaml | sed 's/^/  /'
 
@@ -533,8 +578,12 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           cd mall-deploy
+          # 只校验上一步【实际更新过】的服务。被跳过的（镜像不存在）本来就该保持旧 tag，
+          # 拿它们去比对会把「正确地没改」误判成「改写失败」。
           fail=0
-          for svc in $(echo '${{ needs.plan.outputs.services }}' | jq -r '.[]'); do
+          n=0
+          for svc in ${{ steps.bump.outputs.updated }}; do
+            n=$((n+1))
             actual=$(SVC="$svc" yq e '.imageTags[strenv(SVC)]' charts/mall/values.yaml)
             if [ "$actual" != "$SHA" ]; then
               echo "写入校验失败: $svc 期望 $SHA，实际 '$actual'"
@@ -542,7 +591,7 @@ jobs:
             fi
           done
           [ "$fail" = "0" ] || { echo "values.yaml 没被正确改写，中止（不推送）"; exit 1; }
-          echo "全部 $(echo '${{ needs.plan.outputs.services }}' | jq -r 'length') 个服务的 tag 校验通过"
+          echo "$n 个服务的 tag 校验通过"
 
       - name: Commit and push
         run: |
@@ -554,6 +603,25 @@ jobs:
             exit 0
           fi
           git add charts/mall/values.yaml
-          SVCS=$(echo '${{ needs.plan.outputs.services }}' | jq -r 'join(" ")')
-          git commit -m "chore: 镜像更新到 ${{ github.sha }} ($SVCS)"
+          # commit message 里写【实际更新的】服务，不是计划中的——
+          # 部分更新时这两者不同，而 mall-deploy 的提交历史是排查"某个服务
+          # 为什么还在跑旧镜像"时最先看的地方，写错会把人带偏。
+          git commit -m "chore: 镜像更新到 ${{ github.sha }} (${{ steps.bump.outputs.updated }})"
           git push
+
+      # 【让"有东西没上线"变成响的】
+      # 这一步刻意放在 push 之后：已经构建成功的服务该上线还是要上线，
+      # 不能因为别的服务失败就一起扣着——那正是原来"全有或全无"的毛病。
+      # 但跳过的服务必须让这次运行失败，否则又回到「CI 绿的，东西没上线，
+      # 没人知道」那个状态。
+      - name: Fail if any service was skipped
+        if: ${{ steps.bump.outputs.skipped != '' }}
+        run: |
+          echo "::error title=有服务没能上线::以下服务在 ghcr.io 上找不到本次 commit 的镜像，tag 未更新：${{ steps.bump.outputs.skipped }}"
+          echo ""
+          echo "已上线: ${{ steps.bump.outputs.updated }}"
+          echo "未上线: ${{ steps.bump.outputs.skipped }}"
+          echo ""
+          echo "多半是那些服务的 build 作业失败了。修掉之后需要【重新触发它们的构建】——"
+          echo "注意 plan 只算本次推送影响到的服务，所以改别的文件不会顺带重建它们。"
+          exit 1
