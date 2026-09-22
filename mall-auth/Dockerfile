@@ -2,7 +2,28 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace/mall-backend
 COPY . .
-RUN mvn -pl mall-auth -am -DskipTests package -q
+# 【Maven 本地仓库挂成 BuildKit 缓存】2026-09-22 加，先在 mall-auth 试点。
+#
+# 起因：这一轮 CI 里 12 个服务并行构建，只有 mall-auth 挂了，
+# 错误只有一句 "mvn ... package -q did not complete successfully: exit code 1"，
+# 而本地跑同一条命令是成功的。根子在下面这个结构：
+#   COPY . .        <- 源码一变，这一层缓存就失效
+#   RUN mvn package <- 于是每次都从零下载【全部】依赖
+# workflow 虽然配了 GHA 镜像层缓存（cache-from/to type=gha），
+# 但它缓存的是【层】，而这一层每次都被 COPY 弄脏，等于没有。
+# 12 个服务同时从零拉依赖，偶发一个失败并不奇怪——这次刚好又多了
+# spring-retry 这个新依赖。
+#
+# cache mount 让 ~/.m2/repository 独立于层缓存存在，同一 runner 上重复构建
+# 直接复用，本地构建受益最明显。
+#
+# 【要如实说明它的局限】GHA 每个 job 是全新的 runner，而 type=gha 的层缓存
+# 【不包含 cache mount 的内容】，所以对「12 个并行 job 各自首次构建」这个场景
+# 帮助有限。真正解决它要把依赖层和源码层分开
+# （先 COPY 各模块的 pom.xml 做 dependency:go-offline，再 COPY 源码），
+# 那需要逐个复制 12 个 pom，复杂且容易漏，作为独立一项再做。
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -pl mall-auth -am -DskipTests package -q
 
 # ---------------------------------------------------------------------------
 # CDS（Class Data Sharing）训练阶段
