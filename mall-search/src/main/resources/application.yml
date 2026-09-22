@@ -6,80 +6,17 @@ spring:
   # 从 Config Server 拉配置。用 spring.config.import 而不是旧的 bootstrap.yml——
   # Boot 2.4 起这就是官方推荐的方式（Config Data API），不需要 bootstrap 上下文。
   #
-  # 【2026-09-22 试点：前缀保持 optional:，靠 fail-fast 来决定行为】
-  #
-  # 先走过一次弯路：一开始是把前缀改成 configserver:（去掉 optional:），
-  # 结果 CI 的集成测试全挂 ——
-  #   Unable to load config data from 'configserver:http://localhost:8888'
-  #   Incorrect ConfigDataLocationResolver chosen ...
-  # 因为 MallIntegrationTest 设了 spring.cloud.config.enabled=false，
-  # 那会连 configserver: 的【解析器】一起禁掉，于是 Spring 把它当文件路径解析，
-  # 而非 optional 的 import 解析失败是要报错的。测试环境根本没有 Config Server，
-  # 这个矛盾无解。
-  #
-  # 正确的做法是【不动前缀，动 fail-fast】。实测（ConfigServerRetryTest）：
-  #   optional: + fail-fast=true   -> 拉不到照样报错（fail-fast 压过 optional:）
-  #   optional: + fail-fast=false  -> 拉不到就跳过，静默降级
-  # 于是生产开 fail-fast（配合下面的 retry），测试关掉它，两边各取所需，
-  # 而 import 这一行对所有环境都一样。
-  #
-  # 原来只有 optional: 而没有 fail-fast，代价在 2026-09-21 被实测到了：
-  # 宿主机网络抖动后三个 worker 同时恢复，
-  # 业务服务和 Config Server 在【同一秒】被重建，服务启动时它还没 ready，
-  # 于是 8 个服务的新副本全部带着 jar 里的默认 hikari 参数跑起来，
-  # 和老副本行为不一致——而且【没有任何报错】，只有 mall_config_info 的
-  # source 标签能看出来。这类「静默地跑在错配置上」比 crashloop 难查得多：
-  # crashloop 是响的，静默降级是哑的。
-  #
-  # 现在的做法是 mall-common-default.properties 里配了
-  # spring.cloud.config.retry.*（约 130 秒退避重试），先重试再放弃。
-  # 这样「Config Server 晚就绪几十秒」这种最常见的情况被重试覆盖掉，
-  # 而真的长时间不可用时才失败——那时候 crashloop 是【正确的信号】。
-  #
-  # 重试预算必须小于 livenessProbe 的 300 秒（20s × 15 次，且没有 startupProbe），
-  # 否则 pod 会在重试途中被杀，表现成反复重启而日志停在「正在连接 Config Server」。
+  # 【拉不到配置时会重试并最终失败，不再静默降级】
+  # 开关是 spring.cloud.config.fail-fast + retry，配在
+  # mall-common-default.properties 里（全局），这里不重复。
+  # 为什么是 fail-fast 而不是去掉 optional: 前缀、以及那条
+  # 「fail-fast 压过 optional:」只在 config.enabled=true 时成立的前提，
+  # 都写在那个文件的注释里，改之前先读一遍。
   #
   # 地址直接用 K8s 的 Service DNS，不走服务发现——配置中心是启动阶段就要用的东西，
   # 再加一层"先查注册中心"只是多一个启动顺序依赖，而 Service 名本身就是稳定入口。
   config:
     import: optional:configserver:${CONFIG_SERVER_URI:http://localhost:8888}
-  cloud:
-    config:
-      # =====================================================================
-      # 【这组配置刻意【只】放在 mall-search，不放 mall-common】
-      # =====================================================================
-      # fail-fast 的作用域是全局的，而它有一个反直觉但这里正好用得上的行为：
-      #
-      #   **fail-fast=true 会压过 optional: 前缀。**
-      #
-      # 实测（ConfigServerRetryTest）：配了 optional:configserver: 的应用，
-      # 只要 fail-fast=true，拉不到配置照样抛 ConfigClientFailFastException。
-      # 这正是本服务要的：前缀不用动，靠这个开关决定「拉不到要不要报错」。
-      #
-      # 但也因此，把这两行写进 mall-common 就等于【一次全局改动】——
-      # 其余 11 个服务会跟着变成 fail-fast，Config Server 慢几秒就全体 crashloop。
-      # 所以先在 mall-search 上跑一段时间，确认重试窗口足够、没有意外的
-      # crashloop，再逐个推广。
-      #
-      # 【测试环境要显式关掉它】MallIntegrationTest 里设了 fail-fast=false，
-      # 否则集成测试会因为连不上 Config Server 而全部起不来。
-      #
-      # 【retry 依赖 fail-fast】Spring Cloud Config 只在 fail-fast=true 时
-      # 注册 RetryTemplate（见 ConfigClientRetryBootstrapper），
-      # 所以这两者是绑定的，不能只要重试不要 fail-fast。
-      #
-      # 【重试预算必须小于探针预算】实测 mall-* 的 livenessProbe 是
-      # periodSeconds=20 × failureThreshold=15 = 300 秒，而且没有 startupProbe，
-      # 探测从容器启动就开始。下面这组约 130 秒（2s 起、×1.2 退避、封顶 10s、
-      # 共 20 次），加上 Spring Boot 冷启动 30~60 秒，总计约 3 分钟，留有余量。
-      # 改大这些数之前先回头看探针，否则 pod 会在重试途中被杀，
-      # 表现成反复重启而日志停在「正在连接 Config Server」。
-      fail-fast: true
-      retry:
-        max-attempts: 20
-        initial-interval: 2000
-        multiplier: 1.2
-        max-interval: 10000
   thymeleaf:
     cache: false
     prefix: classpath:/templates/
