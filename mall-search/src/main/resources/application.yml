@@ -7,11 +7,10 @@ spring:
   # Boot 2.4 起这就是官方推荐的方式（Config Data API），不需要 bootstrap 上下文。
   #
   # 【拉不到配置时会重试并最终失败，不再静默降级】
-  # 开关是 spring.cloud.config.fail-fast + retry，配在
-  # mall-common-default.properties 里（全局），这里不重复。
-  # 为什么是 fail-fast 而不是去掉 optional: 前缀、以及那条
-  # 「fail-fast 压过 optional:」只在 config.enabled=true 时成立的前提，
-  # 都写在那个文件的注释里，改之前先读一遍。
+  # 开关是 spring.cloud.config.fail-fast + retry，通过【环境变量】下发
+  # （mall-deploy/charts/mall/values.yaml 的 env 段），对所有服务生效。
+  # 【不要改成写在 properties 文件里】——那比 Config Data 的加载晚，不会生效，
+  # 理由写在 mall-common-default.properties 的对应注释里。
   #
   # 地址直接用 K8s 的 Service DNS，不走服务发现——配置中心是启动阶段就要用的东西，
   # 再加一层"先查注册中心"只是多一个启动顺序依赖，而 Service 名本身就是稳定入口。
