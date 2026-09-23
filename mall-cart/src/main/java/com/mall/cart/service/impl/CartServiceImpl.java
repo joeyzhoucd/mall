@@ -93,6 +93,7 @@ public class CartServiceImpl implements CartService {
         // spuId 必须在这里落进缓存：后续的改数量/删除只读缓存，不会再来一次商品服务，
         // 而行为埋点的共现统计是 SPU 粒度的。
         cartItem.setSpuId(skuInfoVo.getSpuId());
+        cartItem.setCategoryId(skuInfoVo.getCategoryId());
         cartItem.setTitle(skuInfoVo.getSkuTitle());
         cartItem.setImage(skuInfoVo.getSkuDefaultImg());
         cartItem.setPrice(skuInfoVo.getPrice() == null ? BigDecimal.ZERO : skuInfoVo.getPrice());

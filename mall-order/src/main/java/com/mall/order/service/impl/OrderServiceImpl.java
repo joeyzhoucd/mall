@@ -838,6 +838,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         OrderItemEntity itemEntity = new OrderItemEntity();
         itemEntity.setOrderSn(orderSn);
         itemEntity.setSkuId(item.getSkuId());
+        // 【2026-09-23 之前这两行不存在】oms_order_item 的 spu_id / category_id
+        // 在全库 11071 行里 100% 为空，因为这里从来没设过。
+        // 表结构有这两列、设计评审时我也以为它们「已经冗余好了」，
+        // 其实是只看了 DDL 没看数据 —— 直到做推荐的种子数据试点才被发现。
+        // 共现推荐必须在 SPU 粒度统计（SKU 是颜色/版本变体），没有 spu_id 就无从做起。
+        // spu_name / spu_brand / spu_pic 仍然不填：购物车那边没有 SPU 名和品牌【名】，
+        // spu_brand 是名字列，不往里塞 id。
+        itemEntity.setSpuId(item.getSpuId());
+        itemEntity.setCategoryId(item.getCategoryId());
         itemEntity.setSkuName(item.getTitle());
         itemEntity.setSkuPic(item.getImage());
         itemEntity.setSkuPrice(item.getPrice());
