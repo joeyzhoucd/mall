@@ -253,6 +253,163 @@ public class SearchServiceImpl implements SearchService {
         return t != null ? t.value() : 0L;
     }
 
+    // =========================================================================
+    // 相似商品推荐
+    // =========================================================================
+
+    /** 相似商品最多返回几条，防止调用方传个 1000 把 ES 拖垮。 */
+    private static final int MAX_SIMILAR_SIZE = 20;
+
+    /**
+     * {@inheritDoc}
+     *
+     * <h3>为什么是「取回自己的向量」而不是「把标题重新 embed 一遍」</h3>
+     * 两条路都能得到一个查询向量，但重新 embed 要走 TEI，
+     * 于是<b>详情页的读路径就挂上了 embedding 服务的可用性</b>。
+     * 而索引里本来就存着这个 sku 的 titleVector（{@code _source} 没有排除它，
+     * 实测 14941/14941 全覆盖），直接取回来既快又不依赖外部服务，
+     * 而且和建索引时用的是同一个向量，不会因为模型版本漂移而对不上。
+     *
+     * <h3>两条必须排除的东西</h3>
+     * <ul>
+     *   <li><b>自身</b>：最近邻里第一个永远是自己，不排就浪费一个坑位。</li>
+     *   <li><b>同 spuId 的其它 sku</b>：那是同一个商品的颜色/版本变体，
+     *       标题几乎一样，向量也几乎一样，不排的话整个推荐位会被自己的
+     *       规格变体占满 —— 看着"相似度很高"，其实毫无信息量。</li>
+     * </ul>
+     * 再用 {@code collapse} 按 spuId 折叠，保证每个商品只出一条，
+     * 否则别的商品的多个规格也会刷屏。
+     *
+     * <h3>降级阶梯</h3>
+     * 语义召回失败不等于推荐位必须空着。按这个顺序退：
+     * <ol>
+     *   <li>有向量 → kNN 最近邻</li>
+     *   <li>没向量（新商品还没回填）或 kNN 失败 → 同类目按 hotScore 降序</li>
+     *   <li>ES 整个不可用 → 空列表，详情页照常渲染</li>
+     * </ol>
+     */
+    @Override
+    public List<SkuEsModel> similar(Long skuId, int size) {
+        if (skuId == null) {
+            return List.of();
+        }
+        int limit = Math.max(1, Math.min(size, MAX_SIMILAR_SIZE));
+
+        SkuEsModel self;
+        try {
+            self = fetchSelf(skuId);
+        } catch (Exception e) {
+            log.warn("相似商品：取不到 skuId={} 的文档，推荐位留空", skuId, e);
+            return List.of();
+        }
+        if (self == null) {
+            log.debug("相似商品：skuId={} 不在索引里", skuId);
+            return List.of();
+        }
+
+        List<Float> vector = self.getTitleVector();
+        if (!CollectionUtils.isEmpty(vector)) {
+            try {
+                return knnSimilar(self, vector, limit);
+            } catch (Exception e) {
+                log.warn("相似商品：skuId={} 的 kNN 失败，退回同类目热度", skuId, e);
+            }
+        } else {
+            log.debug("相似商品：skuId={} 没有向量，退回同类目热度", skuId);
+        }
+
+        try {
+            return hotInSameCategory(self, limit);
+        } catch (Exception e) {
+            log.warn("相似商品：skuId={} 的兜底查询也失败，推荐位留空", skuId, e);
+            return List.of();
+        }
+    }
+
+    /** 取当前 sku 自己的文档，只要推荐需要的几个字段（这里<b>要</b>带上向量）。 */
+    private SkuEsModel fetchSelf(Long skuId) throws IOException {
+        SearchResponse<SkuEsModel> resp = esClient.search(s -> s
+                        .index(INDEX_NAME)
+                        .size(1)
+                        .query(q -> q.term(t -> t.field("skuId").value(skuId)))
+                        .source(sc -> sc.filter(f -> f.includes(
+                                List.of("skuId", "spuId", "categoryId", VECTOR_FIELD)))),
+                SkuEsModel.class);
+        List<Hit<SkuEsModel>> hits = resp.hits().hits();
+        return hits.isEmpty() ? null : hits.get(0).source();
+    }
+
+    private List<SkuEsModel> knnSimilar(SkuEsModel self, List<Float> vector, int limit) throws IOException {
+        List<Query> filters = new ArrayList<>();
+        filters.add(Query.of(q -> q.term(t -> t.field("hasStock").value(true))));
+        if (self.getSpuId() != null) {
+            // must_not 同 spuId，顺带也就排除了自身（自身必然同 spuId）
+            filters.add(Query.of(q -> q.bool(b -> b.mustNot(mn -> mn
+                    .term(t -> t.field("spuId").value(String.valueOf(self.getSpuId())))))));
+        } else {
+            filters.add(Query.of(q -> q.bool(b -> b.mustNot(mn -> mn
+                    .term(t -> t.field("skuId").value(self.getSkuId()))))));
+        }
+
+        // 【k 要留折叠的余量】collapse 是在 knn 返回的 k 条里折叠的，
+        // 不是折叠后再去取更多。k 等于 limit 的话，一旦邻居里有同 spu 的多个规格，
+        // 折叠完就不够 limit 条了 —— 表现成「推荐位有时候只有 3 个」。
+        int k = Math.min(MAX_KNN_K, limit * 5);
+        int numCandidates = Math.min(MAX_KNN_CANDIDATES, Math.max(100, k * 5));
+
+        SearchResponse<SkuEsModel> resp = esClient.search(s -> s
+                        .index(INDEX_NAME)
+                        .size(limit)
+                        .knn(KnnQuery.of(kn -> kn
+                                .field(VECTOR_FIELD)
+                                .queryVector(vector)
+                                .k(k)
+                                .numCandidates(numCandidates)
+                                .filter(filters)))
+                        .collapse(c -> c.field("spuId"))
+                        .source(sc -> sc.filter(f -> f.includes(SOURCE_FIELDS))),
+                SkuEsModel.class);
+        return toModels(resp);
+    }
+
+    /**
+     * 兜底：同类目里按热度取。
+     * <p>这不是"降级版的推荐"，而是<b>另一种推荐</b>——它不需要向量，
+     * 所以向量链路整个挂掉时推荐位依然有内容，用户感知不到差别。
+     */
+    private List<SkuEsModel> hotInSameCategory(SkuEsModel self, int limit) throws IOException {
+        if (self.getCategoryId() == null) {
+            return List.of();
+        }
+        SearchResponse<SkuEsModel> resp = esClient.search(s -> s
+                        .index(INDEX_NAME)
+                        .size(limit)
+                        .query(q -> q.bool(b -> {
+                            b.filter(f -> f.term(t -> t.field("categoryId").value(self.getCategoryId())));
+                            b.filter(f -> f.term(t -> t.field("hasStock").value(true)));
+                            if (self.getSpuId() != null) {
+                                b.mustNot(mn -> mn.term(t -> t.field("spuId")
+                                        .value(String.valueOf(self.getSpuId()))));
+                            }
+                            return b;
+                        }))
+                        .sort(so -> so.field(f -> f.field("hotScore").order(SortOrder.Desc)))
+                        .collapse(c -> c.field("spuId"))
+                        .source(sc -> sc.filter(f -> f.includes(SOURCE_FIELDS))),
+                SkuEsModel.class);
+        return toModels(resp);
+    }
+
+    private List<SkuEsModel> toModels(SearchResponse<SkuEsModel> resp) {
+        List<SkuEsModel> out = new ArrayList<>();
+        for (Hit<SkuEsModel> hit : resp.hits().hits()) {
+            if (hit.source() != null) {
+                out.add(hit.source());
+            }
+        }
+        return out;
+    }
+
     /**
      * 左侧筛选面板的三组聚合（品牌 / 分类 / 规格）。
      *

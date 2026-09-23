@@ -1,10 +1,12 @@
 package com.mall.search.controller;
 
+import com.mall.common.constant.ResponseKeys;
 import com.mall.common.utils.R;
 import com.mall.search.service.ProductSaveService;
 import com.mall.search.service.SearchService;
 import com.mall.search.vo.SearchParam;
 import com.mall.search.vo.SearchResult;
+import com.mall.search.vo.SkuEsModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -12,6 +14,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.io.IOException;
@@ -38,6 +41,20 @@ public class SearchController {
             model.addAttribute("searchParam", param);
         }
         return "list";
+    }
+
+    /**
+     * 相似商品推荐，给商品详情页用。
+     *
+     * <p>service 的契约是永不抛异常、永不返回 null，所以这里不需要 try/catch ——
+     * 推荐算不出来时返回的是空列表，详情页照常渲染。
+     */
+    @GetMapping("/search/similar")
+    @ResponseBody
+    public R similar(@RequestParam("skuId") Long skuId,
+                     @RequestParam(value = "size", defaultValue = "8") Integer size) {
+        List<SkuEsModel> list = searchService.similar(skuId, size == null ? 8 : size);
+        return R.ok().put(ResponseKeys.ITEMS, list);
     }
 
     /**

@@ -1,6 +1,11 @@
 package com.mall.product.controller;
 
+import com.mall.common.constant.ResponseKeys;
+import com.mall.common.utils.R;
+import com.mall.common.utils.RUtils;
+import com.mall.product.feign.SearchFeignService;
 import com.mall.product.service.SkuInfoService;
+import com.mall.product.vo.SimilarItemVo;
 import com.mall.product.vo.SkuItemVo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +16,10 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+
+import java.util.List;
 
 /**
  * 商品详情页（PDP）。
@@ -33,8 +42,17 @@ public class ItemController {
 
     private static final Logger log = LoggerFactory.getLogger(ItemController.class);
 
+    /** 详情页推荐位放几条。8 条正好铺满一行两屏，再多页面就太长了。 */
+    private static final int SIMILAR_SIZE = 8;
+
     @Autowired
     private SkuInfoService skuInfoService;
+
+    @Autowired
+    private SearchFeignService searchFeignService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @GetMapping("/{skuId}.html")
     public String skuItem(@PathVariable("skuId") Long skuId, Model model) {
@@ -50,6 +68,33 @@ public class ItemController {
         }
 
         model.addAttribute("item", vo);
+        model.addAttribute("similar", loadSimilar(skuId));
         return "item";
+    }
+
+    /**
+     * 拉相似商品推荐。
+     *
+     * <p><b>这里的 catch 不是防御性编程，是这个类头上那条约束的直接后果</b>：
+     * 模板会迭代 {@code ${similar}}，而渲染发生在 return 之后 ——
+     * 那时候异常没人接得住，表现是详情页 500。
+     * 所以推荐位的失败必须在<b>这里</b>就变成"空列表"，
+     * 让页面少一块内容，而不是整页打不开。
+     *
+     * <p>mall-search 那边的 service 已经做了三级降级（向量 → 同类目热度 → 空），
+     * 这里再兜一层是因为<b>那些降级都在对端进程里</b>：
+     * mall-search 整个不可用、Feign 超时、返回体格式变了，对端的降级一个都跑不到。
+     */
+    private List<SimilarItemVo> loadSimilar(Long skuId) {
+        try {
+            R r = searchFeignService.similar(skuId, SIMILAR_SIZE);
+            List<SimilarItemVo> list = RUtils.getData(r, ResponseKeys.ITEMS, objectMapper,
+                    new TypeReference<List<SimilarItemVo>>() {});
+            return list == null ? List.of() : list;
+        } catch (Exception e) {
+            // 只记 warn 不记 error：推荐位没了不是故障，详情页还是好的
+            log.warn("相似商品拉取失败，推荐位留空，skuId={}", skuId, e);
+            return List.of();
+        }
     }
 }
