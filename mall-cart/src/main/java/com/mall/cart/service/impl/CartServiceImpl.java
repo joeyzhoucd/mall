@@ -15,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.BoundHashOperations;
+import com.mall.cart.service.CartEventLogger;
+import com.mall.cart.to.CartLogTo;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +36,9 @@ public class CartServiceImpl implements CartService {
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private CartEventLogger eventLogger;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -64,11 +69,15 @@ public class CartServiceImpl implements CartService {
             cartItem.setSkuId(skuId);
             fillSkuInfo(cartItem, skuId);
             saveCartItem(cartOps, cartItem);
+            eventLogger.record(currentMemberId(), skuId, cartItem.getSpuId(),
+                    CartLogTo.ACTION_ADD, cartItem.getCount());
             return cartItem;
         } else {
             CartItemVo cartItem = readCartItem(cacheValue);
             cartItem.setCount(cartItem.getCount() + num);
             saveCartItem(cartOps, cartItem);
+            eventLogger.record(currentMemberId(), skuId, cartItem.getSpuId(),
+                    CartLogTo.ACTION_ADD, cartItem.getCount());
             return cartItem;
         }
     }
@@ -81,6 +90,9 @@ public class CartServiceImpl implements CartService {
         @SuppressWarnings("unchecked")
         Map<String, Object> skuInfoMap = (Map<String, Object>) r.get("skuInfo");
         SkuInfoVo skuInfoVo = objectMapper.convertValue(skuInfoMap, SkuInfoVo.class);
+        // spuId 必须在这里落进缓存：后续的改数量/删除只读缓存，不会再来一次商品服务，
+        // 而行为埋点的共现统计是 SPU 粒度的。
+        cartItem.setSpuId(skuInfoVo.getSpuId());
         cartItem.setTitle(skuInfoVo.getSkuTitle());
         cartItem.setImage(skuInfoVo.getSkuDefaultImg());
         cartItem.setPrice(skuInfoVo.getPrice() == null ? BigDecimal.ZERO : skuInfoVo.getPrice());
@@ -151,6 +163,12 @@ public class CartServiceImpl implements CartService {
         return values.stream().map(obj -> readCartItem(String.valueOf(obj))).collect(Collectors.toList());
     }
 
+    /** 当前会员 id；未登录的临时购物车返回 null，埋点里会落成 0。 */
+    private Long currentMemberId() {
+        UserInfoTo userInfoTo = CartInterceptor.threadLocal.get();
+        return userInfoTo == null ? null : userInfoTo.getUserId();
+    }
+
     @Override
     public void checkItem(Long skuId, Boolean check) {
         BoundHashOperations<String, Object, Object> cartOps = getCartOps();
@@ -159,6 +177,8 @@ public class CartServiceImpl implements CartService {
             CartItemVo itemVo = readCartItem(cacheValue);
             itemVo.setCheck(check);
             saveCartItem(cartOps, itemVo);
+            eventLogger.record(currentMemberId(), skuId, itemVo.getSpuId(),
+                    CartLogTo.ACTION_CHECK, itemVo.getCount());
         }
     }
 
@@ -173,13 +193,24 @@ public class CartServiceImpl implements CartService {
             CartItemVo itemVo = readCartItem(cacheValue);
             itemVo.setCount(num);
             saveCartItem(cartOps, itemVo);
+            eventLogger.record(currentMemberId(), skuId, itemVo.getSpuId(),
+                    CartLogTo.ACTION_CHANGE_COUNT, num);
         }
     }
 
     @Override
     public void deleteItem(Long skuId) {
         BoundHashOperations<String, Object, Object> cartOps = getCartOps();
+        // 【先读再删】删除本身不需要读，这一次 Redis GET 纯粹是为了埋点拿到 spuId
+        // ——共现统计是 SPU 粒度的，只记 skuId 的删除事件后面用不了。
+        // 一次 hash GET 相对于这条路径上已有的开销可以忽略。
+        String cacheValue = (String) cartOps.get(String.valueOf(skuId));
         cartOps.delete(String.valueOf(skuId));
+        if (StringUtils.isNotEmpty(cacheValue)) {
+            CartItemVo itemVo = readCartItem(cacheValue);
+            eventLogger.record(currentMemberId(), skuId, itemVo.getSpuId(),
+                    CartLogTo.ACTION_DELETE, itemVo.getCount());
+        }
     }
 
     @Override
