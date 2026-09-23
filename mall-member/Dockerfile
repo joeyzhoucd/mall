@@ -132,7 +132,29 @@ RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
 FROM eclipse-temurin:21-jre-jammy
 # WORKDIR 和下面的 -cp 必须和训练阶段逐字一致，见上面第 2 点。
 WORKDIR /app/extracted
-COPY --from=cds /app/extracted /app/extracted
+# =============================================================================
+# 【lib 和 app.jar 必须分两层，顺序不能反】2026-09-22
+# =============================================================================
+# extracted 里只有两样东西（在跑着的容器里核过）：
+#     lib/      73MB，190 个 jar —— 依赖，pom 不变它就不变
+#     app.jar   36KB          —— 你的代码，每次提交都变
+# 原来一条 COPY 把两者压成一层，于是【改一行 Java 代码，节点要重拉 64.5MB】，
+# 其中 99.95% 是根本没变的依赖。
+#
+# 这和构建阶段那个「COPY . . 写在 RUN mvn 前面」是同一个问题的另一半：
+# 上次（同一天）只修了构建缓存，运行时镜像的层没分。
+#
+# 【顺序不能反】Docker 的层是有序的：后面的层变了不影响前面的层，
+# 反过来前面的层一变，后面全部失效。lib 不变、app.jar 每次变，
+# 所以 lib 必须在前。写反了等于没拆。
+#
+# 实测依据（mall-cart:22beedb 的镜像层，压缩后）：
+#     94.4MB  eclipse-temurin:21-jre-jammy   14 个服务共享，每节点只拉一次
+#     64.5MB  COPY /app/extracted            <- 就是这一层，现在拆开
+#     16.8MB  COPY /app/app.jsa              CDS 归档，每次构建都重生成，拆不动
+# 拆完之后纯代码改动的单服务增量：81.3MB -> 约 16.8MB。
+COPY --from=cds /app/extracted/lib /app/extracted/lib
+COPY --from=cds /app/extracted/app.jar /app/extracted/app.jar
 COPY --from=cds /app/app.jsa /app/app.jsa
 EXPOSE 11000
 ENTRYPOINT ["java", \
