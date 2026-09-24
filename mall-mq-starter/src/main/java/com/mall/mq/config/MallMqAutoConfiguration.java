@@ -10,7 +10,9 @@ import org.springframework.amqp.core.Exchange;
 import org.springframework.amqp.core.ExchangeBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
@@ -107,6 +109,19 @@ public class MallMqAutoConfiguration {
         factory.setDefaultRequeueRejected(false);
         factory.setConcurrentConsumers(properties.getListener().getConcurrency());
         factory.setPrefetchCount(properties.getListener().getPrefetch());
+        // 进 DLQ 之前先原地有限重试。这是自定义工厂，spring.rabbitmq.listener.simple.retry.*
+        // 对它【不生效】，必须在这里显式挂 advice。
+        // 不按异常类型挑着重试：1412（Table definition has changed）到 Spring 这层是
+        // UncategorizedSQLException，按「瞬时异常」分类反而会漏掉它；对永久性错误多试两次
+        // 只多花几秒，而且消费都走 consumeOnce，允许从 FAILED 重新认领，重试是幂等的。
+        // 用尽后 RejectAndDontRequeue —— 仍然进 DLQ，DLQ 依旧是最后兜底，只是不再是第一反应。
+        MallMqProperties.Listener listener = properties.getListener();
+        factory.setAdviceChain(RetryInterceptorBuilder.stateless()
+                .maxRetries(listener.getRetryMaxRetries())
+                .backOffOptions(listener.getRetryInitialIntervalMs(), listener.getRetryMultiplier(),
+                        listener.getRetryMaxIntervalMs())
+                .recoverer(new RejectAndDontRequeueRecoverer())
+                .build());
         return factory;
     }
 

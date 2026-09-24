@@ -114,6 +114,49 @@ public class MallMqProperties {
     public static class Listener {
         private int concurrency = 1;
         private int prefetch = 4;
+        /**
+         * 消费失败后【在进死信队列之前】原地重试几次（不含第一次）。
+         * 为什么要有：十万单实测，关单消费者因为一次死锁 / 一次在线 DDL（1412 Table definition has changed）
+         * 就直接进了 DLQ —— 这些错误的定义就是「重试一次就好」，却要等人工重放；
+         * 没人重放的那两单永远停在待付款，库存也一直锁着。
+         * 退避 1s、2s：足够等过一次锁冲突或 DDL 的元数据切换，又不会让单消费者堵太久。
+         */
+        private int retryMaxRetries = 2;
+        private long retryInitialIntervalMs = 1000;
+        private double retryMultiplier = 2.0;
+        private long retryMaxIntervalMs = 10_000;
+
+        public int getRetryMaxRetries() {
+            return retryMaxRetries;
+        }
+
+        public void setRetryMaxRetries(int retryMaxRetries) {
+            this.retryMaxRetries = retryMaxRetries;
+        }
+
+        public long getRetryInitialIntervalMs() {
+            return retryInitialIntervalMs;
+        }
+
+        public void setRetryInitialIntervalMs(long retryInitialIntervalMs) {
+            this.retryInitialIntervalMs = retryInitialIntervalMs;
+        }
+
+        public double getRetryMultiplier() {
+            return retryMultiplier;
+        }
+
+        public void setRetryMultiplier(double retryMultiplier) {
+            this.retryMultiplier = retryMultiplier;
+        }
+
+        public long getRetryMaxIntervalMs() {
+            return retryMaxIntervalMs;
+        }
+
+        public void setRetryMaxIntervalMs(long retryMaxIntervalMs) {
+            this.retryMaxIntervalMs = retryMaxIntervalMs;
+        }
 
         public int getConcurrency() {
             return concurrency;
