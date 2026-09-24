@@ -13,17 +13,23 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class OrderOutboxMessageServiceImplTest {
@@ -116,6 +122,63 @@ class OrderOutboxMessageServiceImplTest {
         assertThat(captor.getValue().getStatus()).isEqualTo(OrderOutboxStatus.DEAD);
         assertThat(captor.getValue().getRetryCount()).isEqualTo(10);
         assertThat(captor.getValue().getLastError()).isEqualTo("nack");
+    }
+
+    /**
+     * 死锁回归。定时任务的两个批量迁移以前是按 status 的范围 UPDATE：先锁二级索引
+     * idx_order_outbox_ready 再回表锁主键，而认领/确认是按主键更新再改二级索引 —— 反序死锁。
+     * 现在必须是「每条 UPDATE 以主键定位，并在 WHERE 里重新判断原状态」。
+     */
+    @Test
+    void scheduledBatchTransitionsOnlyEverUpdateByPrimaryKey() {
+        OrderOutboxMessageEntity stale = message(20L, OrderOutboxStatus.SENDING, 0);
+        OrderOutboxMessageEntity exhausted = message(21L, OrderOutboxStatus.FAILED, 10);
+        // publishReadyMessages 里 list 的调用顺序：超时回收候选 → 待发消息 → 重试耗尽候选
+        doReturn(List.of(stale), List.of(), List.of(exhausted)).when(service).list(any(Wrapper.class));
+        doReturn(true).when(service).update(any(OrderOutboxMessageEntity.class), any(Wrapper.class));
+
+        service.publishReadyMessages();
+
+        ArgumentCaptor<OrderOutboxMessageEntity> entities = ArgumentCaptor.forClass(OrderOutboxMessageEntity.class);
+        ArgumentCaptor<Wrapper<OrderOutboxMessageEntity>> wrappers = ArgumentCaptor.forClass(Wrapper.class);
+        verify(service, times(2)).update(entities.capture(), wrappers.capture());
+        assertThat(entities.getAllValues()).extracting(OrderOutboxMessageEntity::getStatus)
+                .containsExactly(OrderOutboxStatus.FAILED, OrderOutboxStatus.DEAD);
+        // 以主键开头（不是 status 范围）+ 仍带原状态条件（CAS，快照读之后被确认的行不会被误改）
+        assertThat(wrappers.getAllValues().get(0).getCustomSqlSegment())
+                .contains("(id = ", "status = ", "update_time < ");
+        assertThat(wrappers.getAllValues().get(1).getCustomSqlSegment())
+                .contains("(id = ", "status IN ", "retry_count >= ");
+    }
+
+    /**
+     * 提交后立即发送失败（十万单里是死锁）时，业务事务已经提交了，
+     * 异常若抛到 controller 就是「订单建好了、用户却看到 500」。
+     */
+    @Test
+    void publishFailureAfterCommitNeverReachesTheCaller() {
+        doReturn(null).when(service).getOne(any(Wrapper.class));
+        doAnswer(inv -> {
+            inv.<OrderOutboxMessageEntity>getArgument(0).setId(30L);
+            return true;
+        }).when(service).save(any(OrderOutboxMessageEntity.class));
+        doThrow(new RuntimeException("Deadlock found when trying to get lock")).when(service).getById(30L);
+
+        OrderCloseTo payload = new OrderCloseTo();
+        payload.setOrderSn("O1");
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.enqueue("order.close.O1", "ORDER_CLOSE", "O1",
+                    MqConstants.ORDER_EVENT_EXCHANGE, MqConstants.ORDER_CREATE_ROUTING_KEY, payload);
+            List<TransactionSynchronization> syncs = TransactionSynchronizationManager.getSynchronizations();
+            assertThat(syncs).hasSize(1);
+
+            assertThatCode(() -> syncs.forEach(TransactionSynchronization::afterCommit))
+                    .doesNotThrowAnyException();
+            verify(service).getById(30L);   // 确实尝试发送过、确实失败过，不是没走到
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     private OrderOutboxMessageEntity message(Long id, Integer status, Integer retryCount) {

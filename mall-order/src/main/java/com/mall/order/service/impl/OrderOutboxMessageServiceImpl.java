@@ -13,6 +13,8 @@ import com.mall.order.dao.OrderOutboxMessageDao;
 import com.mall.order.entity.OrderOutboxMessageEntity;
 import com.mall.order.service.OrderOutboxMessageService;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,7 @@ import java.util.Map;
 public class OrderOutboxMessageServiceImpl extends ServiceImpl<OrderOutboxMessageDao, OrderOutboxMessageEntity>
         implements OrderOutboxMessageService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderOutboxMessageServiceImpl.class);
     private static final int LAST_ERROR_LIMIT = 500;
 
     private final RabbitTemplate rabbitTemplate;
@@ -181,11 +184,26 @@ public class OrderOutboxMessageServiceImpl extends ServiceImpl<OrderOutboxMessag
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    publish(id, false);
+                    publishBestEffort(id);
                 }
             });
         } else {
+            publishBestEffort(id);
+        }
+    }
+
+    /**
+     * 提交后的「立即发一次」只是加速，不是可靠性来源 —— 可靠性靠定时任务扫表补发。
+     * 所以这里的任何失败都只能记日志，【绝不能往外抛】：此时业务事务已经提交，
+     * 异常一路抛到 controller 就成了「订单其实建好了、用户看到的却是 500」，
+     * 用户重试就是重复下单。十万单实测：166 个 500 里 86 单其实已落库。
+     * 吞掉是安全的：认领失败则仍是 PENDING，认领后失败则 SENDING 超时后被回收，都会被补发。
+     */
+    private void publishBestEffort(Long id) {
+        try {
             publish(id, false);
+        } catch (RuntimeException e) {
+            log.warn("outbox {} publish after commit failed, scheduler will retry: {}", id, e.toString());
         }
     }
 
@@ -240,25 +258,56 @@ public class OrderOutboxMessageServiceImpl extends ServiceImpl<OrderOutboxMessag
         }
     }
 
+    /*
+     * 下面两个批量状态迁移【刻意不写成一条范围 UPDATE】。
+     *
+     * 范围 UPDATE（WHERE status = ? AND ...）走 idx_order_outbox_ready(status, ...)，
+     * 加锁顺序是「二级索引 → 主键」，而且会锁住该 status 下【所有】索引记录，
+     * 包括刚认领、根本没超时的行。与此同时 publish() 认领和 markSent() 确认都是
+     * 按主键更新、并且改了 status，加锁顺序是「主键 → 二级索引」—— 反序，必然死锁。
+     * 十万单实测 7 小时约 900 次死锁；真实 MySQL 上复现：旧写法 30s 41~72 次，本写法 0 次。
+     *
+     * 改成：快照读出候选 id（普通 SELECT 不加锁），再逐条按主键做条件更新。
+     * 条件在 UPDATE 里重新判断一遍（等价 CAS），所以快照读和更新之间行被确认/认领了
+     * 也不会被误改；所有写者统一「主键 → 二级索引」，没有范围锁。
+     */
     private void markRetryExhaustedDead() {
-        OrderOutboxMessageEntity update = new OrderOutboxMessageEntity();
-        update.setStatus(OrderOutboxStatus.DEAD);
-        update.setLastError("retry attempts exhausted");
-        update.setUpdateTime(new Date());
-        this.update(update, new UpdateWrapper<OrderOutboxMessageEntity>()
+        for (Long id : idsWhere(new QueryWrapper<OrderOutboxMessageEntity>()
                 .in("status", OrderOutboxStatus.PENDING, OrderOutboxStatus.FAILED)
-                .ge("retry_count", properties.maxAttempts()));
+                .ge("retry_count", properties.maxAttempts()))) {
+            OrderOutboxMessageEntity update = new OrderOutboxMessageEntity();
+            update.setStatus(OrderOutboxStatus.DEAD);
+            update.setLastError("retry attempts exhausted");
+            update.setUpdateTime(new Date());
+            this.update(update, new UpdateWrapper<OrderOutboxMessageEntity>()
+                    .eq("id", id)
+                    .in("status", OrderOutboxStatus.PENDING, OrderOutboxStatus.FAILED)
+                    .ge("retry_count", properties.maxAttempts()));
+        }
     }
 
     private void recoverStaleSending(Date now) {
-        OrderOutboxMessageEntity update = new OrderOutboxMessageEntity();
-        update.setStatus(OrderOutboxStatus.FAILED);
-        update.setNextRetryTime(now);
-        update.setLastError("sending timeout before broker confirm");
-        update.setUpdateTime(now);
-        this.update(update, new UpdateWrapper<OrderOutboxMessageEntity>()
+        Date staleBefore = new Date(now.getTime() - properties.sendingTimeoutMs());
+        for (Long id : idsWhere(new QueryWrapper<OrderOutboxMessageEntity>()
                 .eq("status", OrderOutboxStatus.SENDING)
-                .lt("update_time", new Date(now.getTime() - properties.sendingTimeoutMs())));
+                .lt("update_time", staleBefore))) {
+            OrderOutboxMessageEntity update = new OrderOutboxMessageEntity();
+            update.setStatus(OrderOutboxStatus.FAILED);
+            update.setNextRetryTime(now);
+            update.setLastError("sending timeout before broker confirm");
+            update.setUpdateTime(now);
+            this.update(update, new UpdateWrapper<OrderOutboxMessageEntity>()
+                    .eq("id", id)
+                    .eq("status", OrderOutboxStatus.SENDING)
+                    .lt("update_time", staleBefore));
+        }
+    }
+
+    private List<Long> idsWhere(QueryWrapper<OrderOutboxMessageEntity> condition) {
+        return this.list(condition.select("id").orderByAsc("id").last("LIMIT " + properties.batchSize()))
+                .stream()
+                .map(OrderOutboxMessageEntity::getId)
+                .toList();
     }
 
     private String toJson(Object payload) {
