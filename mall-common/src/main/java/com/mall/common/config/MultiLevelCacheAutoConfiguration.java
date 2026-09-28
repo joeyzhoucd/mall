@@ -2,6 +2,7 @@ package com.mall.common.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.mall.common.cache.MultiLevelCacheClient;
+import com.mall.common.cache.MultiLevelCacheInvalidationListener;
 import com.mall.common.cache.MultiLevelCacheProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -18,7 +19,6 @@ import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import tools.jackson.databind.ObjectMapper;
 
-import java.nio.charset.StandardCharsets;
 
 @AutoConfiguration
 @ConditionalOnClass(Caffeine.class)
@@ -51,10 +51,8 @@ public class MultiLevelCacheAutoConfiguration {
             RedisMessageListenerContainer container = new RedisMessageListenerContainer();
             container.setConnectionFactory(redisTemplate.getConnectionFactory());
             container.setAutoStartup(properties.enabled());
-            container.addMessageListener((message, pattern) -> {
-                String fullKey = new String(message.getBody(), StandardCharsets.UTF_8);
-                cacheClient.invalidateLocal(fullKey);
-            }, new ChannelTopic(properties.invalidationChannel()));
+            container.addMessageListener(new MultiLevelCacheInvalidationListener(cacheClient),
+                    new ChannelTopic(properties.invalidationChannel()));
             return container;
         }
     }

@@ -118,7 +118,8 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
 
     @Override
     public boolean activate(Long relationId) {
-        SeckillSkuRelationEntity relation = seckillSkuRelationService.getById(relationId);
+        // 必须读库：这里的价格和库存会被固化进 Redis、整场活动只认它们，见 getByIdFromDb
+        SeckillSkuRelationEntity relation = seckillSkuRelationService.getByIdFromDb(relationId);
         if (relation == null || relation.getSeckillCount() == null) {
             return false;
         }

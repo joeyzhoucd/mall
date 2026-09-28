@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,6 +28,9 @@ class MultiLevelCacheAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(MultiLevelCacheClient.class);
+                    // 没有它，别的 pod 的 evict 广播没人收，本地副本活满 localTtl
+                    assertThat(context).hasBean("multiLevelCacheInvalidationListenerContainer");
+                    assertThat(context).getBean("multiLevelCacheInvalidationListenerContainer").isInstanceOf(RedisMessageListenerContainer.class);
                 });
     }
 

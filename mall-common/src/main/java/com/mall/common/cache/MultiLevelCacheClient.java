@@ -83,7 +83,7 @@ public class MultiLevelCacheClient {
         }
 
         record(cacheName, "miss");
-        return loadWithMutex(cacheName, fullKey, typeReference, loader, effective);
+        return loadWithMutex(cacheName, key, fullKey, typeReference, loader, effective);
     }
 
     public void put(String cacheName, String key, Object value, MultiLevelCacheOptions options) {
@@ -111,7 +111,10 @@ public class MultiLevelCacheClient {
         localCache.invalidate(fullKey);
     }
 
+    // key 原样传进来，不要从 fullKey 反解析：缓存名本身带冒号（product:sku-item），
+    // 按冒号切会切错位置，写到另一个 key 上 —— 2026-09-05 到 09-28 全部缓存因此从未命中。
     private <T> T loadWithMutex(String cacheName,
+                                String key,
                                 String fullKey,
                                 TypeReference<T> typeReference,
                                 Supplier<T> loader,
@@ -126,7 +129,7 @@ public class MultiLevelCacheClient {
                     record(cacheName, "load_null_uncached");
                     return null;
                 }
-                put(cacheName, cacheKeyOnly(fullKey), loaded,
+                put(cacheName, key, loaded,
                         loaded == null ? options.withRedisTtl(options.nullTtl()) : options);
                 record(cacheName, loaded == null ? "load_null" : "load");
                 return loaded;
@@ -186,13 +189,6 @@ public class MultiLevelCacheClient {
 
     private String fullKey(String cacheName, String key) {
         return properties.keyPrefix() + ":" + cacheName + ":" + key;
-    }
-
-    private String cacheKeyOnly(String fullKey) {
-        String prefix = properties.keyPrefix() + ":";
-        String withoutPrefix = fullKey.startsWith(prefix) ? fullKey.substring(prefix.length()) : fullKey;
-        int split = withoutPrefix.indexOf(':');
-        return split < 0 ? withoutPrefix : withoutPrefix.substring(split + 1);
     }
 
     private Duration ttlWithJitter(Duration ttl, double jitterRatio) {

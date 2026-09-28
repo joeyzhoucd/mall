@@ -78,6 +78,11 @@ public class SeckillSkuRelationServiceImpl extends ServiceImpl<SeckillSkuRelatio
     }
 
     @Override
+    public SeckillSkuRelationEntity getByIdFromDb(Long relationId) {
+        return relationId == null ? null : getBaseMapper().selectById(relationId);
+    }
+
+    @Override
     public boolean save(SeckillSkuRelationEntity entity) {
         boolean result = super.save(entity);
         if (result && entity != null) {

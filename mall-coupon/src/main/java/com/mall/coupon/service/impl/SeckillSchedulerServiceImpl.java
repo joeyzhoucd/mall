@@ -200,7 +200,7 @@ public class SeckillSchedulerServiceImpl implements SeckillSchedulerService {
         if (relationId == null) {
             throw new IllegalArgumentException("relationId 不能为空");
         }
-        SeckillSkuRelationEntity relation = seckillSkuRelationService.getById(relationId);
+        SeckillSkuRelationEntity relation = seckillSkuRelationService.getByIdFromDb(relationId);
         if (relation == null) {
             throw new IllegalArgumentException("秒杀配置不存在：" + relationId);
         }

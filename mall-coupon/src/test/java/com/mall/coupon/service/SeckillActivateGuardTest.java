@@ -72,7 +72,7 @@ class SeckillActivateGuardTest {
     @Test
     @DisplayName("没上线的活动可以激活，并且真的调到了 GrabService")
     void activatesWhenNotYetLive() {
-        when(relationService.getById(9001L)).thenReturn(relation(9001L, "500"));
+        when(relationService.getByIdFromDb(9001L)).thenReturn(relation(9001L, "500"));
         stubActivated(9001L, false);
         when(grabService.activate(9001L)).thenReturn(true);
 
@@ -87,7 +87,7 @@ class SeckillActivateGuardTest {
     @Test
     @DisplayName("已经上线的活动必须拒绝 —— 激活会重置库存并清空限购，直接超卖")
     void refusesWhenAlreadyLive() {
-        when(relationService.getById(9001L)).thenReturn(relation(9001L, "500"));
+        when(relationService.getByIdFromDb(9001L)).thenReturn(relation(9001L, "500"));
         stubActivated(9001L, true);
 
         assertThatThrownBy(() -> service.activate(9001L))
@@ -102,7 +102,7 @@ class SeckillActivateGuardTest {
     @Test
     @DisplayName("配置不存在时拒绝，且不去问 Redis、也不激活")
     void refusesWhenRelationMissing() {
-        when(relationService.getById(404L)).thenReturn(null);
+        when(relationService.getByIdFromDb(404L)).thenReturn(null);
 
         assertThatThrownBy(() -> service.activate(404L))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -119,7 +119,7 @@ class SeckillActivateGuardTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("不能为空");
 
-        verify(relationService, never()).getById(anyLong());
+        verify(relationService, never()).getByIdFromDb(anyLong());
     }
 
     /**
@@ -132,7 +132,7 @@ class SeckillActivateGuardTest {
     @Test
     @DisplayName("GrabService 返回 false 时要报错，不能当成激活成功")
     void surfacesActivationFailure() {
-        when(relationService.getById(9002L)).thenReturn(relation(9002L, null));
+        when(relationService.getByIdFromDb(9002L)).thenReturn(relation(9002L, null));
         stubActivated(9002L, false);
         when(grabService.activate(9002L)).thenReturn(false);
 
@@ -152,7 +152,7 @@ class SeckillActivateGuardTest {
     @Test
     @DisplayName("反向对照：库存键的名字必须是 seckill:stock:{id}")
     void stockKeyNameIsExact() {
-        when(relationService.getById(7L)).thenReturn(relation(7L, "10"));
+        when(relationService.getByIdFromDb(7L)).thenReturn(relation(7L, "10"));
         when(redis.hasKey("seckill:stock:7")).thenReturn(true);
         // 【必须把 grabService 打桩成成功】否则它默认返回 false，
         // 代码会抛「没设置秒杀总量」那个 IllegalStateException ——
