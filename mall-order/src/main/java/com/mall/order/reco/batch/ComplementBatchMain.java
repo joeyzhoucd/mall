@@ -7,7 +7,9 @@ import java.sql.DriverManager;
 
 /**
  * 「搭配购买」批任务入口，由 K8s CronJob 用 mall-order 镜像启动：
- * <pre>java -cp /app/extracted/app.jar com.mall.order.reco.batch.ComplementBatchMain</pre>
+ * <pre>cd /app/extracted &amp;&amp; java -cp "app.jar:lib/*" com.mall.order.reco.batch.ComplementBatchMain</pre>
+ * （{@code lib/*} 不能省：MySQL 驱动在那里。镜像的 WORKDIR 已经是 /app/extracted，见 mall-order/Dockerfile；
+ * CronJob 定义在 mall-deploy 的 charts/mall/templates/reco-cronjob.yaml）
  *
  * <h3>为什么是裸 main，而不是「mall-order 换个 profile 启动」</h3>
  * mall-order 的 Spring 上下文一起来，就会带起它的全部后台行为：@EnableScheduling 下的
