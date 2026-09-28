@@ -114,6 +114,20 @@ spring:
         master: ${REDIS_SENTINEL_MASTER:mymaster}
         nodes: ${REDIS_SENTINEL_NODES:redis-sentinel-0.redis-sentinel:26379,redis-sentinel-1.redis-sentinel:26379,redis-sentinel-2.redis-sentinel:26379}
       database: 0
+  # 详情页两条「搭配购买」调用各自的超时（按 contextId，不影响别处调 mall-order / mall-search）。
+  # 默认是 connect 5000 / read 5000，经负载均衡重试一次最坏 10 秒 —— 相似商品那次演练实测过。
+  # 这两条只读缓存 / 一张表 / 一次 ES 查询，800 / 1000 足够，失败了详情页只是少一块。
+  # 演练时把 orderReco 的 url 指到不可达地址，走的就是这里的连接超时。
+  cloud:
+    openfeign:
+      client:
+        config:
+          orderReco:
+            connect-timeout: 800
+            read-timeout: 1000
+          searchHydrate:
+            connect-timeout: 800
+            read-timeout: 1000
 mall:
   session:
     enabled: true

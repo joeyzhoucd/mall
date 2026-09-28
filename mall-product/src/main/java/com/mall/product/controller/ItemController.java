@@ -3,13 +3,18 @@ package com.mall.product.controller;
 import com.mall.common.constant.ResponseKeys;
 import com.mall.common.utils.R;
 import com.mall.common.utils.RUtils;
+import com.mall.product.feign.OrderRecoFeignService;
 import com.mall.product.feign.SearchFeignService;
+import com.mall.product.feign.SearchHydrateFeignService;
 import com.mall.product.service.SkuInfoService;
+import com.mall.product.vo.ComplementIdVo;
 import com.mall.product.vo.SimilarItemVo;
 import com.mall.product.vo.SkuItemVo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,6 +25,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 商品详情页（PDP）。
@@ -54,6 +60,28 @@ public class ItemController {
     @Autowired
     private ObjectMapper objectMapper;
 
+    /** 「搭配购买」放几条，和相似商品一样铺满一行 */
+    private static final int COMPLEMENT_SIZE = 8;
+    /** 向 mall-order 多要一倍：mall-search 只回有货的，没货的会缺席 */
+    private static final int COMPLEMENT_FETCH = 16;
+
+    @Autowired
+    private OrderRecoFeignService orderRecoFeignService;
+
+    @Autowired
+    private SearchHydrateFeignService searchHydrateFeignService;
+
+    /** 虚拟线程的 SimpleAsyncTaskExecutor（同 SkuInfoServiceImpl 的说明） */
+    @Autowired
+    private AsyncTaskExecutor applicationTaskExecutor;
+
+    /**
+     * 运维总开关：整块关掉。<b>故障演练不用它</b> —— 关掉等于「不调用」，
+     * 测不到「调用失败」时的降级；演练是把 orderReco 的 Feign url 指到一个不可达地址。
+     */
+    @Value("${mall.product.item.complements.enabled:true}")
+    private boolean complementsEnabled = true;
+
     @GetMapping("/{skuId}.html")
     public String skuItem(@PathVariable("skuId") Long skuId, Model model) {
         SkuItemVo vo = skuInfoService.item(skuId);
@@ -68,8 +96,40 @@ public class ItemController {
         }
 
         model.addAttribute("item", vo);
-        model.addAttribute("similar", loadSimilar(skuId));
+        // 两块推荐并行：它们互不依赖，串行的话详情页要多等一整个推荐链路。
+        // 两个 load 方法都自己兜住异常、永远返回列表，所以 join 不会抛。
+        Long spuId = vo.getInfo().getSpuId();
+        CompletableFuture<List<SimilarItemVo>> similar =
+                CompletableFuture.supplyAsync(() -> loadSimilar(skuId), applicationTaskExecutor);
+        CompletableFuture<List<SimilarItemVo>> complements =
+                CompletableFuture.supplyAsync(() -> loadComplements(spuId), applicationTaskExecutor);
+        model.addAttribute("similar", similar.join());
+        model.addAttribute("complements", complements.join());
         return "item";
+    }
+
+    /**
+     * 拉「搭配购买」：mall-order 给 SPU 列表（LLR，已排除同类目）→ mall-search 补成有货 SKU。
+     * 和 {@link #loadSimilar} 同一个约束：失败在这里变成空列表，模板里整块不出现。
+     */
+    private List<SimilarItemVo> loadComplements(Long spuId) {
+        if (!complementsEnabled || spuId == null) {
+            return List.of();
+        }
+        try {
+            List<ComplementIdVo> ids = RUtils.getData(orderRecoFeignService.complements(spuId, COMPLEMENT_FETCH),
+                    ResponseKeys.ITEMS, objectMapper, new TypeReference<List<ComplementIdVo>>() {});
+            if (ids == null || ids.isEmpty()) {
+                return List.of();
+            }
+            List<SimilarItemVo> items = RUtils.getData(
+                    searchHydrateFeignService.bySpus(ids.stream().map(ComplementIdVo::getSpuId).toList()),
+                    ResponseKeys.ITEMS, objectMapper, new TypeReference<List<SimilarItemVo>>() {});
+            return items == null ? List.of() : items.stream().limit(COMPLEMENT_SIZE).toList();
+        } catch (Exception e) {
+            log.warn("搭配购买拉取失败，推荐位留空，spuId={}", spuId, e);
+            return List.of();
+        }
     }
 
     /**

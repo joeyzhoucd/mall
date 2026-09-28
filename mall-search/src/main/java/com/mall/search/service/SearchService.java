@@ -23,5 +23,13 @@ public interface SearchService {
      * @param size  想要几条（实现会做上限保护）
      */
     List<SkuEsModel> similar(Long skuId, int size);
+
+    /**
+     * 按 SPU 补全展示信息：每个 SPU 取一个<b>有货</b>的 SKU（热度最高的那个），
+     * <b>按入参顺序</b>返回（入参已按推荐分数排好）；没货或不在索引里的 SPU 直接缺席。
+     * 给「搭配购买」用 —— 推荐结果只有 SPU id，标题/价格/图片/库存在这里补。
+     * 契约同 {@link #similar}：永远返回列表，永不抛异常。
+     */
+    List<SkuEsModel> bySpuIds(List<Long> spuIds);
 }
 

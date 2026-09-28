@@ -38,6 +38,8 @@ class ItemControllerNotFoundTest {
         when(service.item(anyLong())).thenReturn(vo);
         ItemController controller = new ItemController();
         ReflectionTestUtils.setField(controller, "skuInfoService", service);
+        // 两块推荐在 applicationTaskExecutor 上并行加载；不注入就是 NPE（推荐位的 Feign 没注入，load 方法会兜住返回空列表）
+        ReflectionTestUtils.setField(controller, "applicationTaskExecutor", new org.springframework.core.task.SimpleAsyncTaskExecutor());
         return controller;
     }
 

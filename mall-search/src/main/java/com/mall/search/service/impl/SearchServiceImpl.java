@@ -400,6 +400,65 @@ public class SearchServiceImpl implements SearchService {
         return toModels(resp);
     }
 
+    /** 按 SPU 补全最多查这么多个；「搭配购买」一次要 8 个，多取的是为了抵掉没货的 */
+    private static final int MAX_BY_SPU = 40;
+
+    /**
+     * 与 SOURCE_FIELDS 相同，外加 spuId —— 调用方要按 SPU 对位。
+     * （SOURCE_FIELDS 本身没有 spuId，所以 /search/similar 返回的 spuId 是 null；
+     * 详情页那一块用不到，没改它。）
+     */
+    private static final List<String> BY_SPU_FIELDS = List.of(
+            "skuId", "spuId", "skuTitle", "skuPrice", "skuImg", "saleCount", "brandName", "brandImg", "categoryName");
+
+    @Override
+    public List<SkuEsModel> bySpuIds(List<Long> spuIds) {
+        if (spuIds == null || spuIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = spuIds.stream().filter(Objects::nonNull).distinct().limit(MAX_BY_SPU).toList();
+        try {
+            SearchResponse<SkuEsModel> resp = esClient.search(bySpuRequest(ids), SkuEsModel.class);
+            Map<Long, SkuEsModel> bySpu = new LinkedHashMap<>();
+            for (SkuEsModel m : toModels(resp)) {
+                if (m.getSpuId() != null) {
+                    bySpu.putIfAbsent(m.getSpuId(), m);
+                }
+            }
+            // ES 按热度排序返回，这里按入参（推荐分数）的顺序重排
+            List<SkuEsModel> out = new ArrayList<>();
+            for (Long id : ids) {
+                SkuEsModel m = bySpu.get(id);
+                if (m != null) {
+                    out.add(m);
+                }
+            }
+            return out;
+        } catch (Exception e) {
+            log.warn("按 SPU 补全失败，返回空列表：ids={}", ids, e);
+            return List.of();
+        }
+    }
+
+    /**
+     * 单独拎出来是为了能直接断言请求本身：线上索引里 14941 个文档 hasStock 全是 true
+     * （ES 的 hasStock 只在上架时写一次，库存变化不回写），「没货的 SPU 不出现」
+     * 在真实数据上测不到，只能断言过滤条件确实在请求里。
+     */
+    static SearchRequest bySpuRequest(List<Long> ids) {
+        // spuId 在索引里是 keyword，和 similar 里的 mustNot 一样按字符串比
+        List<FieldValue> values = ids.stream().map(id -> FieldValue.of(String.valueOf(id))).toList();
+        return SearchRequest.of(s -> s
+                .index(INDEX_NAME)
+                .size(ids.size())
+                .query(q -> q.bool(b -> b
+                        .filter(f -> f.terms(t -> t.field("spuId").terms(TermsQueryField.of(v -> v.value(values)))))
+                        .filter(f -> f.term(t -> t.field("hasStock").value(true)))))
+                .sort(so -> so.field(f -> f.field("hotScore").order(SortOrder.Desc)))
+                .collapse(c -> c.field("spuId"))
+                .source(sc -> sc.filter(f -> f.includes(BY_SPU_FIELDS))));
+    }
+
     private List<SkuEsModel> toModels(SearchResponse<SkuEsModel> resp) {
         List<SkuEsModel> out = new ArrayList<>();
         for (Hit<SkuEsModel> hit : resp.hits().hits()) {

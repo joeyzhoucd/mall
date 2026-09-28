@@ -192,6 +192,25 @@
             </a>
         </div>
     </section>
+
+    <!--
+      搭配购买（互补品）：离线按同单共现 + LLR 算出，已排除同类目 —— 同类目的替代品归上面「相似商品」。
+      判空规则同上：算不出来 / mall-order 或 mall-search 不可用时整块不出现。
+      controller 保证 ${complements} 永远是个列表。
+    -->
+    <section class="similar-wrap" th:if="${not #lists.isEmpty(complements)}">
+        <h2 class="similar-title">搭配购买</h2>
+        <div class="similar-grid">
+            <a class="similar-card" th:each="c : ${complements}"
+               th:href="|http://item.mall.com/${c.skuId}.html|">
+                <div class="similar-img">
+                    <img th:src="${c.skuImg}" th:alt="${c.skuTitle}" loading="lazy"/>
+                </div>
+                <p class="similar-name" th:text="${c.skuTitle}">商品标题</p>
+                <p class="similar-price" th:text="|¥${c.skuPrice}|">¥0.00</p>
+            </a>
+        </div>
+    </section>
 </main>
 
 <script src="/static/js/item/jquery1.9.js"></script>

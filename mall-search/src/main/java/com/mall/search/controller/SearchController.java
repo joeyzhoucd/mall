@@ -58,6 +58,16 @@ public class SearchController {
     }
 
     /**
+     * 按 SPU 补全展示信息（「搭配购买」用）：每个 SPU 一个有货 SKU，按入参顺序返回。
+     * 入参上限在 service 里（40 个）。
+     */
+    @GetMapping("/search/spus")
+    @ResponseBody
+    public R bySpuIds(@RequestParam("ids") List<Long> ids) {
+        return R.ok().put(ResponseKeys.ITEMS, searchService.bySpuIds(ids));
+    }
+
+    /**
      * 上架商品到Elasticsearch
      */
     @PostMapping("/search/product/up")
