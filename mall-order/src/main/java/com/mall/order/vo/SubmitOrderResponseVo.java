@@ -19,6 +19,7 @@ public class SubmitOrderResponseVo {
      *       而不是笼统的"下单失败"），而且这三种失败的用户动作完全不同。</li>
      *   <li><b>6 库存服务暂不可用</b> —— 锁库存调用被熔断器拒绝或超时（mall-ware 扛不住），券已退回。
      *       和 3（真没货）分开：用户该做的是稍后重试，而不是换商品。</li>
+     *   <li><b>7 下单闸门拒绝</b> —— 只在 controller 层产生、submitOrder 根本没被调用（SubmitGate.BUSY_CODE）。</li>
      * </ul>
      */
     private Integer code;

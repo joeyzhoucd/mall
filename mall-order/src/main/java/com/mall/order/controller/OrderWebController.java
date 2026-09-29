@@ -152,7 +152,21 @@ public class OrderWebController {
 
     @ResponseBody
     @PostMapping("/order/submit")
-    public R submitOrder(OrderSubmitVo submitVo) {
+    public R submitOrder(OrderSubmitVo submitVo, HttpServletResponse response) {
+        // 和表单提交同一个闸门：两条入口共用 mall-order 的连接池，只挡一条等于没挡
+        if (!submitGate.tryEnter()) {
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, SubmitGate.REASON_BUSY);
+            response.setHeader(SubmitGate.DEGRADED_HEADER, SubmitGate.DEGRADED_VALUE);
+            return R.error(SubmitGate.BUSY_CODE, "当前下单人数较多，请稍后再试");
+        }
+        try {
+            return submitOrderJson(submitVo);
+        } finally {
+            submitGate.exit();
+        }
+    }
+
+    private R submitOrderJson(OrderSubmitVo submitVo) {
         SubmitOrderResponseVo responseVo = orderService.submitOrder(submitVo);
         if (responseVo.getCode() != null && responseVo.getCode() == 0) {
             return R.ok().put("order", responseVo.getOrder());

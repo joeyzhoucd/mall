@@ -2,6 +2,7 @@ package com.mall.order.controller;
 
 import com.mall.common.metrics.BusinessFlow;
 import com.mall.common.metrics.BusinessMetrics;
+import com.mall.common.utils.R;
 import com.mall.order.service.OrderService;
 import com.mall.order.submit.SubmitGate;
 import com.mall.order.vo.OrderSubmitVo;
@@ -58,6 +59,26 @@ class OrderSubmitGateTest {
         verifyNoInteractions(orderService);
         verify(metrics).failure(BusinessFlow.ORDER_SUBMIT, SubmitGate.REASON_BUSY);
         assertThat(gate.inFlight()).as("被拒的不占名额").isEqualTo(1);
+    }
+
+    /** JSON 入口（/order/submit）和表单入口共用一个闸门 —— 原来它绕过了闸门 */
+    @Test
+    void jsonEndpointIsGatedToo() {
+        assertThat(gate.tryEnter()).isTrue();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        R r = controller.submitOrder(new OrderSubmitVo(), response);
+
+        assertThat(r.getCode()).isEqualTo(SubmitGate.BUSY_CODE);
+        assertThat(response.getHeader(SubmitGate.DEGRADED_HEADER)).isEqualTo(SubmitGate.DEGRADED_VALUE);
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
+    void jsonEndpointReleasesItsSlot() {
+        when(orderService.submitOrder(any())).thenThrow(new RuntimeException("boom"));
+        assertThatThrownBy(() -> controller.submitOrder(new OrderSubmitVo(), new MockHttpServletResponse()));
+        assertThat(gate.inFlight()).isZero();
     }
 
     @Test

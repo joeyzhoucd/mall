@@ -34,6 +34,8 @@ public class SubmitGate {
     /** 被拒的响应上带这个头，压测脚本据此把「闸门拒绝」和其他回结算页的失败分开数；对用户不可见 */
     public static final String DEGRADED_HEADER = "X-Mall-Degraded";
     public static final String DEGRADED_VALUE = "order-busy";
+    /** JSON 入口（/order/submit）被闸门拒绝时的结果码；表单入口走回显，不用它 */
+    public static final int BUSY_CODE = 7;
 
     private final AtomicInteger inFlight = new AtomicInteger();
     private final LongAdder rejected = new LongAdder();
