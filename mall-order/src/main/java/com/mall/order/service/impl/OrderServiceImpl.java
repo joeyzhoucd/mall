@@ -334,6 +334,50 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
      *
      * <p>抛异常也算失败：券没被成功标记为已使用就继续下单，等于白送一次抵扣。
      */
+    /**
+     * 用券 + 锁库存。返回 null = 两样都占住了；否则是给用户的结果码，券已按需退回。
+     *
+     * <h3>两个「结果不明」的地方都要退券（2026-09-29 修）</h3>
+     * 本方法所在的事务回滚撤不掉用券 —— 那是 mall-coupon 那边已提交的 Feign 调用。原来只在
+     * 锁库存<b>返回</b>失败时退券；锁库存<b>抛异常</b>（熔断器 OPEN 拒绝、读超时）时异常直接冒出去，
+     * 订单回滚了、券却被占着 —— 下单压测里 mall-ware 一慢、熔断器一开就是这样，用户看到 500、丢一张券。
+     * 用券本身超时也一样：超时不等于没执行，mall-coupon 可能已经标了已用。
+     * <p>退券是安全的：mall-coupon 的 markUnusedByOrder 带 order_sn 和 use_type=1 条件，
+     * 这笔订单没占这张券时影响 0 行（{@code CouponClaimTxOps#release}）。
+     * <p>锁库存超时时 mall-ware 可能其实锁上了。那部分由 mall-ware 的 StockRetryScheduler 兜：
+     * 它扫 LOCKED 明细，查到订单不存在（ORDER_NOT_FOUND）按已关闭释放。
+     */
+    Integer reserveCouponAndStock(OrderCreateTo orderCreateTo, Long couponHistoryId, Long memberId) {
+        String orderSn = orderCreateTo.getOrder().getOrderSn();
+        if (couponHistoryId != null
+                && !useCoupon(couponHistoryId, memberId, orderCreateTo.getOrder().getTotalAmount(), orderSn)) {
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_COUPON_INVALID);
+            return 5;
+        }
+
+        R lockResp;
+        try {
+            lockResp = wareFeignService.orderLockStock(buildLockVo(orderCreateTo));
+        } catch (Exception e) {
+            log.warn("锁库存调用失败（熔断拒绝或超时），退券并终止下单 orderSn={}: {}", orderSn, e.toString());
+            releaseCouponQuietly(couponHistoryId, orderSn);
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, REASON_STOCK_LOCK_UNAVAILABLE);
+            return 6;
+        }
+        if (lockResp == null || lockResp.getCode() != 0) {
+            releaseCouponQuietly(couponHistoryId, orderSn);
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_STOCK_LOCK_FAILED);
+            return 3;
+        }
+        return null;
+    }
+
+    /**
+     * 锁库存调用本身失败（熔断拒绝 / 超时），和「库存不足」（stock_lock_failed）分开记：
+     * 前者是 mall-ware 扛不住，后者是真没货。放在这里而不是 mall-common 的 BusinessFlow：改 mall-common 要重建全部服务。
+     */
+    static final String REASON_STOCK_LOCK_UNAVAILABLE = "stock_lock_unavailable";
+
     private boolean useCoupon(Long couponHistoryId, Long memberId, BigDecimal totalAmount, String orderSn) {
         try {
             R resp = couponFeignService.useCoupon(couponHistoryId, memberId, totalAmount, orderSn, internalToken);
@@ -344,7 +388,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             }
             return true;
         } catch (Exception e) {
-            log.warn("用券调用失败，下单终止 historyId={} orderSn={}", couponHistoryId, orderSn, e);
+            // 超时不等于没执行：mall-coupon 可能已经把券标成已用。退一次，没占用时是空操作。
+            log.warn("用券调用失败，退券并终止下单 historyId={} orderSn={}", couponHistoryId, orderSn, e);
+            releaseCouponQuietly(couponHistoryId, orderSn);
             return false;
         }
     }
@@ -462,21 +508,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         //
         // 所以：让"能立即可靠补偿"的那个资源先被占用。多走几次退券没关系，
         // 退券便宜且可靠；库存晚释放才是会影响别人下单的那一头。
-        if (couponHistoryId != null
-                && !useCoupon(couponHistoryId, userInfoTo.getUserId(),
-                        orderCreateTo.getOrder().getTotalAmount(),
-                        orderCreateTo.getOrder().getOrderSn())) {
-            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_COUPON_INVALID);
-            responseVo.setCode(5);
-            return responseVo;
-        }
-
-        WareSkuLockVo lockVo = buildLockVo(orderCreateTo);
-        R lockResp = wareFeignService.orderLockStock(lockVo);
-        if (lockResp == null || lockResp.getCode() != 0) {
-            releaseCouponQuietly(couponHistoryId, orderCreateTo.getOrder().getOrderSn());
-            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_STOCK_LOCK_FAILED);
-            responseVo.setCode(3);
+        Integer reserveFailed = reserveCouponAndStock(orderCreateTo, couponHistoryId, userInfoTo.getUserId());
+        if (reserveFailed != null) {
+            responseVo.setCode(reserveFailed);
             return responseVo;
         }
 

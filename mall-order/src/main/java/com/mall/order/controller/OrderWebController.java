@@ -120,6 +120,8 @@ public class OrderWebController {
             redirectAttributes.addFlashAttribute("errorMsg", "库存不足");
         } else if (code == 4) {
             redirectAttributes.addFlashAttribute("errorMsg", "请先添加收货地址");
+        } else if (code == 6) {
+            redirectAttributes.addFlashAttribute("errorMsg", "系统繁忙，请稍后再试");
         } else {
             redirectAttributes.addFlashAttribute("errorMsg", "订单提交失败");
         }
@@ -163,6 +165,8 @@ public class OrderWebController {
             msg = "库存不足";
         } else if (code == 4) {
             msg = "请先添加收货地址";
+        } else if (code == 6) {
+            msg = "系统繁忙，请稍后再试";
         } else {
             msg = "订单提交失败";
         }
