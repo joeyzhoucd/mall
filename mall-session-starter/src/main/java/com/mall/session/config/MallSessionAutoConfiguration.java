@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
+import java.util.regex.Pattern;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 import org.springframework.session.web.http.CookieSerializer;
@@ -48,6 +49,12 @@ public class MallSessionAutoConfiguration {
                 .allowIfSubType("java.lang.")
                 .allowIfSubType("java.util.")
                 .allowIfSubType("java.time.")
+                // Spring MVC 的 addFlashAttribute 往会话里存 List<FlashMap>（登录失败 / 下单失败的回显）。
+                // 2026-08-27 加白名单时漏了它：写得进去、读不回来，会话之后每个请求都 500，直到过期。
+                // 按完整类名精确放行（Pattern 是整串 matches），不放行 org.springframework 整个包 ——
+                // 那里面正是反序列化 gadget 的重灾区（ClassPathXmlApplicationContext 等）。
+                // 不写 FlashMap.class：starter 运行时不依赖 spring-webmvc。
+                .allowIfSubType(Pattern.compile("org\\.springframework\\.web\\.servlet\\.FlashMap"))
                 .build();
     }
 

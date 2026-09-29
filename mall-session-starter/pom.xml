@@ -52,6 +52,13 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 只给测试用：Spring MVC 往会话里写的 FlashMap 要能从 Redis 读回来
+             （MallSessionSerializerTest）。运行时由各 web 服务自己带。 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
 
