@@ -14,7 +14,11 @@ public interface WareOrderTaskDetailService extends IService<WareOrderTaskDetail
 
     WareOrderTaskDetailEntity getByTaskIdAndSkuId(Long taskId, Long skuId);
 
-    List<WareOrderTaskDetailEntity> listRetryingDetails(Integer lockStatus, Integer retryLimit);
+    /**
+     * 补偿任务要处理的明细：指定状态、重试未到上限、且所属任务在 {@code lockedBefore} 之前创建。
+     * 最后一个条件是宽限期，见 StockRetryScheduler。
+     */
+    List<WareOrderTaskDetailEntity> listRetryingDetails(Integer lockStatus, Integer retryLimit, java.util.Date lockedBefore);
 
     List<WareOrderTaskDetailEntity> listByLockStatus(Integer lockStatus);
 }
