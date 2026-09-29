@@ -11,11 +11,20 @@ import org.springframework.context.annotation.Configuration;
 /**
  * 下单闸门 + 三个指标。
  *
- * <h3>默认 4：池是 5，留 1 条给别人</h3>
- * 同一个池还要服务 outbox 发布（每 5s）、支付回调、关单消费者、结算页。闸门等于池大小的话，
- * 高峰时下单能把 5 条全占住，这些后台路径反而拿不到连接 —— 下单保住了，支付回调超时了。
- * 起点按这个推，<b>校准结果以压测为准</b>（判据：{@code hikaricp_connections_timeout_total} 为 0，
- * 放进来的 100% 成功，被拒的秒回），校准时用内部接口运行时改，不用重启。
+ * <h3>默认 8（2026-09-29 校准）</h3>
+ * 最初是 4：那时 submitOrder 整个是一个事务、每单占连接 ~400ms，闸门实际守的是池（5 条，留 1 给
+ * outbox / 支付回调 / 关单）。34e5ca3 把事务缩到只剩落库、1712114 把 outbox 发送挪出提交线程之后，
+ * 在途下单大部分时间不再占连接，闸门守的变成下游。同一探针（每单 4 件、JVM 已热）：
+ * <pre>
+ *   上限  最高吞吐   放行成功率  池超时  池排队峰值  ware 锁库存 p95/p99
+ *     4   12 单/s    100%        0       0           212 / 371ms
+ *     8   19 单/s    100%        0       0           383 / 702ms
+ *    16   25 单/s    100%        0       1           549 / 749ms
+ * </pre>
+ * 取 8 而不是 16：下一个瓶颈是 MySQL 写入（每次提交 ~100ms、buffer pool 还是默认 128MB），
+ * 它是全部服务共用的，16 会让下单把更多写压到它上面、拖慢别人。MySQL 调好之后再评估。
+ * 判据不变：{@code hikaricp_connections_timeout_total} 为 0、放进来的 100% 成功、被拒的快速返回；
+ * 调参用内部接口运行时改，不用重启。
  */
 @Configuration
 public class SubmitGateConfiguration {
@@ -23,8 +32,8 @@ public class SubmitGateConfiguration {
     private static final Logger log = LoggerFactory.getLogger(SubmitGateConfiguration.class);
 
     @Bean
-    public SubmitGate submitGate(@Value("${mall.order.submit.gate.limit:4}") int limit) {
-        log.info("下单闸门: 上限={}（每个 pod；池 5 留 1 给后台路径，校准见 SubmitGateConfiguration）", limit);
+    public SubmitGate submitGate(@Value("${mall.order.submit.gate.limit:8}") int limit) {
+        log.info("下单闸门: 上限={}（每个 pod；校准数据见 SubmitGateConfiguration）", limit);
         return new SubmitGate(limit);
     }
 
