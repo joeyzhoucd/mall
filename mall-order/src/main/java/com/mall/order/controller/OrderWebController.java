@@ -1,9 +1,12 @@
 package com.mall.order.controller;
 
+import com.mall.common.metrics.BusinessFlow;
+import com.mall.common.metrics.BusinessMetrics;
 import com.mall.common.utils.R;
 import com.mall.order.constant.OrderConstant;
 import com.mall.order.interceptor.OrderInterceptor;
 import com.mall.order.service.OrderService;
+import com.mall.order.submit.SubmitGate;
 import com.mall.order.to.UserInfoTo;
 import com.mall.order.util.PaySignUtils;
 import com.mall.order.vo.MemberAddressVo;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.math.RoundingMode;
 import java.util.UUID;
@@ -30,6 +34,12 @@ public class OrderWebController {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private SubmitGate submitGate;
+
+    @Autowired
+    private BusinessMetrics businessMetrics;
 
     @Value("${pay.mock.signKey:mall-pay-sign-key}")
     private String signKey;
@@ -80,7 +90,24 @@ public class OrderWebController {
     }
 
     @PostMapping("/order/submitOrder")
-    public String submitOrderPage(OrderSubmitVo submitVo, RedirectAttributes redirectAttributes, HttpServletRequest request) {
+    public String submitOrderPage(OrderSubmitVo submitVo, RedirectAttributes redirectAttributes,
+                                  HttpServletRequest request, HttpServletResponse response) {
+        // 闸门在 submitOrder 之前：被拒的请求还没消耗下单令牌，回结算页（新令牌）就能直接重试。
+        // 拒绝走和其他下单失败一样的回显路径，而不是 503 页 —— 用户留在结算页，购物车和地址都在。
+        if (!submitGate.tryEnter()) {
+            businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, SubmitGate.REASON_BUSY);
+            response.setHeader(SubmitGate.DEGRADED_HEADER, SubmitGate.DEGRADED_VALUE);
+            redirectAttributes.addFlashAttribute("errorMsg", "当前下单人数较多，请稍后再试");
+            return "redirect:" + externalBase(request) + "/order/confirm.html";
+        }
+        try {
+            return submitAdmitted(submitVo, redirectAttributes, request);
+        } finally {
+            submitGate.exit();
+        }
+    }
+
+    private String submitAdmitted(OrderSubmitVo submitVo, RedirectAttributes redirectAttributes, HttpServletRequest request) {
         SubmitOrderResponseVo responseVo = orderService.submitOrder(submitVo);
         if (responseVo.getCode() != null && responseVo.getCode() == 0 && responseVo.getOrder() != null) {
             return "redirect:" + externalBase(request) + "/order/payment.html?orderSn=" + responseVo.getOrder().getOrderSn();
