@@ -49,7 +49,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -94,6 +94,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
 
     @Autowired
     private CouponFeignService couponFeignService;
+
+    /** 下单只在 persistOrder 那一小段开事务（Boot 的 TransactionAutoConfiguration 提供这个 bean） */
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Value("${mall.seckill.internal-token}")
     private String internalToken;
@@ -435,7 +439,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         return result != null && result.getCode() == 0;
     }
 
-    @Transactional
+    /**
+     * 下单。<b>整个方法不开事务</b>，只有落库那三条写入在 {@link #persistOrder} 的短事务里。
+     *
+     * <h3>为什么（2026-09-29）</h3>
+     * 原来整个方法是一个 @Transactional：事务一开始就从池里拿走连接，一直占到扣券 / 锁库存 /
+     * 清购物车这些 Feign 调用全部回来。Tempo 实测一单：连接占 366ms，其中 SQL 合计约 14ms（不到 4%）。
+     * 每 pod 池只有 5 条，这就是下单吞吐卡在十几单/秒的原因，下单闸门只是让多出来的快速被拒。
+     * 现在连接只在「保存订单 + 明细 + outbox」那一小段里占用。
+     * <p>别把 @Transactional 加回来 —— {@code SubmitOrderTransactionScopeTest} 会在每个 Feign 调用里
+     * 断言当前没有事务。
+     */
     @Override
     public SubmitOrderResponseVo submitOrder(OrderSubmitVo submitVo) {
         SubmitOrderResponseVo responseVo = new SubmitOrderResponseVo();
@@ -454,13 +468,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return responseVo;
         }
 
-        if (submitVo.getAddrId() == null || getAddressById(userInfoTo.getUserId(), submitVo.getAddrId()) == null) {
+        // 地址只查一次：原来这里查一次、createOrder 里又查一次，每单多一趟 mall-member
+        MemberAddressVo address = getAddressById(userInfoTo.getUserId(), submitVo.getAddrId());
+        if (address == null) {
             businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_ADDRESS_INVALID);
             responseVo.setCode(4);
             return responseVo;
         }
 
-        OrderCreateTo orderCreateTo = createOrder(submitVo, userInfoTo);
+        OrderCreateTo orderCreateTo = createOrder(submitVo, userInfoTo, address);
 
         // -------------------------------------------------------------------
         // 券抵扣：必须在价格校验【之前】算进应付金额
@@ -514,24 +530,26 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return responseVo;
         }
 
+        String orderSn = orderCreateTo.getOrder().getOrderSn();
         try {
-            saveOrder(orderCreateTo);
-            sendOrderCreateMessage(orderCreateTo.getOrder().getOrderSn());
-            clearCartItems(orderCreateTo);
+            persistOrder(orderCreateTo);
         } catch (Exception e) {
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            // 【退券排在库存释放之前】补偿动作的顺序不是风格问题。
-            // releaseCouponQuietly 内部把所有异常都吃掉了，保证不抛；
-            // 而 sendStockRelease 要写 oms_order_outbox_message 表 ——
-            // 这个 catch 块历史上就是因为它抛异常（那张表当时根本不存在）
-            // 导致后面的补偿一个都没执行，锁定库存永久泄漏。
-            // 把"保证不抛"的放前面，两个补偿就都能跑到。
-            releaseCouponQuietly(couponHistoryId, orderCreateTo.getOrder().getOrderSn());
-            sendStockRelease(orderCreateTo.getOrder().getOrderSn());
+            log.error("订单落库失败，退券并释放库存 orderSn={}", orderSn, e);
+            // 【补偿在事务之外做】原来 catch 在同一个事务里：先 setRollbackOnly，再 sendStockRelease ——
+            // 它写的 outbox 行跟着回滚，释放消息一条都发不出去，库存只能等 mall-ware 兜底任务。
+            // 现在落库事务已经回滚干净，补偿各自独立：退券是 Feign（本来就不受事务影响），
+            // 库存释放用内存里的明细组消息、在它自己的短事务里写 outbox（不依赖刚回滚掉的 oms_order_item）。
+            // 退券排前面：releaseCouponQuietly 保证不抛，不会连累后面的库存释放。
+            releaseCouponQuietly(couponHistoryId, orderSn);
+            releaseLockedStockQuietly(orderCreateTo);
             businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_PERSIST_FAILED);
             responseVo.setCode(1);
             return responseVo;
         }
+
+        // 【清购物车在提交之后、尽力而为】原来它在事务里：mall-cart 一抖，
+        // 一笔券已扣、库存已锁、马上要落库的订单整单回滚。购物车里残留几件商品远没有那么严重。
+        clearCartItemsQuietly(orderCreateTo);
 
         businessMetrics.success(BusinessFlow.ORDER_SUBMIT);
         responseVo.setCode(0);
@@ -818,7 +836,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         return true;
     }
 
-    private OrderCreateTo createOrder(OrderSubmitVo submitVo, UserInfoTo userInfoTo) {
+    private OrderCreateTo createOrder(OrderSubmitVo submitVo, UserInfoTo userInfoTo, MemberAddressVo address) {
         OrderCreateTo orderCreateTo = new OrderCreateTo();
         String orderSn = generateOrderSn();
 
@@ -832,7 +850,6 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         orderEntity.setStatus(OrderStatus.NEW);
         orderEntity.setNote(submitVo.getNote());
 
-        MemberAddressVo address = getAddressById(userInfoTo.getUserId(), submitVo.getAddrId());
         if (address != null) {
             orderEntity.setReceiverName(address.getName());
             orderEntity.setReceiverPhone(address.getPhone());
@@ -946,12 +963,46 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         orderItemService.saveBatch(orderCreateTo.getOrderItems());
     }
 
-    private void clearCartItems(OrderCreateTo orderCreateTo) {
+    /**
+     * 下单里唯一的数据库写入，也是唯一持有连接的一段：订单 + 明细 + 关单 outbox，一个短事务。
+     * 用 TransactionTemplate 而不是 @Transactional 方法：同类里调用走不到代理，注解不会生效。
+     * outbox 的发布挂在 afterCommit 上（OrderOutboxMessageServiceImpl），提交之后才发。
+     */
+    void persistOrder(OrderCreateTo orderCreateTo) {
+        transactionTemplate.executeWithoutResult(status -> {
+            saveOrder(orderCreateTo);
+            sendOrderCreateMessage(orderCreateTo.getOrder().getOrderSn());
+        });
+    }
+
+    /**
+     * 落库失败后释放已锁库存 —— <b>保证不抛</b>。明细取自内存里的订单（库里那份已经回滚了），
+     * outbox 写在它自己的短事务里、提交后发布。发不出去也兜得住：mall-ware 的 StockRetryScheduler
+     * 在 10 分钟宽限期后查到 ORDER_NOT_FOUND 会释放。
+     */
+    private void releaseLockedStockQuietly(OrderCreateTo orderCreateTo) {
+        String orderSn = orderCreateTo.getOrder().getOrderSn();
+        try {
+            transactionTemplate.executeWithoutResult(status ->
+                    sendStockRelease(orderSn, orderCreateTo.getOrderItems()));
+        } catch (Throwable t) {
+            log.error("落库失败后的库存释放消息没写成，等 mall-ware 兜底任务释放 orderSn={}", orderSn, t);
+        }
+    }
+
+    /** 提交之后清购物车 —— 尽力而为，<b>保证不抛</b>：订单已经成立，购物车残留几件不影响它 */
+    private void clearCartItemsQuietly(OrderCreateTo orderCreateTo) {
         List<Long> skuIds = orderCreateTo.getOrderItems().stream()
                 .map(OrderItemEntity::getSkuId)
                 .collect(Collectors.toList());
-        if (!skuIds.isEmpty()) {
+        if (skuIds.isEmpty()) {
+            return;
+        }
+        try {
             cartFeignService.deleteItems(skuIds);
+        } catch (Exception e) {
+            log.warn("下单成功但清购物车失败，购物车里会残留这些商品 orderSn={}: {}",
+                    orderCreateTo.getOrder().getOrderSn(), e.toString());
         }
     }
 
@@ -972,7 +1023,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
     }
 
     private void sendStockRelease(String orderSn) {
-        List<OrderItemEntity> items = orderItemService.list(new QueryWrapper<OrderItemEntity>().eq("order_sn", orderSn));
+        sendStockRelease(orderSn, orderItemService.list(new QueryWrapper<OrderItemEntity>().eq("order_sn", orderSn)));
+    }
+
+    private void sendStockRelease(String orderSn, List<OrderItemEntity> items) {
         if (items == null || items.isEmpty()) {
             return;
         }
