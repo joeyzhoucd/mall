@@ -9,6 +9,7 @@ import com.mall.common.utils.MqAdminQuery;
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.Query;
 import com.mall.order.config.OrderOutboxProperties;
+import com.mall.order.config.OrderOutboxPublishExecutorConfig;
 import com.mall.order.dao.OrderOutboxMessageDao;
 import com.mall.order.entity.OrderOutboxMessageEntity;
 import com.mall.order.service.OrderOutboxMessageService;
@@ -17,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -25,6 +28,8 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 @Service("orderOutboxMessageService")
 public class OrderOutboxMessageServiceImpl extends ServiceImpl<OrderOutboxMessageDao, OrderOutboxMessageEntity>
@@ -36,13 +41,25 @@ public class OrderOutboxMessageServiceImpl extends ServiceImpl<OrderOutboxMessag
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
     private final OrderOutboxProperties properties;
+    /** 提交后立即发送用的执行器，见 OrderOutboxPublishExecutorConfig：离开提交线程，连接才能随提交归还 */
+    private final Executor publishExecutor;
 
+    @Autowired
     public OrderOutboxMessageServiceImpl(RabbitTemplate rabbitTemplate,
                                          ObjectMapper objectMapper,
-                                         OrderOutboxProperties properties) {
+                                         OrderOutboxProperties properties,
+                                         @Qualifier(OrderOutboxPublishExecutorConfig.BEAN) Executor publishExecutor) {
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
         this.properties = properties;
+        this.publishExecutor = publishExecutor;
+    }
+
+    /** 测试用：在当前线程同步发送（原来的行为） */
+    OrderOutboxMessageServiceImpl(RabbitTemplate rabbitTemplate,
+                                  ObjectMapper objectMapper,
+                                  OrderOutboxProperties properties) {
+        this(rabbitTemplate, objectMapper, properties, Runnable::run);
     }
 
     @Override
@@ -184,7 +201,14 @@ public class OrderOutboxMessageServiceImpl extends ServiceImpl<OrderOutboxMessag
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    publishBestEffort(id);
+                    // 不在这里直接发：afterCommit 时连接还绑在线程上（释放在 cleanupAfterCompletion），
+                    // 同步发送会让连接多占一整段 getById / 认领 / rabbit send。
+                    try {
+                        publishExecutor.execute(() -> publishBestEffort(id));
+                    } catch (RejectedExecutionException e) {
+                        // 队列满：放弃这一次立即发送，消息仍是 PENDING，relay 下一轮补发
+                        log.warn("outbox {} 立即发送队列已满，交给定时补发: {}", id, e.toString());
+                    }
                 }
             });
         } else {
