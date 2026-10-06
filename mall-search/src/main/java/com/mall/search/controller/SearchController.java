@@ -1,5 +1,7 @@
 package com.mall.search.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.constant.ResponseKeys;
 import com.mall.common.utils.R;
 import com.mall.search.service.ProductSaveService;
@@ -51,6 +53,7 @@ public class SearchController {
      */
     @GetMapping("/search/similar")
     @ResponseBody
+    @InternalApi
     public R similar(@RequestParam("skuId") Long skuId,
                      @RequestParam(value = "size", defaultValue = "8") Integer size) {
         List<SkuEsModel> list = searchService.similar(skuId, size == null ? 8 : size);
@@ -63,6 +66,7 @@ public class SearchController {
      */
     @GetMapping("/search/spus")
     @ResponseBody
+    @InternalApi
     public R bySpuIds(@RequestParam("ids") List<Long> ids) {
         return R.ok().put(ResponseKeys.ITEMS, searchService.bySpuIds(ids));
     }
@@ -72,6 +76,7 @@ public class SearchController {
      */
     @PostMapping("/search/product/up")
     @ResponseBody
+    @InternalApi
     public R productUp(@RequestBody List<Object> skuEsModels) {
         boolean status;
         try {
@@ -95,6 +100,7 @@ public class SearchController {
      */
     @PostMapping("/search/product/down")
     @ResponseBody
+    @InternalApi
     public R productDown(@RequestBody List<Long> skuIds) {
         boolean hasFailures;
         try {

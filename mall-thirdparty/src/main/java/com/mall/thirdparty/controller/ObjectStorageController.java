@@ -1,5 +1,7 @@
 package com.mall.thirdparty.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.utils.R;
 import com.mall.thirdparty.properties.StorageProperties;
 import lombok.extern.slf4j.Slf4j;
@@ -221,6 +223,7 @@ public class ObjectStorageController {
      * 不要拿它去推断状态。
      */
     @PostMapping("/delete")
+    @InternalApi
     public R delete(@RequestBody List<String> keys) {
         if (keys == null || keys.isEmpty()) {
             return R.ok().put("deleted", 0);
@@ -264,6 +267,7 @@ public class ObjectStorageController {
      * 但读不到也改不了任何凭据。对应地前端那个表单改成了只读展示。
      */
     @GetMapping("/config")
+    @InternalApi
     public R config() {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("provider", "S3 兼容对象存储");

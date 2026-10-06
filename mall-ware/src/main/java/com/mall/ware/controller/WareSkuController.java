@@ -1,5 +1,7 @@
 package com.mall.ware.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.constant.ErrorCode;
 import com.mall.common.metrics.BusinessFlow;
 import com.mall.common.utils.PageUtils;
@@ -61,6 +63,7 @@ public class WareSkuController {
     }
 
     @PostMapping("/warmup")
+    @InternalApi
     public R warmup(@RequestBody List<Long> skuIds) {
         if (skuIds == null) {
             return R.ok().put("warmed", 0);
@@ -127,6 +130,7 @@ public class WareSkuController {
      * Lock stock for order
      */
     @PostMapping("/lock/order")
+    @InternalApi
     public R orderLockStock(@RequestBody WareSkuLockVo lockVo) {
         // 【为什么业务埋点在控制器而不在 service 里】
         // orderLockStock 带 @Transactional。计数器不参与事务回滚，在它体内自增时

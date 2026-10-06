@@ -11,3 +11,4 @@ com.mall.common.config.BusinessMetricsAutoConfiguration
 com.mall.common.config.MultiLevelCacheAutoConfiguration
 com.mall.common.config.ActuatorSanitizingAutoConfiguration
 com.mall.common.config.GlobalErrorHandlerAutoConfiguration
+com.mall.common.config.InternalApiAutoConfiguration

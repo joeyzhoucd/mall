@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.constant.ErrorCode;
 import com.mall.common.utils.R;
 import com.mall.coupon.config.CouponClaimBulkheadConfiguration;
@@ -168,6 +170,7 @@ public class CouponClaimController {
      * 不能假设它只会提交这个列表里的。
      */
     @GetMapping("/internal/usable")
+    @InternalApi
     public R usable(@RequestParam("memberId") Long memberId,
                     @RequestParam("amount") BigDecimal amount,
                     @RequestHeader(value = SeckillGrabController.INTERNAL_TOKEN_HEADER,
@@ -185,6 +188,7 @@ public class CouponClaimController {
      * 都发生在券状态被改动之前，于是走不到退券那条脆弱的补偿路径。
      */
     @PostMapping("/internal/preview")
+    @InternalApi
     public R preview(@RequestParam("historyId") Long historyId,
                      @RequestParam("memberId") Long memberId,
                      @RequestParam("amount") BigDecimal amount,
@@ -205,6 +209,7 @@ public class CouponClaimController {
      * 另一笔并发订单用掉，或刚好过期。
      */
     @PostMapping("/internal/use")
+    @InternalApi
     public R use(@RequestParam("historyId") Long historyId,
                  @RequestParam("memberId") Long memberId,
                  @RequestParam("amount") BigDecimal amount,
@@ -236,6 +241,7 @@ public class CouponClaimController {
      * 重复调用第二次什么都不会改。
      */
     @PostMapping("/internal/release")
+    @InternalApi
     public R release(@RequestParam("historyId") Long historyId,
                      @RequestParam("orderSn") String orderSn,
                      @RequestHeader(value = SeckillGrabController.INTERNAL_TOKEN_HEADER,

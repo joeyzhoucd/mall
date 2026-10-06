@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.utils.R;
 import com.mall.coupon.entity.CouponEntity;
 import com.mall.coupon.service.CouponService;
@@ -31,6 +33,7 @@ public class CouponController {
     private CouponService couponService;
 
     @RequestMapping("/member/list")
+    @InternalApi
     public R membercoupons() {
         CouponEntity couponEntity = new CouponEntity();
         couponEntity.setCouponName("Full 100 off 10");

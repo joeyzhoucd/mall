@@ -1,5 +1,7 @@
 package com.mall.cart.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.cart.service.CartService;
 import com.mall.cart.vo.CartItemVo;
 import com.mall.cart.vo.CartVo;
@@ -65,6 +67,7 @@ public class CartController {
 
     @ResponseBody
     @GetMapping("/currentUserCartItems")
+    @InternalApi
     public R getCurrentUserCartItems() {
         List<CartItemVo> items = cartService.getUserCartItems();
         return R.ok().put("items", items);
@@ -72,6 +75,7 @@ public class CartController {
 
     @ResponseBody
     @PostMapping("/deleteItems")
+    @InternalApi
     public R deleteItems(@RequestBody List<Long> skuIds) {
         cartService.deleteItems(skuIds);
         return R.ok();

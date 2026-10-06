@@ -1,5 +1,7 @@
 package com.mall.member.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.utils.R;
 import com.mall.member.entity.MemberEntity;
 import com.mall.member.exception.PhoneExistException;
@@ -78,6 +80,7 @@ public class MemberController {
     }
 
     @PostMapping("/register")
+    @InternalApi
     public R register(@RequestBody MemberRegistVo vo) {
         try {
             memberService.register(vo);
@@ -93,6 +96,7 @@ public class MemberController {
     }
 
     @PostMapping("/login")
+    @InternalApi
     public R login(@RequestBody MemberLoginVo vo) {
         MemberEntity entity = memberService.login(vo);
         if (entity != null) {
@@ -112,6 +116,7 @@ public class MemberController {
     }
 
     @PostMapping("/oauth2/login")
+    @InternalApi
     public R oauthLogin(@RequestBody SocialUser socialUser) {
         MemberEntity entity = memberService.login(socialUser);
         if (entity != null) {

@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.constant.ErrorCode;
 import com.mall.common.utils.R;
 import com.mall.coupon.entity.SeckillLocalMessageEntity;
@@ -125,6 +127,7 @@ public class SeckillGrabController {
      * （见上面 activate() 的说明——这条路由同样暴露在公网上）。
      */
     @PostMapping("/message/{messageId}/order-created")
+    @InternalApi
     public R orderCreated(@PathVariable("messageId") Long messageId, @RequestParam("orderSn") String orderSn,
                            @RequestHeader(value = INTERNAL_TOKEN_HEADER, required = false) String token) {
         if (!requireInternalToken(token)) {

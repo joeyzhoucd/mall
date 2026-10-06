@@ -1,5 +1,7 @@
 package com.mall.member.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.R;
 import com.mall.member.entity.MemberReceiveAddressEntity;
@@ -29,6 +31,7 @@ public class MemberReceiveAddressController {
     }
 
     @GetMapping("/{memberId}/list")
+    @InternalApi
     public R listByMemberId(@PathVariable("memberId") Long memberId) {
         List<MemberReceiveAddressEntity> addressList = memberReceiveAddressService.getAddressByMemberId(memberId);
         return R.ok().put("address", addressList);
@@ -45,6 +48,7 @@ public class MemberReceiveAddressController {
 
     
     @RequestMapping("/save")
+    @InternalApi
     public R save(@RequestBody MemberReceiveAddressEntity memberReceiveAddress){
 		memberReceiveAddressService.save(memberReceiveAddress);
 

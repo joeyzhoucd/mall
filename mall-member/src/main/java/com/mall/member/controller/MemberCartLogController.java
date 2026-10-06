@@ -1,5 +1,7 @@
 package com.mall.member.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.utils.R;
 import com.mall.member.dao.MemberCartLogDao;
 import com.mall.member.entity.MemberCartLogEntity;
@@ -45,6 +47,7 @@ public class MemberCartLogController {
     private MemberCartLogDao cartLogDao;
 
     @PostMapping("/batch")
+    @InternalApi
     public R batch(@RequestBody List<MemberCartLogEntity> list) {
         if (list == null || list.isEmpty()) {
             return R.ok().put("saved", 0);

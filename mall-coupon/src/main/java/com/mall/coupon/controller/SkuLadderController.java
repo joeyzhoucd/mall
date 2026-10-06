@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.R;
 import com.mall.coupon.entity.SkuLadderEntity;
@@ -46,6 +48,7 @@ public class SkuLadderController {
 
     
     @PostMapping("/saveFromMap")
+    @InternalApi
     public R saveFromMap(@RequestBody Map<String, String> params){
         SkuLadderEntity skuLadder = new SkuLadderEntity();
         skuLadder.setSkuId(Long.valueOf(params.get("skuId")));

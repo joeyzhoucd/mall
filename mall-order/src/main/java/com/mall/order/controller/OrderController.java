@@ -1,5 +1,7 @@
 package com.mall.order.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.constant.ErrorCode;
 import com.mall.common.constant.OrderStatus;
 import com.mall.common.utils.R;
@@ -25,6 +27,7 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping("/status/{orderSn}")
+    @InternalApi
     public R getOrderStatus(@PathVariable("orderSn") String orderSn) {
         OrderEntity order = orderService.getOrderBySn(orderSn);
         if (order == null) {
@@ -125,6 +128,7 @@ public class OrderController {
     }
 
     @PostMapping("/operate")
+    @InternalApi
     public R recordOperate(@RequestBody com.mall.common.to.OrderOperateTo operateTo) {
         orderService.recordOperateHistory(operateTo);
         return R.ok();

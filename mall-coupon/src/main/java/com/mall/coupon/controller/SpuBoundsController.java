@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.utils.PageUtils;
 import com.mall.common.utils.R;
 import com.mall.coupon.entity.SpuBoundsEntity;
@@ -46,6 +48,7 @@ public class SpuBoundsController {
 
     
     @PostMapping("/saveFromMap")
+    @InternalApi
     public R saveFromMap(@RequestBody Map<String, String> params){
         SpuBoundsEntity spuBounds = new SpuBoundsEntity();
         spuBounds.setSpuId(Long.valueOf(params.get("spuId")));

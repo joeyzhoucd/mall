@@ -151,6 +151,11 @@ jobs:
       - name: Verify deployable modules produced fat jars
         run: bash .github/scripts/verify-fat-jars.sh
 
+      # 每个 Feign 方法指向的提供方接口必须标 @InternalApi，否则那个接口不校验内部令牌，
+      # 而且漏标不会有任何其他信号。负控验证过：删掉一个注解，这一步会点名失败。
+      - name: Every Feign target is @InternalApi
+        run: node .github/scripts/check-internal-api.js
+
       - name: Upload test reports on failure
         if: failure()
         uses: actions/upload-artifact@v4

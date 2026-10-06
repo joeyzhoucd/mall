@@ -1,5 +1,7 @@
 package com.mall.product.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.utils.R;
 import com.mall.product.entity.SkuInfoEntity;
 import com.mall.product.service.SkuInfoService;
@@ -21,17 +23,20 @@ public class CartFeignController {
     private SkuSaleAttrValueService skuSaleAttrValueService;
 
     @GetMapping("/product/skuinfo/info/{skuId}")
+    @InternalApi
     public R skuInfo(@PathVariable("skuId") Long skuId) {
         SkuInfoEntity info = skuInfoService.getBySkuId(skuId);
         return R.ok().put("skuInfo", info);
     }
 
     @GetMapping("/product/skuinfo/skuIds/{spuId}")
+    @InternalApi
     public R skuIdsBySpuId(@PathVariable("spuId") Long spuId) {
         return R.ok().put("skuIds", skuInfoService.listSkuIdsBySpuId(spuId));
     }
 
     @GetMapping("/product/skusaleattrvalue/values/{skuId}")
+    @InternalApi
     public List<String> skuSaleAttrValues(@PathVariable("skuId") Long skuId) {
         return skuSaleAttrValueService.getSkuSaleAttrValuesAsStringList(skuId);
     }

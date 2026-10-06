@@ -1,5 +1,7 @@
 package com.mall.order.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.common.constant.ResponseKeys;
 import com.mall.common.utils.R;
 import com.mall.order.reco.ComplementQueryService;
@@ -28,6 +30,7 @@ public class RecoInternalController {
     }
 
     @GetMapping("/complements/{spuId}")
+    @InternalApi
     public R complements(@PathVariable("spuId") Long spuId,
                          @RequestParam(value = "size", defaultValue = "8") Integer size) {
         return R.ok().put(ResponseKeys.ITEMS, complementQueryService.complements(spuId, size == null ? 8 : size));
