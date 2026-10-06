@@ -333,4 +333,82 @@ class OrderPaymentServiceImplTest {
         verify(orderService, never()).payOrderSuccess("ORD-2004");
         verify(paymentNotifyEventService, never()).markProcessed(any(), any(), any());
     }
+
+    // ---------------------------------------------------------------------
+    // 签名内容与请求字段必须一致（2026-10-06）。之前只验 signedContent 和 sign 是否匹配，
+    // 执行时却用请求里另外传的字段 —— 一条合法签名能配任意订单号 / 状态重放。
+    // 每个篡改用例都用一条【签名本身完全合法】的 signedContent，只改请求字段；
+    // 并断言订单/支付记录/回调事件一概没被碰过。
+    // ---------------------------------------------------------------------
+
+    private static final String GENUINE_PENDING =
+            "channel=alipay&orderSn=ORD-3001&tradeNo=ALIORD3001&status=pending&amount=10.00&currency=CNY";
+
+    private PaymentNotifyRequest notify(String channel, String orderSn, String tradeNo, String tradeStatus,
+                                        String amount, String currency, String signedContent) {
+        return new PaymentNotifyRequest(channel, orderSn, tradeNo, tradeStatus,
+                amount == null ? null : new BigDecimal(amount), currency, "2026-10-06T00:00:00Z",
+                signedContent, PaySignUtils.hmacSha256(signedContent, SIGN_KEY));
+    }
+
+    private void assertRejectedUntouched(PaymentNotifyRequest request) {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.handleNotify(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("do not match signed content");
+        org.mockito.Mockito.verifyNoInteractions(orderService, paymentInfoService, paymentNotifyEventService);
+    }
+
+    @Test
+    void rejectsGenuineSignatureReplayedForAnotherOrder() {
+        // 攻击原型：拿 ORD-3001 的合法 pending 签名，去把 ORD-9999 置为已支付
+        assertRejectedUntouched(notify("alipay", "ORD-9999", "ALIORD3001", "TRADE_SUCCESS", "10.00", "CNY", GENUINE_PENDING));
+    }
+
+    @Test
+    void rejectsPendingSignatureClaimingSuccess() {
+        assertRejectedUntouched(notify("alipay", "ORD-3001", "ALIORD3001", "TRADE_SUCCESS", "10.00", "CNY", GENUINE_PENDING));
+    }
+
+    @Test
+    void rejectsTamperedAmountTradeNoChannelOrCurrency() {
+        assertRejectedUntouched(notify("alipay", "ORD-3001", "ALIORD3001", "WAIT_BUYER_PAY", "0.01", "CNY", GENUINE_PENDING));
+        assertRejectedUntouched(notify("alipay", "ORD-3001", "ALIOTHER", "WAIT_BUYER_PAY", "10.00", "CNY", GENUINE_PENDING));
+        assertRejectedUntouched(notify("wechat", "ORD-3001", "ALIORD3001", "NOTPAY", "10.00", "CNY", GENUINE_PENDING));
+        assertRejectedUntouched(notify("alipay", "ORD-3001", "ALIORD3001", "WAIT_BUYER_PAY", "10.00", "USD", GENUINE_PENDING));
+        assertRejectedUntouched(notify("alipay", "ORD-3001", "ALIORD3001", "WAIT_BUYER_PAY", null, "CNY", GENUINE_PENDING));
+    }
+
+    @Test
+    void rejectsSignedContentMissingAField() {
+        // 签名里没写 orderSn —— 「没写」不能变成「不用核对」
+        String noOrderSn = "channel=alipay&tradeNo=ALIORD3001&status=pending&amount=10.00&currency=CNY";
+        assertRejectedUntouched(notify("alipay", "ORD-3001", "ALIORD3001", "WAIT_BUYER_PAY", "10.00", "CNY", noOrderSn));
+    }
+
+    /**
+     * 防误杀：mall-payment 真实发出的每一种 (渠道状态码, 签名内部码) 组合都必须通过核对。
+     * 这张表照抄 mall-payment PaymentMockService.providerStatus 和 PaymentStatus 的 code；
+     * 那边改了映射这里要跟着改，否则合法回调会被当成篡改拒掉。
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "alipay,WAIT_BUYER_PAY,pending", "alipay,TRADE_SUCCESS,success", "alipay,TRADE_CLOSED,closed", "alipay,TRADE_FINISHED,refunded",
+            "wechat,NOTPAY,pending", "wechat,SUCCESS,success", "wechat,CLOSED,closed", "wechat,REFUND,refunded",
+            "credit_card,requires_confirmation,pending", "credit_card,succeeded,success", "credit_card,canceled,closed", "credit_card,refunded,refunded"
+    })
+    void acceptsEveryGenuineGatewayStatusPair(String channel, String providerStatus, String signedStatus) {
+        OrderEntity order = new OrderEntity();
+        order.setOrderSn("ORD-3002");
+        when(orderService.getOrderBySn("ORD-3002")).thenReturn(order);
+        // 返回 false = 重复事件，handleNotify 在核对通过之后就返回，不再往下走
+        when(paymentNotifyEventService.tryRecord(any())).thenReturn(false);
+        String signed = "channel=" + channel + "&orderSn=ORD-3002&tradeNo=T3002&status=" + signedStatus
+                + "&amount=12.30&currency=CNY";
+
+        // 金额故意写成 12.3：mall-payment 签的是 toPlainString()，请求里是 BigDecimal，按数值比
+        PaymentNotifyResult result = service.handleNotify(
+                notify(channel, "ORD-3002", "T3002", providerStatus, "12.3", "CNY", signed));
+
+        assertThat(result.message()).isEqualTo("duplicate notify event");
+    }
 }

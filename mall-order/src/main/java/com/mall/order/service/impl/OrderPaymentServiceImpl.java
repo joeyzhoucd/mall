@@ -29,6 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Date;
 import java.util.List;
 
@@ -291,6 +293,48 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
         String expected = PaySignUtils.hmacSha256(request.signedContent(), paymentGatewayProperties.signKey());
         if (!StringUtils.equalsIgnoreCase(expected, request.sign())) {
             throw new IllegalArgumentException("payment notify signature invalid");
+        }
+        requireFieldsMatchSignedContent(request);
+    }
+
+    /**
+     * 签名只覆盖 signedContent，而后面真正执行用的是请求里【另外传的】orderSn / tradeStatus / totalAmount。
+     * 2026-10-06 之前两者从不比对：拿到任意一条合法签名（哪怕是 pending 的），配上别的订单号和
+     * TRADE_SUCCESS 就能把那个订单置为已支付。所以验签之后必须逐项核对，任何一项对不上都按签名无效处理。
+     *
+     * <p>状态比的是归一化之后的值：签名里是网关内部码（success/closed/refunded/pending），
+     * 请求里是渠道码（TRADE_SUCCESS / SUCCESS / succeeded ...），三个渠道的映射都能归一到同一个值
+     * （OrderPaymentServiceImplTest 里按 mall-payment 的 providerStatus 逐条列了）。
+     * 金额按数值比（20.0 和 20.00 相等）。缺字段同样拒绝 —— 不能让「签名里没写」变成「不用核对」。
+     */
+    private void requireFieldsMatchSignedContent(PaymentNotifyRequest request) {
+        Map<String, String> signed = new HashMap<>();
+        for (String pair : request.signedContent().split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0) {
+                signed.put(pair.substring(0, eq), pair.substring(eq + 1));
+            }
+        }
+        boolean matches = StringUtils.equalsIgnoreCase(signed.get("channel"), request.channel())
+                && StringUtils.equals(signed.get("orderSn"), request.orderSn())
+                && StringUtils.equals(signed.get("tradeNo"), request.tradeNo())
+                && signed.get("status") != null
+                && normalizeNotifyStatus(signed.get("status")).equals(normalizeNotifyStatus(request.tradeStatus()))
+                && amountEquals(signed.get("amount"), request.totalAmount())
+                && StringUtils.equalsIgnoreCase(signed.get("currency"), request.currency());
+        if (!matches) {
+            throw new IllegalArgumentException("payment notify fields do not match signed content");
+        }
+    }
+
+    private static boolean amountEquals(String signedAmount, BigDecimal requestAmount) {
+        if (signedAmount == null || requestAmount == null) {
+            return false;
+        }
+        try {
+            return new BigDecimal(signedAmount).compareTo(requestAmount) == 0;
+        } catch (NumberFormatException e) {
+            return false;
         }
     }
 
