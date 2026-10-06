@@ -138,5 +138,9 @@ mall:
   # 秒杀 activate/order-created 这两个"内部调用"接口靠这个共享密钥挡住公网匿名请求
   # （它们走的 seckill.mall.com 网关路由没有其他鉴权）。mall-order 那边要配成一样的值
   # 才能调通 order-created 回调，见 mall-order/application.yml 里的同名配置。
+  # 【没有默认值是刻意的】2026-10-05 之前这里是 ${SECKILL_INTERNAL_TOKEN:seckill-internal-secret}，
+  # 而部署里从没设过这个变量 —— 线上跑的就是公开仓库里这串默认值，等于没有令牌。
+  # 现在缺了它启动即失败（Could not resolve placeholder），而不是悄悄退回一个人人可见的值。
+  # 集群里来自 SealedSecret mall-seckill-internal-token（charts/mall/templates/backend-services.yaml 注入）。
   seckill:
-    internal-token: ${SECKILL_INTERNAL_TOKEN:seckill-internal-secret}
+    internal-token: ${SECKILL_INTERNAL_TOKEN}
