@@ -239,21 +239,42 @@ spring:
             # 路由只是把 404 从网关挪到服务，不解决任何问题。
             # 正确的做法是让前端改调已有接口，或者在 mall-coupon 里补上这个端点，另开一件事做。
 
-            # mall-order 没有自己的域名，走结算/支付这条链路是从 cart.mall.com（购物车页
-            # “去结算”）跳过来的，必须放在 mall_cart_route 之前，否则 Host=cart.mall.com
-            # 那条纯 Host 匹配规则会先接住，把 /order/** 也转给 mall-cart（它没有这些接口）。
+            # =================================================================
+            # 前台路由一律【白名单】（2026-10-05，已知缺陷 #5）
+            # =================================================================
+            # 原来按 Host 把整个服务转出去（search/cart/item/seckill/auth 各一个域名，
+            # 外加任意域名的 /order/** /pay/** /payment/**）。而各服务自己不鉴权 ——
+            # 拦截器只读 session、永远放行，mall-product/search/auth/payment 连拦截器都没有 ——
+            # 于是整套后台 CRUD、Feign 内部接口都能匿名打到。2026-10-05 线上只读探测：
+            # item.mall.com 上 /product/skuinfo/delete 405（POST 即可删 SKU）、分类/SPU 列表 200；
+            # seckill.mall.com 上 /coupon/seckill/scheduler/activate 405（重置秒杀库存 = 超卖）、
+            # /coupon/memberprice/saveFromMap 405（改会员价）、/coupon/couponhistory/list 200（会员信息）；
+            # search.mall.com 上 /search/product/down 405（批量下架）。
+            #
+            # 现在每条前台路由 = Host + 明确列出的 Path，【没列出的一律不匹配 → 404】。
+            # 新加的接口默认不暴露；后台用 /api/** + JWT（上面那几条）。
+            # 清单来源：页面模板与自有 JS 里的请求、各服务返回页面的 @Controller、e2e 回归脚本，三边对过。
+            # 回归守护：GatewayWhitelistRoutesTest（用 SCG 自己的断言工厂按顺序匹配本文件）。
+            #
+            # mall-order 没有自己的域名，结算/支付是从 cart.mall.com 跳过来的，所以这几条
+            # 用 Path 不限 Host，并且必须排在 Host 类路由之前。
+            # 只放前台流程：订单列表 / 发货 / 退款 / outbox 这些管理接口不在这里，
+            # 只能走 /api/order/**（要 JWT）—— 原来任何登录会员都能调。
+            # /order/submit（JSON 下单）页面和脚本都没用到，不放。
+            # /order/payments/notify 是支付渠道回调（验签），要对外。
             - id: order_route
               uri: lb://mall-order
               predicates:
-                - Path=/order/**
+                - Path=/order/confirm.html,/order/shipping.html,/order/address/add.html,/order/payment.html,/order/address/add,/order/submitOrder,/order/payments/notify
+            # /pay/** 只留 /pay/mock/notify（支付页表单提交，HMAC 验签）。
+            # /pay/mock/success|fail|close 不放：它们能把任意订单直接置为已支付 / 已关闭。
             - id: pay_mock_route
               uri: lb://mall-order
               predicates:
-                - Path=/pay/**
-            - id: payment_mock_route
-              uri: lb://mall-payment
-              predicates:
-                - Path=/payment/**
+                - Path=/pay/mock/notify
+                - Method=POST
+            # 原来还有 payment_mock_route（/payment/** → mall-payment）：没有任何正常调用方经网关访问它
+            #（mall-order 走的是自己配置的 base-url），对外只剩 mock 的「置为成功 / 退款 / 对账」，删掉。
 
             # 促销页。和上面几条一样用 Path 而不是 Host，这样它在
             # 【所有 *.mall.com 上都可达】—— 首页、商品页、购物车页的
@@ -272,26 +293,38 @@ spring:
               uri: lb://mall-coupon
               predicates:
                 - Path=/promotion.html
+            # 促销页的「领取」按钮：页面挂在 mall.com，fetch 用相对地址 /coupon/promotion/receive/{id}，
+            # 原来 mall.com 上没有 /coupon 的路由、落到 mall-product → 404，【这个按钮一直是坏的】
+            #（2026-10-05 实测：mall.com 404、seckill.mall.com 405）。和促销页一样不限 Host。
+            - id: promotion_receive_route
+              uri: lb://mall-coupon
+              predicates:
+                - Path=/coupon/promotion/receive/{couponId}
+                - Method=POST
 
             - id: mall_auth_route
               uri: lb://mall-auth
               predicates:
                 - Host=auth.mall.com
+                - Path=/login.html,/register.html,/login,/register,/logout,/sms/sendcode,/oauth2.0/weibo/success
 
             - id: mall_search_route
               uri: lb://mall-search
               predicates:
                 - Host=search.mall.com
+                - Path=/list.html
 
             - id: mall_cart_route
               uri: lb://mall-cart
               predicates:
                 - Host=cart.mall.com
+                - Path=/cart.html,/addCartItem,/addToCartSuccess.html,/checkItem,/changeItemCount,/deleteItem
 
             - id: product_item_route
               uri: lb://mall-product
               predicates:
                 - Host=item.mall.com
+                - Path=/,/{skuId:[0-9]+}.html
 
             # 秒杀这条路由单独加限流：真正要防的是"总请求量把 mall-coupon/Redis/数据库冲垮"，
             # 不是防某个人刷（秒杀本来就是海量不同用户同时各发一两个请求，按用户/IP 限流
@@ -326,10 +359,12 @@ spring:
             # 【观测系统会消耗它本该测量的容量】，压测时先确认它自己是健康的。
             #
             # 超过限流 Gateway 直接返回 429，不占用下游任何资源。
+            # 秒杀页本身 + 页面里的四个 fetch；activate（激活场次）和 order-created（内部回调）不放
             - id: mall_seckill_route
               uri: lb://mall-coupon
               predicates:
                 - Host=seckill.mall.com
+                - Path=/seckill.html,/coupon/seckill/grab/{relationId},/coupon/seckill/message/{messageId},/coupon/seckill/message/{messageId}/address,/coupon/seckill/address/mine
               filters:
                 - name: RequestRateLimiter
                   args:
@@ -338,10 +373,12 @@ spring:
                     redis-rate-limiter.requestedTokens: 1
                     key-resolver: "#{@seckillGlobalKeyResolver}"
 
+            # 主站（mall.com 及其它 *.mall.com）只有首页；原来这条是整个 mall-product 的兜底
             - id: product_site_route
               uri: lb://mall-product
               predicates:
                 - Host=**.mall.com
+                - Path=/
 # ---------------------------------------------------------------------------
 # 管理端令牌的验签密钥（AdminAuthFilter 用）
 # ---------------------------------------------------------------------------
