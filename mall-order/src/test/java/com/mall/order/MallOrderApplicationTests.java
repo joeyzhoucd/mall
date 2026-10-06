@@ -26,7 +26,12 @@ import org.springframework.test.context.TestPropertySource;
 @MallIntegrationTest
 // mall.seckill.internal-token 不再有默认值（原默认值在公开仓库里，2026-10-05 去掉），缺了上下文起不来；
 // 测试给一个明显只用于测试的值
-@TestPropertySource(properties = "mall.seckill.internal-token=test-only-internal-token")
+// 两个支付签名密钥同理（2026-10-06 去掉默认值）
+@TestPropertySource(properties = {
+        "mall.seckill.internal-token=test-only-internal-token",
+        "mall.payment.gateway.sign-key=test-only-gateway-sign-key",
+        "pay.mock.signKey=test-only-pay-mock-sign-key"
+})
 @Import({Containers.Mysql.class, Containers.Redis.class, Containers.Rabbit.class})
 class MallOrderApplicationTests {
 

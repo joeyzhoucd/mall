@@ -15,7 +15,9 @@ spring:
 mall:
   payment:
     mock:
-      sign-key: ${PAYMENT_MOCK_SIGN_KEY:mall-payment-local-mock-sign-key}
+      # 没有默认值是刻意的（原默认值在公开仓库里，2026-10-06 去掉）；必须和 mall-order 的
+      # mall.payment.gateway.sign-key 同一个值。集群里来自 SealedSecret mall-payment-sign-keys 的 gateway-sign-key。
+      sign-key: ${PAYMENT_MOCK_SIGN_KEY}
       alipay-app-id: ${PAYMENT_MOCK_ALIPAY_APP_ID:2026090300000000}
       wechat-app-id: ${PAYMENT_MOCK_WECHAT_APP_ID:wx0000000000000000}
       wechat-mch-id: ${PAYMENT_MOCK_WECHAT_MCH_ID:1900000000}

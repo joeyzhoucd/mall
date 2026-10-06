@@ -115,6 +115,11 @@ RUN --mount=type=cache,target=/root/.m2/repository \
 FROM eclipse-temurin:21-jre-jammy AS cds
 WORKDIR /app
 COPY --from=build /workspace/mall-backend/mall-order/target/*.jar /app/app.jar
+# 【*-training-only 那几个参数】这些配置项在 application.yml 里刻意没有默认值（原默认值在公开仓库里），
+# 缺了应用启动即失败。训练运行没有它们就会在【配置阶段】失败，比连不上 DB/Redis 早得多，
+# 归档里的类明显变少 —— 实测（2026-10-06，本机同参数）：mall-order 80.7MB(在「未配置」处失败)
+# 对 91.7MB；mall-payment 57.3MB 对 68.4MB。值只出现在这次构建期 JVM 的命令行里，
+# 不进镜像配置；CDS 归档存的是类元数据，不含属性值。
 RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
  && cd /app/extracted \
  && (timeout 240 java -XX:ArchiveClassesAtExit=/app/app.jsa \
@@ -124,6 +129,9 @@ RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
       --spring.cloud.config.enabled=false \
       --spring.data.redis.host=127.0.0.1 \
       --management.tracing.export.enabled=false \
+      --mall.seckill.internal-token=cds-training-only \
+      --mall.payment.gateway.sign-key=cds-training-only \
+      --pay.mock.signKey=cds-training-only \
       --server.port=0 \
       > /tmp/cds-train.log 2>&1 || true) \
  && (test -f /app/app.jsa && echo "CDS 归档已生成: $(stat -c%s /app/app.jsa) 字节" \

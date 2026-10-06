@@ -41,7 +41,7 @@ public class OrderWebController {
     @Autowired
     private BusinessMetrics businessMetrics;
 
-    @Value("${pay.mock.signKey:mall-pay-sign-key}")
+    @Value("${pay.mock.signKey}")
     private String signKey;
 
     @GetMapping("/order/confirm.html")

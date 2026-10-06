@@ -115,6 +115,8 @@ RUN --mount=type=cache,target=/root/.m2/repository \
 FROM eclipse-temurin:21-jre-jammy AS cds
 WORKDIR /app
 COPY --from=build /workspace/mall-backend/mall-coupon/target/*.jar /app/app.jar
+# 【*-training-only 参数】没有默认值的密钥配置给一个训练专用假值，否则训练在配置阶段就失败、
+# 归档变小（实测数字和完整说明见 mall-order/Dockerfile 同一位置）。值不进镜像配置。
 RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
  && cd /app/extracted \
  && (timeout 240 java -XX:ArchiveClassesAtExit=/app/app.jsa \
@@ -124,6 +126,7 @@ RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
       --spring.cloud.config.enabled=false \
       --spring.data.redis.host=127.0.0.1 \
       --management.tracing.export.enabled=false \
+      --mall.seckill.internal-token=cds-training-only \
       --server.port=0 \
       > /tmp/cds-train.log 2>&1 || true) \
  && (test -f /app/app.jsa && echo "CDS 归档已生成: $(stat -c%s /app/app.jsa) 字节" \

@@ -86,7 +86,11 @@ mybatis-plus:
 
 pay:
   mock:
-    signKey: mall-pay-sign-key
+    # /pay/mock/notify 的 HMAC 密钥（支付页表单由服务端签名，提交回来再验）。
+    # 【没有默认值是刻意的】2026-10-06 之前这里写死 mall-pay-sign-key —— 仓库是公开的，
+    # 而 /pay/mock/notify 公网可达，任何人都能给任意订单签一个 TRADE_SUCCESS。
+    # 集群里来自 SealedSecret mall-payment-sign-keys 的 pay-mock-sign-key（backend-services.yaml 注入）。
+    signKey: ${PAY_MOCK_SIGN_KEY}
 
 mall:
   payment:
@@ -96,7 +100,10 @@ mall:
       base-url: ${PAYMENT_GATEWAY_BASE_URL:http://localhost:9010}
       notify-url: ${PAYMENT_NOTIFY_URL:http://order.mall.com/order/payments/notify}
       return-url: ${PAYMENT_RETURN_URL:http://order.mall.com/order/payment.html}
-      sign-key: ${PAYMENT_GATEWAY_SIGN_KEY:mall-payment-local-mock-sign-key}
+      # 验 /order/payments/notify 的签名，必须和 mall-payment 的 mall.payment.mock.sign-key 同一个值。
+      # 没有默认值，原因同上面 pay.mock.signKey；PaymentGatewayProperties 里的代码兜底也一并删了。
+      # 集群里来自 SealedSecret mall-payment-sign-keys 的 gateway-sign-key。
+      sign-key: ${PAYMENT_GATEWAY_SIGN_KEY}
     reconciliation:
       enabled: ${PAYMENT_RECONCILIATION_ENABLED:true}
       initial-delay-ms: ${PAYMENT_RECONCILIATION_INITIAL_DELAY_MS:30000}
