@@ -5,7 +5,6 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.math.BigDecimal;
@@ -14,12 +13,12 @@ import java.math.BigDecimal;
 public interface CouponFeignService {
 
     @PostMapping("/coupon/seckill/message/{messageId}/order-created")
-    R handleOrderCreated(@PathVariable("messageId") Long messageId, @RequestParam("orderSn") String orderSn,
-                          @RequestHeader("X-Seckill-Internal-Token") String internalToken);
+    R handleOrderCreated(@PathVariable("messageId") Long messageId, @RequestParam("orderSn") String orderSn);
 
     // =====================================================================
-    // 优惠券。全部走 /internal/*，必须带共享密钥 —— 网关那条 seckill.mall.com
-    // 路由是完全公开的，没有密钥任何人都能伪造用券/退券。
+    // 优惠券。全部走 /internal/*，是 mall-coupon 的 @InternalApi 接口：
+    // 这里不用显式传任何令牌，mall-common 的全局 Feign 拦截器自动带 X-Internal-Token。
+    // （2026-10-07 之前每个方法都显式传 X-Seckill-Internal-Token，已合并掉。）
     // =====================================================================
 
     /**
@@ -30,8 +29,7 @@ public interface CouponFeignService {
      */
     @GetMapping("/coupon/promotion/internal/usable")
     R usableCoupons(@RequestParam("memberId") Long memberId,
-                    @RequestParam("amount") BigDecimal amount,
-                    @RequestHeader("X-Seckill-Internal-Token") String internalToken);
+                    @RequestParam("amount") BigDecimal amount);
 
     /**
      * 预览抵扣金额 —— <b>只读，不改状态</b>。
@@ -49,8 +47,7 @@ public interface CouponFeignService {
     @PostMapping("/coupon/promotion/internal/preview")
     R previewCoupon(@RequestParam("historyId") Long historyId,
                     @RequestParam("memberId") Long memberId,
-                    @RequestParam("amount") BigDecimal amount,
-                    @RequestHeader("X-Seckill-Internal-Token") String internalToken);
+                    @RequestParam("amount") BigDecimal amount);
 
     /**
      * 用券。mall-coupon 会把 preview 的校验全部重做一遍 ——
@@ -62,8 +59,7 @@ public interface CouponFeignService {
     R useCoupon(@RequestParam("historyId") Long historyId,
                 @RequestParam("memberId") Long memberId,
                 @RequestParam("amount") BigDecimal amount,
-                @RequestParam("orderSn") String orderSn,
-                @RequestHeader("X-Seckill-Internal-Token") String internalToken);
+                @RequestParam("orderSn") String orderSn);
 
     /**
      * 退券补偿。mall-coupon 侧永远返回成功（幂等），
@@ -71,6 +67,5 @@ public interface CouponFeignService {
      */
     @PostMapping("/coupon/promotion/internal/release")
     R releaseCoupon(@RequestParam("historyId") Long historyId,
-                    @RequestParam("orderSn") String orderSn,
-                    @RequestHeader("X-Seckill-Internal-Token") String internalToken);
+                    @RequestParam("orderSn") String orderSn);
 }

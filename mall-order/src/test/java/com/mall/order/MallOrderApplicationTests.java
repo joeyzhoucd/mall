@@ -24,11 +24,9 @@ import org.springframework.test.context.TestPropertySource;
  * 跑不起来。CI 里有单独一步 {@code mvn -B test -Pintegration} 会跑它们。
  */
 @MallIntegrationTest
-// mall.seckill.internal-token 不再有默认值（原默认值在公开仓库里，2026-10-05 去掉），缺了上下文起不来；
-// 测试给一个明显只用于测试的值
-// 两个支付签名密钥同理（2026-10-06 去掉默认值）
+// 两个支付签名密钥没有默认值（原默认值在公开仓库里，2026-10-06 去掉），缺了上下文起不来；
+// 测试给明显只用于测试的值。（mall.seckill.internal-token 已于 2026-10-07 整个删除）
 @TestPropertySource(properties = {
-        "mall.seckill.internal-token=test-only-internal-token",
         "mall.payment.gateway.sign-key=test-only-gateway-sign-key",
         "pay.mock.signKey=test-only-pay-mock-sign-key"
 })

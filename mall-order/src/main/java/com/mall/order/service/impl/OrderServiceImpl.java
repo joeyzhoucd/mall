@@ -46,7 +46,6 @@ import com.mall.order.vo.SubmitOrderResponseVo;
 import com.mall.order.vo.WareSkuLockVo;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -98,9 +97,6 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
     /** 下单只在 persistOrder 那一小段开事务（Boot 的 TransactionAutoConfiguration 提供这个 bean） */
     @Autowired
     private TransactionTemplate transactionTemplate;
-
-    @Value("${mall.seckill.internal-token}")
-    private String internalToken;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderServiceImpl.class);
 
@@ -249,7 +245,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return Collections.emptyList();
         }
         try {
-            R resp = couponFeignService.usableCoupons(memberId, totalAmount, internalToken);
+            R resp = couponFeignService.usableCoupons(memberId, totalAmount);
             List<OrderCouponVo> coupons = RUtils.getData(
                     resp,
                     "coupons",
@@ -280,7 +276,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
      */
     private BigDecimal previewCouponDiscount(Long couponHistoryId, Long memberId, BigDecimal totalAmount) {
         try {
-            R resp = couponFeignService.previewCoupon(couponHistoryId, memberId, totalAmount, internalToken);
+            R resp = couponFeignService.previewCoupon(couponHistoryId, memberId, totalAmount);
             if (!RUtils.isOk(resp)) {
                 log.info("优惠券预览被拒 historyId={} memberId={} code={}",
                         couponHistoryId, memberId, RUtils.getCode(resp));
@@ -384,7 +380,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
 
     private boolean useCoupon(Long couponHistoryId, Long memberId, BigDecimal totalAmount, String orderSn) {
         try {
-            R resp = couponFeignService.useCoupon(couponHistoryId, memberId, totalAmount, orderSn, internalToken);
+            R resp = couponFeignService.useCoupon(couponHistoryId, memberId, totalAmount, orderSn);
             if (!RUtils.isOk(resp)) {
                 log.info("用券被拒 historyId={} orderSn={} code={}",
                         couponHistoryId, orderSn, RUtils.getCode(resp));
@@ -417,7 +413,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return;
         }
         try {
-            couponFeignService.releaseCoupon(couponHistoryId, orderSn, internalToken);
+            couponFeignService.releaseCoupon(couponHistoryId, orderSn);
             log.info("已请求退券 historyId={} orderSn={}", couponHistoryId, orderSn);
         } catch (Throwable t) {
             // 【绝不重抛】这里抛出去会连累同一个 catch 块里的库存释放。
@@ -742,7 +738,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
         }
 
         try {
-            couponFeignService.handleOrderCreated(seckillOrderTo.getLocalMessageId(), orderSn, internalToken);
+            couponFeignService.handleOrderCreated(seckillOrderTo.getLocalMessageId(), orderSn);
         } catch (Exception e) {
             // 故意不往上抛：这个方法整体在一个事务里，抛出去会把刚提交的订单和已经
             // 锁成功的库存一起回滚，而 MQ 重投时 orderLockStock 并不是幂等的，会导致

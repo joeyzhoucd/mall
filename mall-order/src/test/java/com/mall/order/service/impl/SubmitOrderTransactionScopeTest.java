@@ -135,7 +135,6 @@ class SubmitOrderTransactionScopeTest {
         ReflectionTestUtils.setField(service, "objectMapper", new ObjectMapper());
         ReflectionTestUtils.setField(service, "orderItemService", items);
         ReflectionTestUtils.setField(service, "orderOutboxMessageService", outbox);
-        ReflectionTestUtils.setField(service, "internalToken", "t");
         ReflectionTestUtils.setField(service, "transactionTemplate", new TransactionTemplate(tx));
 
         MockHttpServletRequest request = new MockHttpServletRequest();

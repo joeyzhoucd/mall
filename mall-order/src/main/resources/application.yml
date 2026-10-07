@@ -130,8 +130,5 @@ mall:
       enabled: true
     seckill:
       enabled: true
-  # 必须和 mall-coupon/application.yml 里的 mall.seckill.internal-token 保持一致，
-  # 否则回调 mall-coupon 的 order-created 接口会被当成未授权请求拒绝。
-  # 没有默认值是刻意的，原因见 mall-coupon/application.yml 同名配置（原默认值在公开仓库里）
-  seckill:
-    internal-token: ${SECKILL_INTERNAL_TOKEN}
+  # （mall.seckill.internal-token 已删除，2026-10-07：调 mall-coupon 的内部接口
+  #  由全局 Feign 拦截器带 X-Internal-Token，见 mall-common 的 InternalApiAutoConfiguration）

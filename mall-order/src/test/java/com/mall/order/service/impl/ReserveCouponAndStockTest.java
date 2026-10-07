@@ -51,8 +51,7 @@ class ReserveCouponAndStockTest {
         ReflectionTestUtils.setField(service, "couponFeignService", coupon);
         ReflectionTestUtils.setField(service, "wareFeignService", ware);
         ReflectionTestUtils.setField(service, "businessMetrics", metrics);
-        ReflectionTestUtils.setField(service, "internalToken", "t");
-        when(coupon.useCoupon(anyLong(), anyLong(), any(), anyString(), anyString())).thenReturn(R.ok());
+        when(coupon.useCoupon(anyLong(), anyLong(), any(), anyString())).thenReturn(R.ok());
     }
 
     private static OrderCreateTo order() {
@@ -76,7 +75,7 @@ class ReserveCouponAndStockTest {
 
         assertThat(service.reserveCouponAndStock(order(), HID, MEMBER)).as("结果码 6，不是异常/500").isEqualTo(6);
 
-        verify(coupon).releaseCoupon(HID, SN, "t");
+        verify(coupon).releaseCoupon(HID, SN);
         verify(metrics).failure(BusinessFlow.ORDER_SUBMIT, OrderServiceImpl.REASON_STOCK_LOCK_UNAVAILABLE);
     }
 
@@ -86,17 +85,17 @@ class ReserveCouponAndStockTest {
 
         assertThat(service.reserveCouponAndStock(order(), null, MEMBER)).isEqualTo(6);
 
-        verify(coupon, never()).releaseCoupon(any(), any(), any());
+        verify(coupon, never()).releaseCoupon(any(), any());
     }
 
     @Test
     void couponCallTimingOutIsReleasedBecauseItMayHaveBeenApplied() {
-        when(coupon.useCoupon(anyLong(), anyLong(), any(), anyString(), anyString()))
+        when(coupon.useCoupon(anyLong(), anyLong(), any(), anyString()))
                 .thenThrow(new RuntimeException("Read timed out"));
 
         assertThat(service.reserveCouponAndStock(order(), HID, MEMBER)).isEqualTo(5);
 
-        verify(coupon).releaseCoupon(HID, SN, "t");
+        verify(coupon).releaseCoupon(HID, SN);
         verifyNoInteractions(ware);
     }
 
@@ -106,7 +105,7 @@ class ReserveCouponAndStockTest {
 
         assertThat(service.reserveCouponAndStock(order(), HID, MEMBER)).isEqualTo(3);
 
-        verify(coupon).releaseCoupon(HID, SN, "t");
+        verify(coupon).releaseCoupon(HID, SN);
         verify(metrics).failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_STOCK_LOCK_FAILED);
     }
 
@@ -116,6 +115,6 @@ class ReserveCouponAndStockTest {
 
         assertThat(service.reserveCouponAndStock(order(), HID, MEMBER)).isNull();
 
-        verify(coupon, never()).releaseCoupon(any(), any(), any());
+        verify(coupon, never()).releaseCoupon(any(), any());
     }
 }
