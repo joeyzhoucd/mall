@@ -41,11 +41,6 @@ public class CouponController {
     }
 
 
-    @RequestMapping("/placeholder")
-    public R placeholder() {
-        return R.ok().put("message", "This is a placeholder method");
-    }
-
     /**
      * 优惠券分页列表。后台券管理页和「给 SKU 绑券」的下拉框都用它。
      */

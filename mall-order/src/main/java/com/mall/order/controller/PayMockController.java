@@ -22,22 +22,9 @@ public class PayMockController {
     @Value("${pay.mock.signKey}")
     private String signKey;
 
-    @PostMapping("/success")
-    public R paySuccess(@RequestParam("orderSn") String orderSn) {
-        orderService.payOrderSuccess(orderSn);
-        return R.ok().put("status", "SUCCESS");
-    }
-
-    @PostMapping("/fail")
-    public R payFail(@RequestParam("orderSn") String orderSn) {
-        return R.ok().put("status", "FAIL");
-    }
-
-    @PostMapping("/close")
-    public R payClose(@RequestParam("orderSn") String orderSn) {
-        orderService.closeOrder(orderSn);
-        return R.ok().put("status", "CLOSED");
-    }
+    // 2026-10-07 删掉了 /success /fail /close 三个接口：不验签，传任意 orderSn 就能把订单置为已支付 / 关闭。
+    // 网关从没放行过它们（白名单只有 /notify），但集群内任何 pod 都能直接调；全仓没有调用方
+    // （支付页的三个按钮走的都是下面这个带签名的 /notify）。
 
     /**
      * Mock async notify with sign verify

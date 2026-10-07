@@ -52,11 +52,6 @@ public class SpuInfoController {
     }
 
     
-    @RequestMapping("/placeholder")
-    public R placeholder() {
-        return R.ok().put("message", "SPU信息占位符方法");
-    }
-
     /**
      * 查单个 SPU。
      */
