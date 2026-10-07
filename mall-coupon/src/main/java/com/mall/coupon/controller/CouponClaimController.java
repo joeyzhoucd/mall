@@ -13,12 +13,9 @@ import com.mall.coupon.vo.MemberCouponVo;
 import com.mall.coupon.vo.PromotionCouponVo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,15 +38,11 @@ import java.util.List;
  *       把别人的券标记成已使用（拒绝服务），或者把已用的券退回来（重复抵扣）。</li>
  * </ol>
  *
- * <h3>为什么内部接口复用 {@code X-Seckill-Internal-Token}，而不是新加一个密钥</h3>
- * 它保护的是<b>同一个信任关系</b>：mall-order → mall-coupon。
- * 新加一个密钥的爆炸半径完全相同（泄露任一个都等于能伪造这条链路上的调用），
- * 但要多维护一份 Sealed Secret、多一处两边配置必须一致的地方 ——
- * 而"两边配置不一致"正是这类共享密钥最常见的故障，且表现为 403 而非明确报错。
- * 头名字带 seckill 字样确实不准确，但把名字改对需要同时改 mall-order 的配置和
- * 已经部署的 Sealed Secret，风险大于收益。这里显式复用
- * {@link SeckillGrabController#INTERNAL_TOKEN_HEADER} 常量，让共用关系在代码里可见，
- * 而不是各写一遍同样的字符串然后指望它们一直一样。
+ * <h3>内部接口的鉴权：{@code @InternalApi}</h3>
+ * /internal/* 这几个接口只给 mall-order 的 Feign 调，由 mall-common 的 {@code @InternalApi}
+ * 统一校验 {@code X-Internal-Token}（不带/带错 401）。2026-10-07 之前它们各自手写比较
+ * {@code X-Seckill-Internal-Token}（复用秒杀那把共享密钥）；@InternalApi 上线并切 enforce 后，
+ * 两层校验的是同一个信任关系（mall-order → mall-coupon），旧的那层合并掉了。
  *
  * <h3>【限流】这些接口和秒杀共用一个 50 rps 的全局预算</h3>
  * 网关的 {@code mall_seckill_route} 上挂着
@@ -79,9 +72,6 @@ public class CouponClaimController {
     @Autowired
     @Qualifier(CouponClaimBulkheadConfiguration.BEAN)
     private SeckillBulkhead claimBulkhead;
-
-    @Value("${mall.seckill.internal-token}")
-    private String internalToken;
 
     // =====================================================================
     // 会员接口：身份来自服务端会话
@@ -172,12 +162,7 @@ public class CouponClaimController {
     @GetMapping("/internal/usable")
     @InternalApi
     public R usable(@RequestParam("memberId") Long memberId,
-                    @RequestParam("amount") BigDecimal amount,
-                    @RequestHeader(value = SeckillGrabController.INTERNAL_TOKEN_HEADER,
-                            required = false) String token) {
-        if (!requireInternalToken(token)) {
-            return R.error(ErrorCode.SECKILL_FORBIDDEN);
-        }
+                    @RequestParam("amount") BigDecimal amount) {
         return R.ok().put("coupons", couponClaimService.usableForAmount(memberId, amount));
     }
 
@@ -191,12 +176,7 @@ public class CouponClaimController {
     @InternalApi
     public R preview(@RequestParam("historyId") Long historyId,
                      @RequestParam("memberId") Long memberId,
-                     @RequestParam("amount") BigDecimal amount,
-                     @RequestHeader(value = SeckillGrabController.INTERNAL_TOKEN_HEADER,
-                             required = false) String token) {
-        if (!requireInternalToken(token)) {
-            return R.error(ErrorCode.SECKILL_FORBIDDEN);
-        }
+                     @RequestParam("amount") BigDecimal amount) {
         CouponClaimService.UseResult result = couponClaimService.preview(historyId, memberId, amount);
         if (!result.ok()) {
             return R.error(result.code());
@@ -214,12 +194,7 @@ public class CouponClaimController {
                  @RequestParam("memberId") Long memberId,
                  @RequestParam("amount") BigDecimal amount,
                  @RequestParam("orderSn") String orderSn,
-                 @RequestParam(value = "orderId", required = false) Long orderId,
-                 @RequestHeader(value = SeckillGrabController.INTERNAL_TOKEN_HEADER,
-                         required = false) String token) {
-        if (!requireInternalToken(token)) {
-            return R.error(ErrorCode.SECKILL_FORBIDDEN);
-        }
+                 @RequestParam(value = "orderId", required = false) Long orderId) {
         CouponClaimService.UseResult result =
                 couponClaimService.use(historyId, memberId, amount, orderSn, orderId);
         if (!result.ok()) {
@@ -243,26 +218,8 @@ public class CouponClaimController {
     @PostMapping("/internal/release")
     @InternalApi
     public R release(@RequestParam("historyId") Long historyId,
-                     @RequestParam("orderSn") String orderSn,
-                     @RequestHeader(value = SeckillGrabController.INTERNAL_TOKEN_HEADER,
-                             required = false) String token) {
-        if (!requireInternalToken(token)) {
-            return R.error(ErrorCode.SECKILL_FORBIDDEN);
-        }
+                     @RequestParam("orderSn") String orderSn) {
         boolean released = couponClaimService.release(historyId, orderSn);
         return R.ok().put("released", released);
-    }
-
-    /**
-     * 校验内部令牌。
-     *
-     * <p>{@code StringUtils.hasText(internalToken)} 这一半不能省：
-     * 如果配置缺失导致 {@code internalToken} 是空串，
-     * 那么 {@code "".equals(null)} 为 false 会挡住合法调用（还算安全），
-     * 但 {@code "".equals("")} 为 true 会让<b>任何传空头的请求都通过</b>。
-     * 和 {@code SeckillGrabController.requireInternalToken} 保持一致。
-     */
-    private boolean requireInternalToken(String token) {
-        return StringUtils.hasText(internalToken) && internalToken.equals(token);
     }
 }

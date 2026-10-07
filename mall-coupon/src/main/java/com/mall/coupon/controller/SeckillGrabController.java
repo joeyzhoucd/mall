@@ -10,12 +10,9 @@ import com.mall.coupon.service.SeckillGrabService;
 import com.mall.coupon.service.SeckillLocalMessageService;
 import com.mall.coupon.vo.SeckillGrabResultVo;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,8 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("coupon/seckill")
 public class SeckillGrabController {
 
-    public static final String INTERNAL_TOKEN_HEADER = "X-Seckill-Internal-Token";
-
     @Autowired
     @org.springframework.beans.factory.annotation.Qualifier("seckillBulkhead")
     private com.mall.coupon.config.SeckillBulkhead bulkhead;
@@ -42,21 +37,17 @@ public class SeckillGrabController {
     @Autowired
     private SeckillLocalMessageService seckillLocalMessageService;
 
-    @Value("${mall.seckill.internal-token}")
-    private String internalToken;
-
     /**
-     * 商家在 admin 上架秒杀场次后调用，把库存预热进 Redis。这条路由和下面的
-     * order-created 回调一样是"内部调用"接口，不走会员登录态，但网关那条
-     * seckill.mall.com 路由是完全公开的，所以必须靠共享密钥挡住匿名请求——
-     * 否则任何人都能反复重置库存/抢购名单，或伪造建单回调。
+     * 把一场秒杀的库存预热进 Redis（并清空限购名单）。和下面的 order-created 一样是内部接口：
+     * 不走会员登录态，由 {@code @InternalApi} 校验 {@code X-Internal-Token}，否则任何人都能
+     * 反复重置库存/抢购名单。网关白名单里没有这条（2026-10-05 起）。
+     * 调用方只有 loadtest/reset-seckill.sh；后台的「激活」走 /api/** 下的
+     * SeckillSchedulerController（管理端 JWT），令牌不进浏览器。
+     * 2026-10-07 之前这里手写比较 X-Seckill-Internal-Token，合并进了 @InternalApi。
      */
     @PostMapping("/activate/{relationId}")
-    public R activate(@PathVariable("relationId") Long relationId,
-                       @RequestHeader(value = INTERNAL_TOKEN_HEADER, required = false) String token) {
-        if (!requireInternalToken(token)) {
-            return R.error(ErrorCode.SECKILL_FORBIDDEN);
-        }
+    @InternalApi
+    public R activate(@PathVariable("relationId") Long relationId) {
         boolean ok = seckillGrabService.activate(relationId);
         if (!ok) {
             return R.error(ErrorCode.SECKILL_NOT_ACTIVE);
@@ -123,16 +114,12 @@ public class SeckillGrabController {
     }
 
     /**
-     * mall-order 消费 MQ 建单成功后的内部回调，靠共享密钥而不是会员登录校验
-     * （见上面 activate() 的说明——这条路由同样暴露在公网上）。
+     * mall-order 消费 MQ 建单成功后的内部回调，不走会员登录态，由 {@code @InternalApi} 校验
+     * （mall-order 的 Feign 自动带 X-Internal-Token）。
      */
     @PostMapping("/message/{messageId}/order-created")
     @InternalApi
-    public R orderCreated(@PathVariable("messageId") Long messageId, @RequestParam("orderSn") String orderSn,
-                           @RequestHeader(value = INTERNAL_TOKEN_HEADER, required = false) String token) {
-        if (!requireInternalToken(token)) {
-            return R.error(ErrorCode.SECKILL_FORBIDDEN);
-        }
+    public R orderCreated(@PathVariable("messageId") Long messageId, @RequestParam("orderSn") String orderSn) {
         seckillGrabService.handleOrderCreated(messageId, orderSn);
         return R.ok();
     }
@@ -145,10 +132,6 @@ public class SeckillGrabController {
      * 监控上也能和真正的错误区分开 —— 混成 500 会让告警噪声淹没真实故障。
      */
     private static final R BUSY = R.error(503, "当前抢购人数过多，请稍后再试");
-
-    private boolean requireInternalToken(String token) {
-        return StringUtils.hasText(internalToken) && internalToken.equals(token);
-    }
 
     private Long requireMemberId() {
         return CouponInterceptor.threadLocal.get().getUserId();

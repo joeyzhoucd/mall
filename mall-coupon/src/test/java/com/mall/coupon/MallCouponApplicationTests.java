@@ -4,7 +4,6 @@ import com.mall.testsupport.MallIntegrationTest;
 import com.mall.testsupport.Containers;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.TestPropertySource;
 
 /**
  * 上下文启动的集成测试：用 Testcontainers 起真实中间件，验证这个服务
@@ -24,9 +23,6 @@ import org.springframework.test.context.TestPropertySource;
  * 跑不起来。CI 里有单独一步 {@code mvn -B test -Pintegration} 会跑它们。
  */
 @MallIntegrationTest
-// mall.seckill.internal-token 不再有默认值（原默认值在公开仓库里，2026-10-05 去掉），缺了上下文起不来；
-// 测试给一个明显只用于测试的值
-@TestPropertySource(properties = "mall.seckill.internal-token=test-only-internal-token")
 @Import({Containers.Mysql.class, Containers.Redis.class, Containers.Rabbit.class})
 class MallCouponApplicationTests {
 

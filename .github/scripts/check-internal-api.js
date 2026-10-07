@@ -6,6 +6,10 @@
 // 新加一个 Feign 调用而忘了在提供方标注解 —— 在 enforce 模式下不会出错（没标就不拦），
 // 但那个接口就又回到「集群里谁都能调」的状态，而且没有任何信号。所以在 CI 里拦。
 //
+// 【先剔掉注释再解析】2026-10-07 踩过：一个 controller 的类注释里写了 {@code @InternalApi} 这几个字，
+// 类级检测把它当成了注解，那个类的【所有】接口都被判为已标注 —— 这是会放过漏标的方向（假通过）。
+// 所以下面读文件时先去掉块注释和整行 // 注释（不动行尾 //：字符串里的 "http://" 会被误剪）。
+//
 // 解析是正则级别的（不是完整 Java 语法），所以刻意让它只会【误报】不会【漏报】：
 //   - 找不到 Feign 方法对应的处理方法 -> 失败（不允许「什么都没比对到所以通过」）
 //   - 注解范围取「上一个成员结束 ~ 方法签名」；如果中间有带花括号参数的注解把范围截断，
@@ -41,6 +45,8 @@ function httpMethod(kind, args) {
   const m = (args || '').match(/RequestMethod\.(\w+)/);
   return m ? m[1] : 'ANY';
 }
+// 去掉块注释（含 Javadoc）和整行 // 注释，见文件头说明
+const stripComments = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 const MAPPING = /@(Get|Post|Put|Delete|Patch|Request)Mapping\b(?:\(([^)]*)\))?/g;
 
 // ---- 提供方：module -> [{ method, path, annotated, where }]
@@ -49,7 +55,7 @@ for (const mod of fs.readdirSync(ROOT).filter(d => d.startsWith('mall-'))) {
   const src = path.join(ROOT, mod, 'src/main/java');
   if (!fs.existsSync(src)) continue;
   for (const f of walk(src)) {
-    const s = fs.readFileSync(f, 'utf8');
+    const s = stripComments(fs.readFileSync(f, 'utf8'));
     if (!/@(Rest)?Controller\b/.test(s)) continue;
     const classAt = s.search(/\bclass\s+\w+/);
     if (classAt < 0) continue;
@@ -89,7 +95,7 @@ for (const mod of fs.readdirSync(ROOT).filter(d => d.startsWith('mall-'))) {
   const src = path.join(ROOT, mod, 'src/main/java');
   if (!fs.existsSync(src)) continue;
   for (const f of walk(src)) {
-    const s = fs.readFileSync(f, 'utf8');
+    const s = stripComments(fs.readFileSync(f, 'utf8'));
     const fc = s.match(/@FeignClient\(([^)]*)\)/);
     if (!fc) continue;
     const target = (fc[1].match(/(?:name|value)\s*=\s*"([^"]+)"/) || fc[1].match(/^\s*"([^"]+)"/) || [])[1];

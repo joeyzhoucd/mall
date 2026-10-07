@@ -69,7 +69,7 @@ public class SeckillSchedulerController {
      * 激活一场秒杀（把库存放进 Redis，正式开卖）。
      *
      * <h3>为什么不直接用 {@code POST /coupon/seckill/activate/{relationId}}</h3>
-     * 那个入口要求 {@code X-Seckill-Internal-Token} 头。把内部令牌发到浏览器
+     * 那个入口是 {@code @InternalApi}，要求 {@code X-Internal-Token} 头。把内部令牌发到浏览器
      * 等于公开它，任何拿到的人都能开卖任意一场秒杀。
      * 这条路挂在 {@code /api/**} 下，鉴权由网关的 AdminAuthFilter 用管理端 JWT 完成，
      * 令牌不出服务端。两个入口各有各的调用方，不是重复实现。

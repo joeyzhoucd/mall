@@ -32,7 +32,7 @@ public interface SeckillSchedulerService {
      *
      * <h3>为什么后台需要一个自己的入口，而不是直接调
      * {@code POST /coupon/seckill/activate/{relationId}}</h3>
-     * 那个入口要求 {@code X-Seckill-Internal-Token} 头。把内部令牌发到浏览器里
+     * 那个入口是 {@code @InternalApi}，要求 {@code X-Internal-Token} 头。把内部令牌发到浏览器里
      * 等于公开它 —— 任何拿到它的人都能开卖任意一场秒杀。
      * 所以后台走这条路：它挂在 {@code /api/**} 下，由网关的 AdminAuthFilter
      * 校验管理端 JWT，鉴权在网关那一层完成，令牌不出服务端。
