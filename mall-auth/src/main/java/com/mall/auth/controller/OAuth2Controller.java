@@ -1,5 +1,7 @@
 package com.mall.auth.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import tools.jackson.databind.ObjectMapper;
 import com.mall.auth.feign.MemberFeignService;
 import com.mall.auth.vo.SocialUser;
@@ -37,6 +39,7 @@ public class OAuth2Controller {
     private String appSecret;
 
     @GetMapping("/oauth2.0/weibo/success")
+    @PublicApi
     public String weibo(@RequestParam("code") String code, HttpSession session) throws Exception {
         Map<String, String> map = new HashMap<>();
         map.put("client_id", appKey);

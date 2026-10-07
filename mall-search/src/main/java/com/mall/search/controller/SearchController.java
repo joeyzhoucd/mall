@@ -1,5 +1,7 @@
 package com.mall.search.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.annotation.InternalApi;
 
 import com.mall.common.constant.ResponseKeys;
@@ -32,6 +34,7 @@ public class SearchController {
     private SearchService searchService;
 
     @GetMapping({"/list.html", "/"})
+    @PublicApi
     public String listPage(SearchParam param, Model model) {
         try {
             SearchResult result = searchService.search(param);

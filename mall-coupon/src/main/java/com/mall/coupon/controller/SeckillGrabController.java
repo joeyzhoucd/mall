@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.annotation.InternalApi;
 
 import com.mall.common.constant.ErrorCode;
@@ -72,6 +74,7 @@ public class SeckillGrabController {
      * 详见 SeckillBulkhead 的类注释。
      */
     @PostMapping("/grab/{relationId}")
+    @PublicApi
     public R grab(@PathVariable("relationId") Long relationId) {
         Long memberId = requireMemberId();
         if (memberId == null) {
@@ -87,6 +90,7 @@ public class SeckillGrabController {
      * 同样从异步 Callable 退回同步写法，原因见 grab() 的注释。
      */
     @PostMapping("/message/{messageId}/address")
+    @PublicApi
     public R submitAddress(@PathVariable("messageId") Long messageId, @RequestParam("addrId") Long addrId) {
         Long memberId = requireMemberId();
         if (memberId == null) {
@@ -101,6 +105,7 @@ public class SeckillGrabController {
      * 前端轮询用：MQ 是异步的，订单号要等 mall-order 那边消费完才会回填。
      */
     @GetMapping("/message/{messageId}")
+    @PublicApi
     public R messageStatus(@PathVariable("messageId") Long messageId) {
         Long memberId = requireMemberId();
         if (memberId == null) {

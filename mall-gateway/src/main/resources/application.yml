@@ -397,6 +397,10 @@ mall:
   admin:
     jwt:
       secret: ${JWT_SECRET:local-dev-only-do-not-use-in-any-real-environment}
+      # RS256 公钥（2026-10-07 起 mall-admin 用私钥签发）。和上面一样必须显式映射 ——
+      # JWT_PUBLIC_KEY 的松散绑定落在 jwt.public-key，不是 mall.admin.jwt.public-key。
+      # 过渡期 secret 和 public-key 并存（按令牌头的 alg 分流），收尾时删掉 secret。
+      public-key: ${JWT_PUBLIC_KEY:}
   frontend:
     security:
       enabled: true

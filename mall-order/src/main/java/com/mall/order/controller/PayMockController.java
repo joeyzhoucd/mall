@@ -1,5 +1,7 @@
 package com.mall.order.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.constant.ErrorCode;
 import com.mall.common.utils.R;
 import com.mall.order.service.OrderService;
@@ -30,6 +32,7 @@ public class PayMockController {
      * Mock async notify with sign verify
      */
     @PostMapping("/notify")
+    @PublicApi
     public R payNotify(@RequestParam("orderSn") String orderSn,
                        @RequestParam("tradeStatus") String tradeStatus,
                        @RequestParam(value = "totalAmount", required = false) String totalAmount,

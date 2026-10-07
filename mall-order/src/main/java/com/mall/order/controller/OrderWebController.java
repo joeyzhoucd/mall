@@ -1,5 +1,7 @@
 package com.mall.order.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.metrics.BusinessFlow;
 import com.mall.common.metrics.BusinessMetrics;
 import com.mall.common.utils.R;
@@ -45,6 +47,7 @@ public class OrderWebController {
     private String signKey;
 
     @GetMapping("/order/confirm.html")
+    @PublicApi
     public String confirmOrder(Model model, HttpSession session) {
         UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
         if (userInfoTo == null || userInfoTo.getUserId() == null) {
@@ -60,6 +63,7 @@ public class OrderWebController {
     }
 
     @GetMapping("/order/address/add.html")
+    @PublicApi
     public String addAddressPage() {
         UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
         if (userInfoTo == null || userInfoTo.getUserId() == null) {
@@ -69,6 +73,7 @@ public class OrderWebController {
     }
 
     @PostMapping("/order/address/add")
+    @PublicApi
     public String addAddress(MemberAddressVo addressVo, RedirectAttributes redirectAttributes, HttpServletRequest request) {
         boolean ok = orderService.saveAddress(addressVo);
         if (!ok) {
@@ -79,6 +84,7 @@ public class OrderWebController {
     }
 
     @GetMapping("/order/shipping.html")
+    @PublicApi
     public String shippingPage(Model model) {
         UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
         if (userInfoTo == null || userInfoTo.getUserId() == null) {
@@ -90,6 +96,7 @@ public class OrderWebController {
     }
 
     @PostMapping("/order/submitOrder")
+    @PublicApi
     public String submitOrderPage(OrderSubmitVo submitVo, RedirectAttributes redirectAttributes,
                                   HttpServletRequest request, HttpServletResponse response) {
         // 闸门在 submitOrder 之前：被拒的请求还没消耗下单令牌，回结算页（新令牌）就能直接重试。
@@ -129,6 +136,7 @@ public class OrderWebController {
     }
 
     @GetMapping("/order/payment.html")
+    @PublicApi
     public String paymentPage(@RequestParam("orderSn") String orderSn, Model model, HttpServletRequest request) {
         UserInfoTo userInfoTo = OrderInterceptor.threadLocal.get();
         if (userInfoTo == null || userInfoTo.getUserId() == null) {

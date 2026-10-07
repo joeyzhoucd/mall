@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.coupon.service.CouponClaimService;
 import com.mall.coupon.vo.PromotionCouponVo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,7 @@ public class PromotionWebController {
     private CouponClaimService couponClaimService;
 
     @GetMapping("/promotion.html")
+    @PublicApi
     public String promotionPage(Model model) {
         List<PromotionCouponVo> coupons = couponClaimService.promotions();
         model.addAttribute("coupons", coupons);

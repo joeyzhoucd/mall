@@ -1,5 +1,7 @@
 package com.mall.cart.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.annotation.InternalApi;
 
 import com.mall.cart.service.CartService;
@@ -27,6 +29,7 @@ public class CartController {
     private CartService cartService;
 
     @GetMapping("/addCartItem")
+    @PublicApi
     public String addCartItem(@RequestParam("skuId") Long skuId,
                               @RequestParam(value = "num", required = false, defaultValue = "1") Integer num) throws ExecutionException, InterruptedException {
         cartService.addToCart(skuId, num);
@@ -34,6 +37,7 @@ public class CartController {
     }
 
     @GetMapping("/addToCartSuccess.html")
+    @PublicApi
     public String addToCartSuccessPage(@RequestParam("skuId") Long skuId, Model model) {
         CartItemVo item = cartService.getCartItem(skuId);
         model.addAttribute("item", item);
@@ -41,6 +45,7 @@ public class CartController {
     }
 
     @GetMapping("/cart.html")
+    @PublicApi
     public String cartListPage(Model model) throws ExecutionException, InterruptedException {
         CartVo cart = cartService.getCart();
         model.addAttribute("cart", cart);
@@ -48,18 +53,21 @@ public class CartController {
     }
 
     @GetMapping("/checkItem")
+    @PublicApi
     public String checkItem(@RequestParam("skuId") Long skuId, @RequestParam("check") Boolean check) {
         cartService.checkItem(skuId, check);
         return "redirect:http://cart.mall.com/cart.html";
     }
 
     @GetMapping("/changeItemCount")
+    @PublicApi
     public String changeItemCount(@RequestParam("skuId") Long skuId, @RequestParam("num") Integer num) {
         cartService.changeItemCount(skuId, num);
         return "redirect:http://cart.mall.com/cart.html";
     }
 
     @GetMapping("/deleteItem")
+    @PublicApi
     public String deleteItem(@RequestParam("skuId") Long skuId) {
         cartService.deleteItem(skuId);
         return "redirect:http://cart.mall.com/cart.html";

@@ -1,5 +1,7 @@
 package com.mall.product.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.product.entity.CategoryEntity;
 import com.mall.product.service.CategoryService;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +20,7 @@ public class HomeController {
     private CategoryService categoryService;
 
     @GetMapping({"/", "/index.html"})
+    @PublicApi
     public String index(Model model) {
         List<CategoryEntity> categories = categoryService.listAsTree();
         int size = categories == null ? 0 : categories.size();

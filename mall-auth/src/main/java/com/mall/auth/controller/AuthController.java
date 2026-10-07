@@ -1,5 +1,7 @@
 package com.mall.auth.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import tools.jackson.databind.ObjectMapper;
 import com.mall.auth.feign.MemberFeignService;
 import com.mall.auth.vo.UserLoginVo;
@@ -41,11 +43,13 @@ public class AuthController {
     private ObjectMapper objectMapper;
 
     @GetMapping("/register.html")
+    @PublicApi
     public String regPage() {
         return "register";
     }
 
     @GetMapping("/login.html")
+    @PublicApi
     public String loginPage(HttpSession session, org.springframework.ui.Model model) {
         Object attribute = session.getAttribute("loginUser");
         if (attribute != null) {
@@ -56,17 +60,20 @@ public class AuthController {
     }
 
     @GetMapping("/login")
+    @PublicApi
     public String loginIndex() {
         return "redirect:http://auth.mall.com/login.html";
     }
 
     @GetMapping("/register")
+    @PublicApi
     public String registerIndex() {
         return "redirect:http://auth.mall.com/register.html";
     }
 
     @ResponseBody
     @GetMapping("/sms/sendcode")
+    @PublicApi
     public R sendCode(@RequestParam("phone") String phone) {
         // 1. Check for anti-spam (prevent frequent requests)
         String redisCode = redisTemplate.opsForValue().get("sms:code:" + phone);
@@ -91,6 +98,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @PublicApi
     public String register(@Valid UserRegistVo vo, BindingResult result, RedirectAttributes redirectAttributes) {
         if (result.hasErrors()) {
             Map<String, String> errors = result.getFieldErrors().stream()
@@ -140,6 +148,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @PublicApi
     public String login(UserLoginVo vo, RedirectAttributes redirectAttributes, HttpSession session, HttpServletRequest request) {
         try {
             R r = memberFeignService.login(vo);
@@ -164,6 +173,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @PublicApi
     public String logout(HttpSession session) {
         session.invalidate();
         return "redirect:http://auth.mall.com/login.html";

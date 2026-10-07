@@ -156,6 +156,11 @@ jobs:
       - name: Every Feign target is @InternalApi
         run: node .github/scripts/check-internal-api.js
 
+      # 服务端默认拒绝（非 @InternalApi / @PublicApi 要管理端 JWT）：网关前台白名单和 @PublicApi 必须双向一致。
+      # 负控验证过两个方向：去掉一个前台接口的注解、给后台接口加注解（含全限定写法），都会点名失败。
+      - name: Gateway whitelist matches @PublicApi
+        run: node .github/scripts/check-public-api.js
+
       - name: Upload test reports on failure
         if: failure()
         uses: actions/upload-artifact@v4

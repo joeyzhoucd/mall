@@ -60,7 +60,7 @@ for (const mod of fs.readdirSync(ROOT).filter(d => d.startsWith('mall-'))) {
     const classAt = s.search(/\bclass\s+\w+/);
     if (classAt < 0) continue;
     const head = s.slice(0, classAt);
-    const classInternal = /@InternalApi\b/.test(head);
+    const classInternal = /@(?:[\w.]+\.)?InternalApi\b/.test(head); // 也认全限定写法
     const classPaths = (() => {
       const m = [...head.matchAll(/@RequestMapping\b(?:\(([^)]*)\))?/g)].pop();
       return m ? mappingPaths(m[1]) : [''];
@@ -73,7 +73,7 @@ for (const mod of fs.readdirSync(ROOT).filter(d => d.startsWith('mall-'))) {
       const sig = s.slice(m.index).search(/\b(public|protected|private)\b[^;{=]*?\(/);
       if (sig < 0) continue;
       const chunk = s.slice(start, m.index + sig);
-      const annotated = classInternal || /@InternalApi\b/.test(chunk);
+      const annotated = classInternal || /@(?:[\w.]+\.)?InternalApi\b/.test(chunk);
       const fn = (s.slice(m.index + sig).match(/(\w+)\s*\(/) || [, '?'])[1];
       for (const cp of classPaths) {
         for (const mp of mappingPaths(m[2])) {

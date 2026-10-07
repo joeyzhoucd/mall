@@ -39,7 +39,8 @@ class AdminTokenVerifierTest {
     }
 
     /** 按 mall-admin 的 claim 形状造一个令牌：sub=用户名，uid=用户 id。 */
-    private static String token(String secret, long uid, String sub, long expEpochSeconds) throws Exception {
+    /** 包内可见：AdminTokenInterceptorTest 复用同一个签发格式。 */
+    static String token(String secret, long uid, String sub, long expEpochSeconds) throws Exception {
         String header = b64("{\"alg\":\"HS256\"}".getBytes(StandardCharsets.UTF_8));
         String payload = b64(("{\"sub\":\"" + sub + "\",\"uid\":" + uid
                 + ",\"exp\":" + expEpochSeconds + "}").getBytes(StandardCharsets.UTF_8));

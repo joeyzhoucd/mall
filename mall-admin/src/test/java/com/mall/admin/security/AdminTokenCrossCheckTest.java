@@ -32,7 +32,7 @@ class AdminTokenCrossCheckTest {
 
     private JwtService issuer() {
         return new JwtService(new AdminProperties(
-                new AdminProperties.Jwt(SECRET, 3600),
+                new AdminProperties.Jwt(SECRET, 3600, null),
                 new AdminProperties.Captcha(300)));
     }
 
@@ -60,6 +60,68 @@ class AdminTokenCrossCheckTest {
         AdminTokenVerifier other = new AdminTokenVerifier("a-completely-different-secret-32b+!!!");
 
         assertThat(other.verify(token)).isNull();
+    }
+
+    // ------------------------------------------------------------------ RS256（2026-10-07）
+
+    private static final java.security.KeyPair RSA = rsa();
+
+    private static java.security.KeyPair rsa() {
+        try {
+            java.security.KeyPairGenerator g = java.security.KeyPairGenerator.getInstance("RSA");
+            g.initialize(2048);
+            return g.generateKeyPair();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** 和部署时 JWT_PRIVATE_KEY 同形状：PKCS#8 PEM。 */
+    private static String privatePem() {
+        return "-----BEGIN PRIVATE KEY-----\n"
+                + java.util.Base64.getMimeEncoder(64, "\n".getBytes()).encodeToString(RSA.getPrivate().getEncoded())
+                + "\n-----END PRIVATE KEY-----\n";
+    }
+
+    private JwtService rsaIssuer() {
+        return new JwtService(new AdminProperties(
+                new AdminProperties.Jwt(SECRET, 3600, privatePem()),
+                new AdminProperties.Captcha(300)));
+    }
+
+    @Test
+    @DisplayName("RS256：Nimbus 签发，手写校验器【只拿公钥】必须认")
+    void verifierWithOnlyPublicKeyAcceptsRs256IssuedToken() {
+        JwtService issuer = rsaIssuer();
+        String token = issuer.issue(4242L, "cross-admin");
+
+        AdminTokenVerifier.Identity id = new AdminTokenVerifier(issuer.publicKeyBase64(), null).verify(token);
+
+        assertThat(id).as("各服务只配公钥时验不过 mall-admin 签发的 RS256 令牌 —— 两侧实现已经漂移").isNotNull();
+        assertThat(id.userId()).isEqualTo(4242L);
+        assertThat(id.username()).isEqualTo("cross-admin");
+        assertThat(issuer.publicKeyBase64())
+                .as("公钥由私钥推导，必须和生成时的公钥一致（部署时 JWT_PUBLIC_KEY 就填它）")
+                .isEqualTo(java.util.Base64.getEncoder().encodeToString(RSA.getPublic().getEncoded()));
+    }
+
+    @Test
+    @DisplayName("RS256 签发后，旧 HS256 密钥再也验不过新令牌（签名能力不在 HS256 那边了）")
+    void legacyHs256VerifierRejectsRs256Token() {
+        String token = rsaIssuer().issue(1L, "admin");
+        assertThat(new AdminTokenVerifier(SECRET).verify(token)).isNull();
+    }
+
+    @Test
+    @DisplayName("过渡期：mall-admin 自己同时认新签的 RS256 和切换前签的 HS256")
+    void adminParsesBothDuringTransition() {
+        JwtService rsa = rsaIssuer();
+        String oldHs256 = issuer().issue(7L, "old-session");
+        String newRs256 = rsa.issue(8L, "new-session");
+
+        assertThat(rsa.parse(newRs256)).isNotNull();
+        assertThat(rsa.parse(oldHs256)).as("切换前登录的管理员在令牌过期前不该被踢出").isNotNull();
+        assertThat(issuer().parse(newRs256)).as("没配私钥的 mall-admin 不该认 RS256 —— 它根本没有公钥").isNull();
     }
 
     @Test

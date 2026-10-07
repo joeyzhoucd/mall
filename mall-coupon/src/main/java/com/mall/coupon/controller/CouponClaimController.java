@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.annotation.InternalApi;
 
 import com.mall.common.constant.ErrorCode;
@@ -116,6 +118,7 @@ public class CouponClaimController {
      * 真实业务准备的并发额度。反过来把它放进去，一波匿名流量就能把闸门占满。
      */
     @PostMapping("/receive/{couponId}")
+    @PublicApi
     public R receive(@PathVariable("couponId") Long couponId) {
         UserInfoTo user = CouponInterceptor.threadLocal.get();
         if (user == null || user.getUserId() == null) {

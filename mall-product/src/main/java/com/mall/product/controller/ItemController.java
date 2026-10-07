@@ -1,5 +1,7 @@
 package com.mall.product.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.constant.ResponseKeys;
 import com.mall.common.utils.R;
 import com.mall.common.utils.RUtils;
@@ -83,6 +85,7 @@ public class ItemController {
     private boolean complementsEnabled = true;
 
     @GetMapping("/{skuId}.html")
+    @PublicApi
     public String skuItem(@PathVariable("skuId") Long skuId, Model model) {
         SkuItemVo vo = skuInfoService.item(skuId);
 

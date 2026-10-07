@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import com.mall.common.cache.MultiLevelCacheClient;
@@ -64,6 +66,7 @@ public class SeckillWebController {
     private MultiLevelCacheClient multiLevelCacheClient;
 
     @GetMapping("/seckill.html")
+    @PublicApi
     public String seckillPage(@RequestParam("relationId") Long relationId, Model model) {
         SeckillPageVo pageVo = loadPageVo(relationId);
         if (pageVo == null) {

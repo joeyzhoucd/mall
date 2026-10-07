@@ -35,7 +35,7 @@ class AdminAuthFilterTest {
 
     private static final String SECRET = "filter-test-secret-at-least-32-bytes!!";
 
-    private final AdminAuthFilter filter = new AdminAuthFilter(SECRET);
+    private final AdminAuthFilter filter = new AdminAuthFilter(SECRET, "");
 
     // ------------------------------------------------------------------ 工具
 
@@ -188,7 +188,7 @@ class AdminAuthFilterTest {
     @DisplayName("密钥过短时启动即失败")
     void failsFastOnShortSecret() {
         try {
-            new AdminAuthFilter("short");
+            new AdminAuthFilter("short", "");
             assertThat(false).as("密钥过短却启动成功了").isTrue();
         } catch (IllegalStateException expected) {
             assertThat(expected).hasMessageContaining("JWT_SECRET");

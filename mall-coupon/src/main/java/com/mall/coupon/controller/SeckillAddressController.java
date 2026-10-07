@@ -1,5 +1,7 @@
 package com.mall.coupon.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.utils.R;
 import com.mall.coupon.feign.MemberFeignService;
 import com.mall.coupon.interceptor.CouponInterceptor;
@@ -66,6 +68,7 @@ public class SeckillAddressController {
      * 路径里<b>没有</b> memberId —— 这正是修法的核心：能查的永远只有自己的。
      */
     @GetMapping("/mine")
+    @PublicApi
     public R mine() {
         Long memberId = currentMemberId();
         if (memberId == null) {
@@ -83,6 +86,7 @@ public class SeckillAddressController {
      * 服务端决定的东西。{@code id} 同理清空，避免用 save 覆盖别人已有的地址行。
      */
     @PostMapping("/mine")
+    @PublicApi
     public R saveMine(@RequestBody MemberAddressVo address) {
         Long memberId = currentMemberId();
         if (memberId == null) {

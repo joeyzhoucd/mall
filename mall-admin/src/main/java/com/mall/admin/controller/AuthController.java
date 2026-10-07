@@ -1,5 +1,7 @@
 package com.mall.admin.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.admin.entity.SysUserEntity;
 import com.mall.admin.security.JwtService;
 import com.mall.admin.service.CaptchaService;
@@ -40,6 +42,7 @@ public class AuthController {
      * 保持 URL 不变是为了不改前端。
      */
     @GetMapping("/captcha.jpg")
+    @PublicApi
     public void captcha(@RequestParam("uuid") String uuid, HttpServletResponse response) throws IOException {
         // 禁止缓存：否则点"看不清换一张"时浏览器可能直接给出缓存里的旧图，
         // 而服务端的答案已经换了，用户怎么填都错。
@@ -62,6 +65,7 @@ public class AuthController {
      * 区分开等于给爆破提供了一个可用的用户名枚举接口。
      */
     @PostMapping("/sys/login")
+    @PublicApi
     public R login(@RequestBody LoginForm form) {
         if (!captchaService.verify(form.uuid(), form.captcha())) {
             return R.error("验证码不正确");

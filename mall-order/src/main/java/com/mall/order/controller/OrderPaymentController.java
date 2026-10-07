@@ -1,5 +1,7 @@
 package com.mall.order.controller;
 
+import com.mall.common.annotation.PublicApi;
+
 import com.mall.common.utils.R;
 import com.mall.order.service.OrderPaymentService;
 import com.mall.order.service.PaymentReconciliationService;
@@ -39,6 +41,7 @@ public class OrderPaymentController {
     }
 
     @PostMapping("/notify")
+    @PublicApi
     public R notify(@RequestBody PaymentNotifyRequest request) {
         return R.ok().put("result", orderPaymentService.handleNotify(request));
     }
