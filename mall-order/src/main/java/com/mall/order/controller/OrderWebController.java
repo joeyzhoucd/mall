@@ -135,7 +135,11 @@ public class OrderWebController {
             return "redirect:http://auth.mall.com/login.html";
         }
         com.mall.order.entity.OrderEntity order = orderService.getOrderBySn(orderSn);
-        if (order == null) {
+        // 【归属校验】2026-10-06 之前没有：任何登录用户拿到一个订单号，就能看到这张单的详情，
+        // 还能拿到服务端签好名的「支付成功 / 关闭交易」表单 —— 也就是能把别人的订单关掉。
+        // 线上复现过：lt0001 打开 testuser01 的支付页，返回内容和本人看到的一模一样。
+        // 不是自己的单和「单不存在」走同一个分支、同一个跳转，不泄露「这个订单号存在」。
+        if (order == null || !userInfoTo.getUserId().equals(order.getMemberId())) {
             return "redirect:" + externalBase(request) + "/order/confirm.html";
         }
 

@@ -435,6 +435,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
             return false;
         }
         addressVo.setMemberId(userInfoTo.getUserId());
+        // 表单绑定会把请求里的 id 也填进来。mall-member 的 /save 现在是纯 insert（撞已有 id 只会失败），
+        // 但哪天改成 saveOrUpdate，带着别人的地址 id 就能把那条地址改成自己的 —— 新增地址不该接受外部 id
+        addressVo.setId(null);
         R result = memberFeignService.saveAddress(addressVo);
         return result != null && result.getCode() == 0;
     }
