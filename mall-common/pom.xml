@@ -111,7 +111,7 @@
         </dependency>
 
         <!-- 熔断。挂在 Feign 上，由 spring.cloud.openfeign.circuitbreaker.enabled 启用。
-             （见 mall-common-default.properties 里那一段，含每个客户端的实例配置。）
+             （见 mall-common-default.yml 里那一段，含每个客户端的实例配置。）
 
              【为什么需要它，以及它和已有的限流/隔离舱不是一回事】
              网关限流和秒杀隔离舱防的是"自己被打爆"——入口流量超过自身容量时主动拒绝。
@@ -146,7 +146,7 @@
 
              加上 retry 之后，拉不到会先重试一段时间而不是立刻降级，
              足以覆盖「同时重建」这种启动竞争。
-             重试参数见 mall-common-default.properties 里的 spring.cloud.config.retry.*。
+             重试参数见 mall-common-default.yml 里的 spring.cloud.config.retry.*。
 
              版本交给 spring-boot-dependencies 管，不在这里钉死。 -->
         <dependency>

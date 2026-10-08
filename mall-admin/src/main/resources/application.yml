@@ -45,7 +45,7 @@ spring:
     #
     # 可调的那一份在 mall-deploy 的 config-repo/application.yml（优先级更高）；
     # 这里是拉不到配置中心时的兜底。
-    # 不放 mall-common-default.properties：另外 5 个服务没有 jdbc starter，
+    # 不放 mall-common-default.yml：另外 5 个服务没有 jdbc starter，
     # 那些属性在它们的 classpath 上无效（ConfigMetadataTest 会拦）。
     hikari:
       maximum-pool-size: 10

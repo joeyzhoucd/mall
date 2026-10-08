@@ -3,7 +3,7 @@ server:
 spring:
   # 网关不开虚拟线程，显式关掉。
   #
-  # mall-common-default.properties 里把 spring.threads.virtual.enabled 设成了 true
+  # mall-common-default.yml 里把 spring.threads.virtual.enabled 设成了 true
   # （对所有服务生效），但网关是 WebFlux 响应式栈：并发是 Netty 事件循环 + Reactor
   # 调度器管的，不存在"一个请求占一个线程"这回事，虚拟线程在这里无从发挥。
   #
@@ -455,7 +455,7 @@ logging:
 # ---------------------------------------------------------------------------
 # 【网关必须把 actuator 端点收窄回最小集，不能跟着 mall-common 的默认走】
 #
-# mall-common-default.properties 里给所有服务开了诊断端点
+# mall-common-default.yml 里给所有服务开了诊断端点
 # （env / configprops / beans / mappings / loggers / threaddump），
 # 那对后端服务是安全的 —— 它们的 actuator 从集群外打不到。
 #

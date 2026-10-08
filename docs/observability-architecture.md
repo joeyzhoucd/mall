@@ -59,7 +59,7 @@
 
 所以只有指标这一路需要服务发现——见 §3。
 
-**本项目明确关掉了指标和日志的 OTLP 推送**，这两行在 `mall-common-default.properties`：
+**本项目明确关掉了指标和日志的 OTLP 推送**，这两行在 `mall-common-default.yml`：
 
 ```properties
 management.otlp.metrics.export.enabled=false
@@ -173,7 +173,7 @@ scrape_configs:
   pod 重启只能用 `process_uptime_seconds` 近似发现。
 
 > **2026-09-02 更正**：这里原先写「没有 histogram bucket，算不了 p95」。
-> 现在有了 —— `mall-common-default.properties` 里开了
+> 现在有了 —— `mall-common-default.yml` 里开了
 > `management.metrics.distribution.percentiles-histogram.http.server.requests=true`，
 > 所以 `http_server_requests_seconds_bucket` 存在，可以
 > `histogram_quantile(0.95, sum by (service, le) (rate(...[5m])))`。
@@ -269,7 +269,7 @@ businessMetrics.failure(BusinessFlow.ORDER_SUBMIT, BusinessFlow.REASON_PERSIST_F
 
 `traceId` / `spanId` 从 MDC 里取——**Micrometer Tracing 会自动往 MDC 里塞**，应用代码不用管。
 
-> **坑（2026-09-01 修掉）**：`mall-common-default.properties` 里曾有一条
+> **坑（2026-09-01 修掉）**：`mall-common-default.yml` 里曾有一条
 > `logging.pattern.level=%5p [应用名,traceId,spanId]`，看着像是日志格式的定义，**但它不生效**——
 > 该属性只在 Spring Boot 自带的默认 console pattern 生效时才有用，而上面的
 > `logback-common.xml` 自己定义了完整 pattern 和 root appender，压根不引用那个占位符。
@@ -696,7 +696,7 @@ mall-deploy/tools/port-forward-observability.ps1 -Stop    全部关闭
 | 步骤 | 做什么 | 谁负责 |
 | --- | --- | --- |
 | 1 | 依赖 `mall-common` | 自动获得 actuator + prometheus registry + OTel + 日志格式 |
-| 2 | 什么都不用配 | `mall-common-default.properties` 已经把端点、采样、OTLP 地址都配好了 |
+| 2 | 什么都不用配 | `mall-common-default.yml` 已经把端点、采样、OTLP 地址都配好了 |
 | 3 | 日志写 stdout | Logback 已由 `logback-common.xml` 统一配置 |
 | 4 | 加进 `values.yaml` 的 `services` 清单 | `backend-services.yaml` 会自动打 `prometheus.io/scrape` 注解 |
 | 5 | 不用改 Prometheus 配置 | 注解驱动的服务发现自动发现它 |

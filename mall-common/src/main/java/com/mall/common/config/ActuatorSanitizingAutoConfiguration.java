@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Bean;
  * 给 actuator 的 {@code /actuator/env} 和 {@code /actuator/configprops} 补上敏感值脱敏。
  *
  * <h3>为什么需要它：Boot 4 在 show-values=always 下【不带任何默认脱敏】</h3>
- * mall-common-default.properties 里把两个端点设成了
+ * mall-common-default.yml 里把两个端点设成了
  * {@code show-values=always}（理由见那里：Config Server / K8s 环境变量 /
  * 本文件 / 服务自己的 yml 四层叠加，"最终哪个值赢了"原来无从查证）。
  * <p>

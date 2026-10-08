@@ -10,7 +10,7 @@ spring:
   # 开关是 spring.cloud.config.fail-fast + retry，通过【环境变量】下发
   # （mall-deploy/charts/mall/values.yaml 的 env 段），对所有服务生效。
   # 【不要改成写在 properties 文件里】——那比 Config Data 的加载晚，不会生效，
-  # 理由写在 mall-common-default.properties 的对应注释里。
+  # 理由写在 mall-common-default.yml 的对应注释里。
   #
   # 地址直接用 K8s 的 Service DNS，不走服务发现——配置中心是启动阶段就要用的东西，
   # 再加一层"先查注册中心"只是多一个启动顺序依赖，而 Service 名本身就是稳定入口。

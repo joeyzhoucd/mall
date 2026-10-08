@@ -51,7 +51,7 @@ import java.util.regex.Pattern;
  *       为一件小事开一个更大的口子。</li>
  *   <li><b>挪到独立管理端口</b>（Spring 的标准答案）：Consul 的健康检查走
  *       注册端口，actuator 一挪<b>全部实例变 critical</b>、Feign 整体失效。
- *       {@code mall-common-default.properties} 里有前人留的同一条警告。</li>
+ *       {@code mall-common-default.yml} 里有前人留的同一条警告。</li>
  * </ul>
  *
  * <h3>判据：从域名进来的一律挡，直连 pod 的一律放</h3>

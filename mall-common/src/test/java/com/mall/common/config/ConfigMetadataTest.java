@@ -26,7 +26,7 @@ class ConfigMetadataTest {
 
     @Test
     void 配置文件里不应出现已失效或不存在的属性() {
-        List<ConfigMetadataChecker.Problem> problems = ConfigMetadataChecker.check("mall-common-default.properties");
+        List<ConfigMetadataChecker.Problem> problems = ConfigMetadataChecker.check("mall-common-default.yml");
         assertTrue(problems.isEmpty(), () -> System.lineSeparator()
                 + "发现 " + problems.size() + " 个有问题的配置项："
                 + System.lineSeparator()

@@ -135,7 +135,7 @@ public class FrontendSecurityProperties {
          *       为一件小事开一个更大的口子。</li>
          *   <li><b>挪到独立管理端口</b>（Spring 的标准答案）：
          *       Consul 的健康检查走注册端口，actuator 一挪<b>全部实例变 critical</b>，
-         *       Feign 会整体失效。mall-common-default.properties 里有前人留的同一条警告。</li>
+         *       Feign 会整体失效。mall-common-default.yml 里有前人留的同一条警告。</li>
          * </ul>
          */
         private boolean blockManagementEndpoints = true;

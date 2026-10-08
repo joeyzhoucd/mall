@@ -13,7 +13,7 @@ spring:
   #   java -Djdk.tracePinnedThreads=short -jar app.jar
   # 一旦发生 pinning 就会打出栈。压测时务必看一眼，别默认它一定没问题。
   #
-  # 【这一条现在在 mall-common-default.properties 里也是全局默认了，这里仍然显式保留】
+  # 【这一条现在在 mall-common-default.yml 里也是全局默认了，这里仍然显式保留】
   # 不是冗余：其他服务开虚拟线程是「顺手的优化」，关掉只是退回线程池模型；
   # 而 mall-coupon 是【代码依赖】它 —— CouponWebConfig 里那套异步 servlet + 有界线程池
   # + TaskDecorator 已经因为有了虚拟线程而删掉了。全局默认哪天被改成 false，
@@ -102,7 +102,7 @@ spring:
     #
     # 可调的那一份在 mall-deploy 的 config-repo/application.yml（优先级更高）；
     # 这里是拉不到配置中心时的兜底。
-    # 不放 mall-common-default.properties：另外 5 个服务没有 jdbc starter，
+    # 不放 mall-common-default.yml：另外 5 个服务没有 jdbc starter，
     # 那些属性在它们的 classpath 上无效（ConfigMetadataTest 会拦）。
     hikari:
       maximum-pool-size: 10

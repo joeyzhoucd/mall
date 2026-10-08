@@ -20,7 +20,7 @@ import java.util.Locale;
  * 把「这个 JVM 里某个配置的最终值是多少、来自哪一层」变成<b>指标</b>和<b>启动日志</b>。
  *
  * <h3>要解决的问题</h3>
- * 本项目有四层配置（Config Server / K8s 环境变量 / mall-common-default.properties /
+ * 本项目有四层配置（Config Server / K8s 环境变量 / mall-common-default.yml /
  * 服务自己的 application.yml），同名 key 的优先级<b>不能靠推断</b>。
  * 2026-09-02 就栽过一次：{@code TRACING_SAMPLE_RATE} 环境变量被 Config Server 里
  * 硬编码的同名属性盖掉，采样率一直是 1.0 而不是以为的 0.1，

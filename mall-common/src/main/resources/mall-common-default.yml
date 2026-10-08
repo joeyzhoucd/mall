@@ -1,3 +1,8 @@
+# 2026-10-07 由 .properties 转成 YAML：.properties 在 IntelliJ 等工具里默认按 ISO-8859-1 打开（中文注释显示为乱码），
+# 运行时 Properties.load(InputStream) 也是 ISO-8859-1。YAML 规范只有 UTF-8，两个问题一起消失。
+# 写法约定：键保持扁平的点分形式（a.b.c），值【一律单引号】—— 否则 YAML 会把 on/off/yes/no 变成布尔、
+# 把 08 变成数字、把 # 后面当注释，和 .properties「值都是字符串」的语义不一样。新增条目照这个写法。
+
 # 所有服务共用的基础设施默认值，由 MallCommonEnvironmentPostProcessor 以最低优先级
 # 注入，服务自己的 application.yml 写了同名 key 就能覆盖。
 # 这里只放"各环境长得一样、改了要重启才生效"的东西，环境差异走环境变量占位符。
@@ -21,22 +26,22 @@
 # 见 mall-deploy/charts/mall/values.yaml 的 env 段，SPRING_CLOUD_CONFIG_* 那几项。
 
 # ---------- Consul 服务发现（替代原来的 Nacos） ----------
-spring.cloud.consul.host=${CONSUL_HOST:localhost}
-spring.cloud.consul.port=${CONSUL_PORT:8500}
+spring.cloud.consul.host: '${CONSUL_HOST:localhost}'
+spring.cloud.consul.port: '${CONSUL_PORT:8500}'
 
 # 必须开：Consul 服务端要按注册上来的地址回拨做健康检查，而 K8s 里 pod 的 hostname
 # 在 Consul 那个 pod 里是解析不了的，只有 pod IP 才路由得通。不开的话所有实例都会
 # 因为健康检查连不上而被标成 critical。
-spring.cloud.consul.discovery.prefer-ip-address=true
+spring.cloud.consul.discovery.prefer-ip-address: 'true'
 
 # 必须开：Consul 默认 queryPassing=false，也就是服务发现会把健康检查失败的实例
 # 一起返回给调用方。Nacos 的默认行为是只返回健康实例，为了保持迁移前后行为一致
 # 这里显式开成 true，否则 Feign/网关会把流量打到已经挂掉的实例上。
-spring.cloud.consul.discovery.query-passing=true
+spring.cloud.consul.discovery.query-passing: 'true'
 
 # 健康检查地址就用 actuator 的（mall-common 里统一带了 actuator 依赖）。
-spring.cloud.consul.discovery.health-check-path=/actuator/health
-spring.cloud.consul.discovery.health-check-interval=5s
+spring.cloud.consul.discovery.health-check-path: '/actuator/health'
+spring.cloud.consul.discovery.health-check-interval: '5s'
 
 # =============================================================================
 # 【实例列表缓存必须调短】否则副本数加到 2 也挡不住"杀 pod"
@@ -73,7 +78,7 @@ spring.cloud.consul.discovery.health-check-interval=5s
 # 无差别重试 GET 会重复加购。安全的做法是只重试
 # 【连接建立阶段】的失败（请求根本没到达服务端，重放一定安全），
 # 绝不能重试 5xx（服务端已经收到，可能已经处理了一半）。
-spring.cloud.loadbalancer.cache.ttl=5s
+spring.cloud.loadbalancer.cache.ttl: '5s'
 
 # ---------- Feign ----------
 # 这段原来在 7 个服务的 application.yml 里各写一份（内容完全相同），收敛到这里。
@@ -83,8 +88,8 @@ spring.cloud.loadbalancer.cache.ttl=5s
 # 已经反编译 FeignClientProperties / FeignHttpClientProperties 确认过。
 # 这属于静默失效：写旧前缀不会报错，只是超时和日志级别全部回落到默认值，
 # 迁移的时候很容易漏掉。
-spring.cloud.openfeign.client.config.default.connect-timeout=5000
-spring.cloud.openfeign.client.config.default.read-timeout=5000
+spring.cloud.openfeign.client.config.default.connect-timeout: '5000'
+spring.cloud.openfeign.client.config.default.read-timeout: '5000'
 
 # ---------- mall-search 单独收紧 connect-timeout ----------
 #
@@ -112,13 +117,13 @@ spring.cloud.openfeign.client.config.default.read-timeout=5000
 #      会再放 3 个探测调用出去，每个又等满超时
 # 熔断器管的是「别一直慢下去」，connect-timeout 管的是「单次最坏有多慢」，
 # 两者是叠加的，不能互相替代。
-spring.cloud.openfeign.client.config.mall-search.connect-timeout=800
+spring.cloud.openfeign.client.config.mall-search.connect-timeout: '800'
 # full = 打请求/响应的头和body。调试期这么设方便，真实生产环境要调成 basic，
 # 否则会把请求体（可能含敏感信息）全量写进日志、而且量很大。
-spring.cloud.openfeign.client.config.default.logger-level=full
+spring.cloud.openfeign.client.config.default.logger-level: 'full'
 # 连接池大小（对应 feign-hc5，见 mall-common/pom.xml 里的说明）
-spring.cloud.openfeign.httpclient.max-connections=200
-spring.cloud.openfeign.httpclient.max-connections-per-route=50
+spring.cloud.openfeign.httpclient.max-connections: '200'
+spring.cloud.openfeign.httpclient.max-connections-per-route: '50'
 
 # ---------- 熔断（Resilience4j，挂在 Feign 上）----------
 #
@@ -138,7 +143,7 @@ spring.cloud.openfeign.httpclient.max-connections-per-route=50
 # 写操作（锁库存、登录注册、保价保满减、删对象）更是绝不能有兜底数据。
 # 所以熔断在这里的职责就是纯粹的快速失败 + 给下游恢复的时间 + 可观测。
 # 加一层 fallbackFactory 只会掩盖错误，不会让系统更健壮。
-spring.cloud.openfeign.circuitbreaker.enabled=true
+spring.cloud.openfeign.circuitbreaker.enabled: 'true'
 
 # 【最关键的一条：必须在调用方线程上执行】
 # 这个属性默认是 false，也就是默认会把调用丢到独立线程池上跑。
@@ -146,34 +151,34 @@ spring.cloud.openfeign.circuitbreaker.enabled=true
 # RequestContextHolder（ThreadLocal）读当前请求的 Cookie 往下游透传，
 # 换了线程就拿不到，而那段代码在 attributes == null 时是【静默 return】的 ——
 # 表现为下游认证失败，而从拦截器到熔断器没有任何一处报错。
-spring.cloud.circuitbreaker.resilience4j.disable-thread-pool=true
+spring.cloud.circuitbreaker.resilience4j.disable-thread-pool: 'true'
 # 同上：TimeLimiter 要靠独立线程才能真正打断调用，在同线程模式下没有意义。
 # 单次调用的硬上限交给 Feign 自己的 read-timeout（5 秒）；
 # "下游变慢"由下面的 slow-call-* 检测，那个不需要额外线程。
-spring.cloud.circuitbreaker.resilience4j.disable-time-limiter=true
+spring.cloud.circuitbreaker.resilience4j.disable-time-limiter: 'true'
 
 # 熔断器默认参数。Feign 的熔断器是【按方法】建的（alphanumeric-ids 默认开启，
 # 实例名形如 WareFeignServiceorderLockStockWareSkuLockVo），所以这里只配 default，
 # 不逐个枚举 —— 25 个方法逐个写既啰嗦又容易漏。
-resilience4j.circuitbreaker.configs.default.sliding-window-type=COUNT_BASED
-resilience4j.circuitbreaker.configs.default.sliding-window-size=20
+resilience4j.circuitbreaker.configs.default.sliding-window-type: 'COUNT_BASED'
+resilience4j.circuitbreaker.configs.default.sliding-window-size: '20'
 # 少于 10 次调用不判断，避免服务刚起来时一两次失败就把电路打开
-resilience4j.circuitbreaker.configs.default.minimum-number-of-calls=10
-resilience4j.circuitbreaker.configs.default.failure-rate-threshold=50
+resilience4j.circuitbreaker.configs.default.minimum-number-of-calls: '10'
+resilience4j.circuitbreaker.configs.default.failure-rate-threshold: '50'
 # 慢调用阈值刻意设在 read-timeout（5s）之下：要在超时开始堆积【之前】就断开，
 # 等到 5 秒超时才反应，连接池早就被占满了。
-resilience4j.circuitbreaker.configs.default.slow-call-duration-threshold=2s
-resilience4j.circuitbreaker.configs.default.slow-call-rate-threshold=50
-resilience4j.circuitbreaker.configs.default.wait-duration-in-open-state=10s
-resilience4j.circuitbreaker.configs.default.permitted-number-of-calls-in-half-open-state=3
-resilience4j.circuitbreaker.configs.default.automatic-transition-from-open-to-half-open-enabled=true
+resilience4j.circuitbreaker.configs.default.slow-call-duration-threshold: '2s'
+resilience4j.circuitbreaker.configs.default.slow-call-rate-threshold: '50'
+resilience4j.circuitbreaker.configs.default.wait-duration-in-open-state: '10s'
+resilience4j.circuitbreaker.configs.default.permitted-number-of-calls-in-half-open-state: '3'
+resilience4j.circuitbreaker.configs.default.automatic-transition-from-open-to-half-open-enabled: 'true'
 # 【刻意关掉健康指示器】
 # 打开的话熔断器状态会进 /actuator/health。当前探针走的是 readiness/liveness 分组，
 # 默认只看 readinessState，所以现在不会有事；但语义上就是错的 ——
 # 电路打开说明【下游】不健康，不是本服务不健康。真按它判活，一个下游抖动会导致
 # 上游整片 pod 被 K8s 杀掉重启，把局部故障放大成全站故障。
 # 可观测性由指标和告警提供，不需要走健康检查这条路。
-resilience4j.circuitbreaker.configs.default.register-health-indicator=false
+resilience4j.circuitbreaker.configs.default.register-health-indicator: 'false'
 
 # ---------- Actuator ----------
 # 只暴露需要的端点。不要图省事写成 "*"，那会把 heapdump（一次下载几百 MB 且
@@ -238,7 +243,7 @@ resilience4j.circuitbreaker.configs.default.register-health-indicator=false
 #               K8s 的 readiness/liveness 探针也打它
 #   prometheus  Prometheus 主动抓取
 #   info        便宜，且排查版本问题时有用
-management.endpoints.web.exposure.include=${ACTUATOR_EXPOSE:health,info,prometheus}
+management.endpoints.web.exposure.include: '${ACTUATOR_EXPOSE:health,info,prometheus}'
 # 默认是 never，值会被打成 ******，那就只能看到「有哪些属性」而看不到实际值，
 # 失去了大半意义。设成 always 的前提是上面那条：这些端点外部打不到。
 #
@@ -261,8 +266,8 @@ management.endpoints.web.exposure.include=${ACTUATOR_EXPOSE:health,info,promethe
 # 【仍然待做，只是不再是「泄露凭据」级别】上云时要给 actuator 加认证：
 # env / configprops / beans / mappings 依然会暴露内部结构。
 # 加了认证之后 when-authorized 才有意义 —— 在没有认证的现在它等价于 never。
-management.endpoint.env.show-values=always
-management.endpoint.configprops.show-values=always
+management.endpoint.env.show-values: 'always'
+management.endpoint.configprops.show-values: 'always'
 
 # ---------- 延迟分位数（histogram bucket）----------
 # 【为什么加】在此之前全项目 *_bucket 指标是【0 个】，也就是算不了 p95/p99，
@@ -295,30 +300,30 @@ management.endpoint.configprops.show-values=always
 # 所以它有 _count 而完全没有 bucket。混着用会静默低估：
 # 实测同一时刻 bucket{le="0.5"}/_count = 0.115，而 bucket{le="0.5"}/bucket{le="+Inf"} = 1.0，
 # 当时所有请求都是 4–8ms，正确答案是后者。错的版本不报错，只给一个像样的数字。
-management.metrics.distribution.percentiles-histogram.http.server.requests=true
-management.metrics.distribution.minimum-expected-value.http.server.requests=5ms
-management.metrics.distribution.maximum-expected-value.http.server.requests=10s
+management.metrics.distribution.percentiles-histogram.http.server.requests: 'true'
+management.metrics.distribution.minimum-expected-value.http.server.requests: '5ms'
+management.metrics.distribution.maximum-expected-value.http.server.requests: '10s'
 # 额外钉几个边界。这几个值是【将来定 SLO 时的候选阈值】——
 # 属性类型的名字就叫 ServiceLevelObjectiveBoundary，Spring 自己就是按这个思路设计的。
 # 有了这些桶，「99% 的请求快于 500ms」这种目标才能用 histogram_quantile 算出来。
-management.metrics.distribution.slo.http.server.requests=100ms,300ms,500ms,1s,3s
+management.metrics.distribution.slo.http.server.requests: '100ms,300ms,500ms,1s,3s'
 #
 # 【刻意不给 http.client.requests 开】
 # 那是 Feign 客户端的指标，开了序列数再翻一倍，而排查跨服务延迟目前用链路
 # （Tempo）更直接。等真的需要按服务对做客户端侧 SLO 时再说。
-management.endpoint.health.probes.enabled=true
-management.health.livenessstate.enabled=true
-management.health.readinessstate.enabled=true
+management.endpoint.health.probes.enabled: 'true'
+management.health.livenessstate.enabled: 'true'
+management.health.readinessstate.enabled: 'true'
 
 # ---------- 链路追踪（Micrometer Tracing + OpenTelemetry → Tempo） ----------
 # 采样率 1.0 = 全采。生产环境不会这么配（成本太高），但这是学习/调试环境，
 # 秒杀那条跨 mall-coupon → RabbitMQ → mall-order → mall-ware 的链路需要每条都能看到。
-management.tracing.sampling.probability=${TRACING_SAMPLE_RATE:1.0}
+management.tracing.sampling.probability: '${TRACING_SAMPLE_RATE:1.0}'
 # 注意属性名：management.otlp.tracing.endpoint 也是 error 级废弃的（Boot 4 把 OTel
 # 相关配置统一收到了 management.opentelemetry.* 下面），正确的是下面这个长名字。
 # 这个坑套了两层：先是缺 spring-boot-starter-opentelemetry 导致自动配置压根没加载，
 # 就算加载了，旧属性名一样绑不上。两层都不报错。
-management.opentelemetry.tracing.export.otlp.endpoint=${OTLP_TRACING_ENDPOINT:http://tempo:4318/v1/traces}
+management.opentelemetry.tracing.export.otlp.endpoint: '${OTLP_TRACING_ENDPOINT:http://tempo:4318/v1/traces}'
 
 # 【2026-09-01：这条属性【不生效】，留着是为了记住它坑过人，不要再照它写东西】
 #
@@ -352,7 +357,7 @@ management.opentelemetry.tracing.export.otlp.endpoint=${OTLP_TRACING_ENDPOINT:ht
 # 反过来，网关自己那份是暴露的，所以它在自己的 application.yml 里收窄成了
 # health,info,prometheus。
 # （上云或者把 actuator 暴露出去的话，要改成 when-authorized 并配上鉴权。）
-management.endpoint.health.show-details=always
+management.endpoint.health.show-details: 'always'
 
 # 实例 ID 必须带唯一标识。Spring Cloud Consul 默认的实例 ID 是
 # "${spring.application.name}-${server.port}"，也就是同一个服务的【所有实例共用一个 ID】。
@@ -372,7 +377,7 @@ management.endpoint.health.show-details=always
 # 或随新 pod 变化（Deployment），语义完全可推理；而那个开关取的是
 # InetUtils 探测出来的主机名，在容器网络里不一定是我们想要的东西。
 # 本地 IDE 里没有 HOSTNAME 时回落到 random.value，每次启动唯一，也不会撞。
-spring.cloud.consul.discovery.instance-id=${spring.application.name}-${HOSTNAME:${random.value}}
+spring.cloud.consul.discovery.instance-id: '${spring.application.name}-${HOSTNAME:${random.value}}'
 
 # ---------- 关掉 OTLP 的指标和日志导出，只保留链路追踪 ----------
 # spring-boot-starter-opentelemetry 会把 OTLP 的【三条】导出通道一起装上：
@@ -390,8 +395,8 @@ spring.cloud.consul.discovery.instance-id=${spring.application.name}-${HOSTNAME:
 # management.<registry>.metrics.export.enabled（management.metrics.export.<registry>.enabled
 # 已经是 error 级废弃），日志那条反过来是 management.logging.export.otlp.enabled
 # （management.otlp.logging.export.enabled 才是废弃的那个）。不对称，只能查元数据确认。
-management.otlp.metrics.export.enabled=false
-management.logging.export.otlp.enabled=false
+management.otlp.metrics.export.enabled: 'false'
+management.logging.export.otlp.enabled: 'false'
 
 # ---------- 多级缓存默认策略（Caffeine + Redis） ----------
 # 具体业务显式决定哪些 key 使用多级缓存。这里提供统一的开关、key 前缀和本地缓存失效广播通道：
@@ -399,10 +404,10 @@ management.logging.export.otlp.enabled=false
 #   - 防击穿：Redis SET NX PX 互斥重建，等待方短轮询 Redis；
 #   - 防雪崩：写 Redis 时给 TTL 加随机抖动；
 #   - 防本地脏读：写路径 evict 后通过 Redis Pub/Sub 广播，所有 pod 清掉自己的 Caffeine 本地副本。
-mall.cache.multi-level.enabled=true
-mall.cache.multi-level.key-prefix=mall:cache
-mall.cache.multi-level.invalidation-channel=mall:cache:multi-level:invalidate
-mall.cache.multi-level.local.maximum-size=10000
+mall.cache.multi-level.enabled: 'true'
+mall.cache.multi-level.key-prefix: 'mall:cache'
+mall.cache.multi-level.invalidation-channel: 'mall:cache:multi-level:invalidate'
+mall.cache.multi-level.local.maximum-size: '10000'
 
 # ---------- 日期序列化格式 ----------
 # 后台 UI 的列表直接展示这个字段，不做二次格式化，所以后端输出什么就显示什么。
@@ -410,8 +415,8 @@ mall.cache.multi-level.local.maximum-size=10000
 # 界面上会变成一串带 T 和 Z 的原始字符串，而且时间比本地时间少 8 小时。
 # 原来只有 mall-product 和 mall-ware 在各自的 yml 里配了，其余服务都没有 ——
 # 放在这里让所有服务一致，也省得新服务再漏一次。
-spring.jackson.date-format=yyyy-MM-dd HH:mm:ss
-spring.jackson.time-zone=Asia/Shanghai
+spring.jackson.date-format: 'yyyy-MM-dd HH:mm:ss'
+spring.jackson.time-zone: 'Asia/Shanghai'
 
 # ---------- 虚拟线程 ----------
 # 每个 HTTP 请求跑在自己的虚拟线程上，阻塞时从载体线程卸载。原来只有 mall-coupon 开了
@@ -434,7 +439,7 @@ spring.jackson.time-zone=Asia/Shanghai
 # （会打出 reason:MONITOR 和栈）。压测时务必开一次看看，别默认它一定没问题。
 #
 # 网关（mall-gateway）是 WebFlux 响应式栈，不适用，在它自己的 application.yml 里显式关掉。
-spring.threads.virtual.enabled=true
+spring.threads.virtual.enabled: 'true'
 
 # ---------- 优雅停机 ----------
 # Spring Boot 的默认值是 immediate：收到 SIGTERM 就【立刻】关掉连接器，
@@ -455,11 +460,11 @@ spring.threads.virtual.enabled=true
 # 【诚实说明】因为第一层已经把失败压到 0，这一条目前【测不出可量化的增量】。
 # 要单独量它的贡献，得把 drainSeconds 故意调到很小（比如 2s）再做 A/B，
 # 那是另一个实验，还没做。
-server.shutdown=graceful
+server.shutdown: 'graceful'
 # 在途请求的最长等待。必须 < chart 里的 terminationGracePeriodSeconds(60)
 # 减去 drainSeconds(12)，否则排空还没结束就被 SIGKILL，graceful 白配。
 # 60 - 12 = 48，取 25 留足余量。
-spring.lifecycle.timeout-per-shutdown-phase=25s
+spring.lifecycle.timeout-per-shutdown-phase: '25s'
 
 # ---------- 数据库连接池（Hikari）：【不放在这里】 ----------
 # 一度把 hikari 的几个参数写在这个文件里，被 ConfigMetadataTest 拦下了：
@@ -479,12 +484,12 @@ spring.lifecycle.timeout-per-shutdown-phase=25s
 # 环境变量名和属性名不是宽松绑定的对应关系（宽松绑定要求 MALL_INTERNAL_TOKEN），所以在这里显式映射。
 # 令牌默认空：report 模式下允许（指标记 unconfigured）；enforce 模式下为空则启动失败，不存在公开默认值。
 # 集群里 INTERNAL_TOKEN 来自 SealedSecret mall-internal-token，INTERNAL_ENFORCE 来自 chart 的 values。
-mall.internal.token=${INTERNAL_TOKEN:}
-mall.internal.enforce=${INTERNAL_ENFORCE:false}
+mall.internal.token: '${INTERNAL_TOKEN:}'
+mall.internal.enforce: '${INTERNAL_ENFORCE:false}'
 
 # 服务端默认拒绝（AdminApiAutoConfiguration / AdminTokenInterceptor）：非 @InternalApi / @PublicApi 的接口要管理端 JWT。
 # 各服务只拿【公钥】（RS256，2026-10-07）—— 不是秘密，泄露了也签不出令牌；签名私钥只在 mall-admin。
 # 不要在这里映射 JWT_SECRET：那是 HS256 的签名密钥，发给每个服务等于每个服务都能签发管理端令牌。
 # 默认空：report 模式下记 unconfigured；enforce 模式下为空则启动失败。
-mall.admin.jwt.public-key=${JWT_PUBLIC_KEY:}
-mall.admin-api.enforce=${ADMIN_API_ENFORCE:false}
+mall.admin.jwt.public-key: '${JWT_PUBLIC_KEY:}'
+mall.admin-api.enforce: '${ADMIN_API_ENFORCE:false}'

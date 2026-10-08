@@ -152,7 +152,7 @@ public class SkuInfoServiceImpl extends ServiceImpl<SkuInfoDao, SkuInfoEntity> i
      *
      * <h3>为什么注入 applicationTaskExecutor 而不是自己 new 一个虚拟线程执行器</h3>
      * {@code spring.threads.virtual.enabled=true} 在
-     * mall-common-default.properties 里对所有服务生效，此时 Boot 提供的
+     * mall-common-default.yml 里对所有服务生效，此时 Boot 提供的
      * applicationTaskExecutor 就是虚拟线程的 SimpleAsyncTaskExecutor。
      * 注入它意味着这里<b>跟随全局开关</b>：将来关掉虚拟线程，
      * 这里会退回 Boot 的平台线程池（对阻塞任务仍然比 common pool 合适），

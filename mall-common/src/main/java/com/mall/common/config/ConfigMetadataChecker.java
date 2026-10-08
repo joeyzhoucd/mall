@@ -86,7 +86,7 @@ public final class ConfigMetadataChecker {
     /**
      * 校验给定的 classpath 配置文件。
      *
-     * @param classpathConfigs 形如 application.yml、mall-common-default.properties
+     * @param classpathConfigs 形如 application.yml、mall-common-default.yml
      * @return 发现的问题；为空表示通过
      */
     public static List<Problem> check(String... classpathConfigs) {

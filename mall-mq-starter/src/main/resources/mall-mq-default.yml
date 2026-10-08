@@ -1,0 +1,9 @@
+# 2026-10-07 由 .properties 转成 YAML：.properties 在 IntelliJ 等工具里默认按 ISO-8859-1 打开（中文注释显示为乱码），
+# 运行时 Properties.load(InputStream) 也是 ISO-8859-1。YAML 规范只有 UTF-8，两个问题一起消失。
+# 写法约定：键保持扁平的点分形式（a.b.c），值【一律单引号】—— 否则 YAML 会把 on/off/yes/no 变成布尔、
+# 把 08 变成数字、把 # 后面当注释，和 .properties「值都是字符串」的语义不一样。新增条目照这个写法。
+
+mall.mq.connection.host: '${RABBITMQ_HOST:192.168.77.100}'
+mall.mq.connection.port: '${RABBITMQ_PORT:5672}'
+mall.mq.connection.username: '${RABBITMQ_USERNAME:guest}'
+mall.mq.connection.password: '${RABBITMQ_PASSWORD:guest}'

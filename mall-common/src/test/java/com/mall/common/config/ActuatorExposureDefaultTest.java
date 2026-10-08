@@ -4,7 +4,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -52,11 +51,14 @@ class ActuatorExposureDefaultTest {
             "*");           // 通配 = 以上全部
 
     private static Properties load() throws IOException {
+        org.springframework.core.io.ClassPathResource r =
+                new org.springframework.core.io.ClassPathResource(MallCommonEnvironmentPostProcessor.DEFAULT_PATH);
+        assertThat(r.exists()).as(MallCommonEnvironmentPostProcessor.DEFAULT_PATH + " 必须在 classpath 上").isTrue();
+        org.springframework.core.env.EnumerablePropertySource<?> ps =
+                (org.springframework.core.env.EnumerablePropertySource<?>) MallCommonEnvironmentPostProcessor.load(r);
         Properties p = new Properties();
-        try (InputStream in = ActuatorExposureDefaultTest.class.getClassLoader()
-                .getResourceAsStream("mall-common-default.properties")) {
-            assertThat(in).as("mall-common-default.properties 必须在 classpath 上").isNotNull();
-            p.load(in);
+        for (String n : ps.getPropertyNames()) {
+            p.setProperty(n, String.valueOf(ps.getProperty(n)));
         }
         return p;
     }

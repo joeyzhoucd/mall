@@ -424,7 +424,7 @@ org.springframework.cloud.gateway.filter.ratelimit.KeyResolver
 
 > **2026-09-01 更新：项目已经有熔断了，但不在 Gateway 层。**
 > 熔断挂在**所有 Feign 调用**上（`spring-cloud-starter-circuitbreaker-resilience4j`，
-> 在 `mall-common` 里，配置见 `mall-common-default.properties` 的「熔断」段）。
+> 在 `mall-common` 里，配置见 `mall-common-default.yml` 的「熔断」段）。
 > 本节说的「Gateway 层没有熔断」仍然准确 —— 那需要 `-reactor-` 版本，本项目刻意没引：
 > `mall-gateway` 是 WebFlux，但它**不用 Feign**（全仓 `@FeignClient` 里没有它），
 > 多引一个只会让它的 jar 白胖一圈。
