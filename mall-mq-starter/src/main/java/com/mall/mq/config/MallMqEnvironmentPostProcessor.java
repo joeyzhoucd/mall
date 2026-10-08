@@ -7,9 +7,11 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.EncodedResource;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 public class MallMqEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
@@ -27,7 +29,8 @@ public class MallMqEnvironmentPostProcessor implements EnvironmentPostProcessor,
             return;
         }
         try {
-            Properties properties = PropertiesLoaderUtils.loadProperties(resource);
+            // 按 UTF-8 读：loadProperties(resource) 固定 ISO-8859-1，带中文的值会静默变乱码（同 MallCommonEnvironmentPostProcessor）
+            Properties properties = PropertiesLoaderUtils.loadProperties(new EncodedResource(resource, StandardCharsets.UTF_8));
             environment.getPropertySources().addLast(new PropertiesPropertySource(PROPERTY_SOURCE_NAME, properties));
         } catch (IOException ignored) {
             // ignore loading failure

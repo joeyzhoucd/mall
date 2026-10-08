@@ -7,9 +7,11 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.EncodedResource;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 /**
@@ -39,11 +41,20 @@ public class MallCommonEnvironmentPostProcessor implements EnvironmentPostProces
             return;
         }
         try {
-            Properties properties = PropertiesLoaderUtils.loadProperties(resource);
+            Properties properties = loadUtf8(resource);
             environment.getPropertySources().addLast(new PropertiesPropertySource(PROPERTY_SOURCE_NAME, properties));
         } catch (IOException ignored) {
             // 读不到就当没有这份默认值，让各服务自己的配置生效，不要因此启动失败
         }
+    }
+
+    /**
+     * 按 UTF-8 读。{@code PropertiesLoaderUtils.loadProperties(resource)} 走的是 {@code Properties.load(InputStream)}，
+     * 固定按 ISO-8859-1 解码 —— 而这个文件是 UTF-8 存的（342 行中文注释）。现在所有<b>值</b>都是 ASCII 所以没出事，
+     * 但哪天写一个带中文的值，运行时拿到的就是乱码，且不报任何错（2026-10-07 排查「文件显示乱码」时发现）。
+     */
+    static Properties loadUtf8(Resource resource) throws IOException {
+        return PropertiesLoaderUtils.loadProperties(new EncodedResource(resource, StandardCharsets.UTF_8));
     }
 
     @Override
