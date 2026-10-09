@@ -4,6 +4,8 @@ import com.mall.testsupport.Containers;
 import com.mall.testsupport.MallIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
 /**
@@ -54,6 +56,18 @@ import org.springframework.test.context.TestPropertySource;
         "spring.quartz.jdbc.initialize-schema=always",
 })
 class MallAdminApplicationTests {
+
+    /**
+     * mall.admin.jwt.private-key 没有默认值（2026-10-09 删了 HS256 和它的公开默认密钥），缺了 JwtService 起不来。
+     * 测试现场生成一把 RSA 私钥：不往仓库里提交任何密钥材料，也就不会出现「测试专用但人人可见」的私钥。
+     */
+    @DynamicPropertySource
+    static void adminJwtPrivateKey(DynamicPropertyRegistry registry) throws Exception {
+        java.security.KeyPairGenerator g = java.security.KeyPairGenerator.getInstance("RSA");
+        g.initialize(2048);
+        String pem = java.util.Base64.getEncoder().encodeToString(g.generateKeyPair().getPrivate().getEncoded());
+        registry.add("mall.admin.jwt.private-key", () -> pem);
+    }
 
     @Test
     void contextLoads() {

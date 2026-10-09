@@ -12,6 +12,10 @@ import reactor.core.publisher.Mono;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.Signature;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicReference;
@@ -33,9 +37,22 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class AdminAuthFilterTest {
 
-    private static final String SECRET = "filter-test-secret-at-least-32-bytes!!";
+    /** RS256（2026-10-09 起只认 RS256）：私钥只在测试里签，过滤器只拿公钥。 */
+    private static final KeyPair KEYS = rsa();
+    private static final KeyPair OTHER = rsa();
 
-    private final AdminAuthFilter filter = new AdminAuthFilter(SECRET, "");
+    private final AdminAuthFilter filter =
+            new AdminAuthFilter(Base64.getEncoder().encodeToString(KEYS.getPublic().getEncoded()));
+
+    private static KeyPair rsa() {
+        try {
+            KeyPairGenerator g = KeyPairGenerator.getInstance("RSA");
+            g.initialize(2048);
+            return g.generateKeyPair();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
 
     // ------------------------------------------------------------------ 工具
 
@@ -43,14 +60,19 @@ class AdminAuthFilterTest {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(b);
     }
 
-    private static String validToken() throws Exception {
-        String header = b64("{\"alg\":\"HS256\"}".getBytes(StandardCharsets.UTF_8));
-        String payload = b64(("{\"sub\":\"admin\",\"uid\":9,\"exp\":"
-                + (Instant.now().getEpochSecond() + 600) + "}").getBytes(StandardCharsets.UTF_8));
+    private static String rs256(PrivateKey key, String sub, long uid, long offsetSeconds) throws Exception {
+        String header = b64("{\"alg\":\"RS256\"}".getBytes(StandardCharsets.UTF_8));
+        String payload = b64(("{\"sub\":\"" + sub + "\",\"uid\":" + uid + ",\"exp\":"
+                + (Instant.now().getEpochSecond() + offsetSeconds) + "}").getBytes(StandardCharsets.UTF_8));
         String input = header + "." + payload;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        return input + "." + b64(mac.doFinal(input.getBytes(StandardCharsets.US_ASCII)));
+        Signature sig = Signature.getInstance("SHA256withRSA");
+        sig.initSign(key);
+        sig.update(input.getBytes(StandardCharsets.US_ASCII));
+        return input + "." + b64(sig.sign());
+    }
+
+    private static String validToken() throws Exception {
+        return rs256(KEYS.getPrivate(), "admin", 9, 600);
     }
 
     /** 跑一次过滤器，返回「有没有被放行」以及放行时下游看到的请求。 */
@@ -125,15 +147,17 @@ class AdminAuthFilterTest {
     }
 
     @Test
-    @DisplayName("坏令牌 → 401（乱串、换密钥签的、过期的）")
+    @DisplayName("坏令牌 → 401（乱串、换私钥签的、过期的、用已删除的公开默认值签的 HS256）")
     void rejectsBadTokens() throws Exception {
         String[] bad = {
                 "garbage",
                 "a.b.c",
-                // 换一把密钥签的
-                signWith("another-secret-long-enough-for-hs256-32b!", 600),
+                // 换一把私钥签的
+                rs256(OTHER.getPrivate(), "x", 1, 600),
                 // 过期的
-                signWith(SECRET, -10),
+                rs256(KEYS.getPrivate(), "x", 1, -10),
+                // 2026-10-09 删掉的 HS256 公开默认值 —— 曾经能用它签出网关认的令牌，现在必须没用
+                hs256("local-dev-only-do-not-use-in-any-real-environment", 600),
         };
         for (String t : bad) {
             Result r = run(MockServerHttpRequest.get("/api/coupon/coupon/list")
@@ -143,7 +167,8 @@ class AdminAuthFilterTest {
         }
     }
 
-    private static String signWith(String secret, long offsetSeconds) throws Exception {
+    /** 攻击者的工具：HS256 令牌（网关已只认 RS256）。 */
+    private static String hs256(String secret, long offsetSeconds) throws Exception {
         String header = b64("{\"alg\":\"HS256\"}".getBytes(StandardCharsets.UTF_8));
         String payload = b64(("{\"sub\":\"x\",\"uid\":1,\"exp\":"
                 + (Instant.now().getEpochSecond() + offsetSeconds) + "}").getBytes(StandardCharsets.UTF_8));
@@ -185,13 +210,15 @@ class AdminAuthFilterTest {
     // ------------------------------------------------------------------ 构造期
 
     @Test
-    @DisplayName("密钥过短时启动即失败")
-    void failsFastOnShortSecret() {
-        try {
-            new AdminAuthFilter("short", "");
-            assertThat(false).as("密钥过短却启动成功了").isTrue();
-        } catch (IllegalStateException expected) {
-            assertThat(expected).hasMessageContaining("JWT_SECRET");
+    @DisplayName("没配公钥（或格式不对）时启动即失败")
+    void failsFastWithoutPublicKey() {
+        for (String key : new String[]{"", "not-a-key"}) {
+            try {
+                new AdminAuthFilter(key);
+                assertThat(false).as("公钥 [%s] 无效却启动成功了", key).isTrue();
+            } catch (IllegalStateException expected) {
+                assertThat(expected).hasMessageContaining("JWT_PUBLIC_KEY");
+            }
         }
     }
 }

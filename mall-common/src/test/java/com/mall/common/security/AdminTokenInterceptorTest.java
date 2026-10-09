@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AdminTokenInterceptorTest {
 
     /** 服务端只拿 RS256 公钥（单行 base64 X.509，和部署时 JWT_PUBLIC_KEY 同形状）。 */
-    private static final String PUBLIC_KEY = AdminTokenVerifierRs256Test.publicKeyB64(AdminTokenVerifierRs256Test.KEYS);
+    private static final String PUBLIC_KEY = AdminTokenVerifierTest.publicKeyB64(AdminTokenVerifierTest.KEYS);
 
     static class AdminController {
         public void list() { }
@@ -50,7 +50,7 @@ class AdminTokenInterceptorTest {
     }
 
     private static String validToken() throws Exception {
-        return AdminTokenVerifierRs256Test.rs256(AdminTokenVerifierRs256Test.KEYS.getPrivate(), 1L, "admin", Instant.now().getEpochSecond() + 600);
+        return AdminTokenVerifierTest.rs256(AdminTokenVerifierTest.KEYS.getPrivate(), 1L, "admin", Instant.now().getEpochSecond() + 600);
     }
 
     private double count(String outcome) {
@@ -95,7 +95,7 @@ class AdminTokenInterceptorTest {
         assertThat(it.preHandle(request(null), missing, h)).isFalse();
         assertThat(missing.getStatus()).isEqualTo(401);
 
-        String forged = AdminTokenVerifierRs256Test.rs256(AdminTokenVerifierRs256Test.generate().getPrivate(), 1L, "admin",
+        String forged = AdminTokenVerifierTest.rs256(AdminTokenVerifierTest.generate().getPrivate(), 1L, "admin",
                 Instant.now().getEpochSecond() + 600);
         MockHttpServletResponse bad = new MockHttpServletResponse();
         assertThat(it.preHandle(request(forged), bad, h)).isFalse();
@@ -130,7 +130,7 @@ class AdminTokenInterceptorTest {
     void serviceSideNeverAcceptsHs256EvenIfValidForTheOldSecret() throws Exception {
         // 服务端只配公钥：一个用旧 HS256 密钥签得完全合法的令牌也必须是 invalid
         var it = new AdminTokenInterceptor(PUBLIC_KEY, true, registry);
-        String hs = AdminTokenVerifierTest.token("legacy-hs256-secret-at-least-32-bytes-long!!", 1L, "admin",
+        String hs = AdminTokenVerifierTest.hs256("legacy-hs256-secret-at-least-32-bytes-long!!".getBytes(java.nio.charset.StandardCharsets.UTF_8), 1L, "admin",
                 Instant.now().getEpochSecond() + 600);
         MockHttpServletResponse res = new MockHttpServletResponse();
         assertThat(it.preHandle(request(hs), res, handler(new AdminController(), "list"))).isFalse();

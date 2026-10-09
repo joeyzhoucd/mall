@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
 class CaptchaServiceTest {
 
     private final AdminProperties properties = new AdminProperties(
-            new AdminProperties.Jwt("0123456789012345678901234567890123456789", 43200, null),
+            new AdminProperties.Jwt(43200, null),
             new AdminProperties.Captcha(300));
 
     private record Fixture(CaptchaService service, StringRedisTemplate redis, ValueOperations<String, String> ops) {

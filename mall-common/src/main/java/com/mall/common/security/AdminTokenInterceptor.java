@@ -45,7 +45,7 @@ public class AdminTokenInterceptor implements HandlerInterceptor {
         if (enforce && !configured) {
             throw new IllegalStateException("mall.admin-api.enforce=true 但 mall.admin.jwt.public-key 未配置（环境变量 JWT_PUBLIC_KEY）");
         }
-        this.verifier = configured ? new AdminTokenVerifier(publicKey, null) : null;
+        this.verifier = configured ? new AdminTokenVerifier(publicKey) : null;
         this.enforce = enforce;
         this.registry = registry;
     }

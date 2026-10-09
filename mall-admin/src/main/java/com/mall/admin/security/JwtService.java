@@ -4,15 +4,10 @@ import com.mall.admin.config.AdminProperties;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPublicKey;
@@ -22,7 +17,7 @@ import java.time.Instant;
 import java.util.Base64;
 
 /**
- * 令牌的签发与校验。
+ * 令牌的签发与校验（RS256）。
  * <p>
  * 用 Spring Security 自带的 Nimbus 封装，没有引第三方 JWT 库：编解码能力
  * spring-security-oauth2-jose 已经提供，版本由 spring-security-bom 统一管，
@@ -33,15 +28,12 @@ import java.util.Base64;
  * <b>登出无法让令牌立即失效</b>，只能等它过期。要做到"登出即失效"得加一个 Redis 黑名单，
  * 当前没做，所以有效期不宜设长（默认 12 小时）。
  *
- * <h3>RS256（2026-10-07）</h3>
- * 原来是 HS256：签发和验签是同一把密钥。服务端要做「默认拒绝」就得让每个服务都能验签，
- * 而把 HS256 密钥发给每个服务，等于每个服务都能签发可从公网经网关使用的管理端令牌。
- * 改成 RS256 后私钥只在这里，网关和各服务拿公钥（公钥由私钥推导，不用单独配置）。
- * <p>
- * <b>过渡期</b>：配了私钥就用 RS256 签发；校验同时接受 RS256 和旧的 HS256（{@code secret}），
- * 让切换前签发的令牌在过期前（最长 expireSeconds）仍然可用。Nimbus 的每个 decoder 只接受它
- * 配置的那一种算法，不存在算法混淆。收尾时删掉 HS256 这一半和 JWT_SECRET。
- * 没配私钥（本地开发）时行为和原来一样：HS256 签发、HS256 校验。
+ * <h3>为什么是 RS256</h3>
+ * 原来是 HS256：签发和验签是同一把密钥。服务端「默认拒绝」要求每个服务都能验签，
+ * 把 HS256 密钥发给每个服务，就等于每个服务都能签发可从公网经网关使用的管理端令牌。
+ * RS256 下私钥只在这里，网关和各服务拿公钥（公钥由私钥推导，部署时对照 JWT_PUBLIC_KEY）。
+ * 2026-10-07 起签 RS256，过渡期同时认旧 HS256 令牌；2026-10-09 旧令牌全部过期后，HS256 整条路径、
+ * JWT_SECRET 和它的公开默认值一起删除。私钥现在必填：缺了启动即失败，不再有任何兜底密钥。
  */
 @Component
 public class JwtService {
@@ -49,43 +41,26 @@ public class JwtService {
     /** 用户 id 放在这个自定义 claim 里。sub 放用户名，便于日志直接读。 */
     private static final String CLAIM_USER_ID = "uid";
 
-    /** HS256 要求密钥至少 256 位 = 32 字节。 */
-    private static final int MIN_SECRET_BYTES = 32;
-
     private final JwtEncoder encoder;
     private final JwsHeader header;
-    private final JwtDecoder rsaDecoder;      // 没配私钥时为 null
-    private final JwtDecoder legacyDecoder;   // HS256；收尾时删除
-    private final RSAPublicKey publicKey;     // 没配私钥时为 null
+    private final JwtDecoder decoder;
+    private final RSAPublicKey publicKey;
     private final long expireSeconds;
 
     public JwtService(AdminProperties properties) {
-        String secret = properties.jwt().secret();
-        byte[] keyBytes = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < MIN_SECRET_BYTES) {
-            // 启动即失败，而不是等第一次登录时抛一个来自 Nimbus 内部的费解异常。
-            // 密钥太短是配置错误，越早、越明确地报出来越好。
-            throw new IllegalStateException(
-                    "mall.admin.jwt.secret 至少需要 " + MIN_SECRET_BYTES + " 字节（HS256 的要求），"
-                    + "当前只有 " + keyBytes.length + " 字节。请检查 JWT_SECRET 环境变量。");
-        }
-        SecretKey hmacKey = new SecretKeySpec(keyBytes, "HmacSHA256");
-        this.legacyDecoder = NimbusJwtDecoder.withSecretKey(hmacKey).macAlgorithm(MacAlgorithm.HS256).build();
-
         String pem = properties.jwt().privateKey();
-        if (pem != null && !pem.isBlank() && !pem.contains("${")) {
-            RSAPrivateCrtKey priv = parsePrivateKey(pem);
-            this.publicKey = derivePublicKey(priv);
-            RSAKey jwk = new RSAKey.Builder(publicKey).privateKey(priv).build();
-            this.encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(jwk)));
-            this.header = JwsHeader.with(SignatureAlgorithm.RS256).build();
-            this.rsaDecoder = NimbusJwtDecoder.withPublicKey(publicKey).signatureAlgorithm(SignatureAlgorithm.RS256).build();
-        } else {
-            this.publicKey = null;
-            this.encoder = new NimbusJwtEncoder(new ImmutableSecret<>(hmacKey));
-            this.header = JwsHeader.with(MacAlgorithm.HS256).build();
-            this.rsaDecoder = null;
+        if (pem == null || pem.isBlank() || pem.contains("${")) {
+            // 启动即失败。没有私钥就签不出令牌，与其让第一次登录才报一个费解的异常，不如启动时说清楚。
+            throw new IllegalStateException(
+                    "mall.admin.jwt.private-key 未配置（环境变量 JWT_PRIVATE_KEY，RS256 PKCS#8 私钥）。"
+                    + "本地生成方法见 mall-admin 的 application.yml。");
         }
+        RSAPrivateCrtKey priv = parsePrivateKey(pem);
+        this.publicKey = derivePublicKey(priv);
+        RSAKey jwk = new RSAKey.Builder(publicKey).privateKey(priv).build();
+        this.encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(jwk)));
+        this.header = JwsHeader.with(SignatureAlgorithm.RS256).build();
+        this.decoder = NimbusJwtDecoder.withPublicKey(publicKey).signatureAlgorithm(SignatureAlgorithm.RS256).build();
         this.expireSeconds = properties.jwt().expireSeconds();
     }
 
@@ -125,15 +100,15 @@ public class JwtService {
         return expireSeconds;
     }
 
-    /** RS256 公钥的单行 base64（X.509 DER），没配私钥时为 null。部署时对照 JWT_PUBLIC_KEY 用。 */
+    /** RS256 公钥的单行 base64（X.509 DER）。部署时对照 JWT_PUBLIC_KEY 用。 */
     public String publicKeyBase64() {
-        return publicKey == null ? null : Base64.getEncoder().encodeToString(publicKey.getEncoded());
+        return Base64.getEncoder().encodeToString(publicKey.getEncoded());
     }
 
     /**
      * 校验并解析令牌。
      *
-     * @return 解析出的登录用户；令牌缺失、签名不对、已过期等一律返回 null（不抛异常）。
+     * @return 解析出的登录用户；令牌缺失、签名不对、算法不是 RS256、已过期等一律返回 null（不抛异常）。
      *         调用方是过滤器，那里对"无效令牌"和"没带令牌"的处理是一样的——
      *         都当作未认证，交给后面的 AuthenticationEntryPoint 去回 code:401。
      */
@@ -141,24 +116,14 @@ public class JwtService {
         if (token == null || token.isBlank()) {
             return null;
         }
-        Jwt jwt = rsaDecoder == null ? null : tryDecode(rsaDecoder, token);
-        if (jwt == null) {
-            jwt = tryDecode(legacyDecoder, token);
-        }
-        if (jwt == null) {
-            return null;
-        }
-        Object uid = jwt.getClaim(CLAIM_USER_ID);
-        Long userId = uid instanceof Number number ? number.longValue() : null;
-        if (userId == null) {
-            return null;
-        }
-        return new LoginUser(userId, jwt.getSubject());
-    }
-
-    private static Jwt tryDecode(JwtDecoder decoder, String token) {
         try {
-            return decoder.decode(token);
+            Jwt jwt = decoder.decode(token);
+            Object uid = jwt.getClaim(CLAIM_USER_ID);
+            Long userId = uid instanceof Number number ? number.longValue() : null;
+            if (userId == null) {
+                return null;
+            }
+            return new LoginUser(userId, jwt.getSubject());
         } catch (JwtException ex) {
             return null;
         }

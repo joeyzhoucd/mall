@@ -116,17 +116,19 @@ mybatis-plus:
 mall:
   admin:
     jwt:
-      # JWT 签名密钥。必须从环境变量注入，且长度 >= 32 字节（HS256 的要求）。
-      # 生产环境走 Sealed Secret（sealed-secrets/local/admin-jwt.yaml 里那份还在，
-      # 阶段 1 删模块时刻意没删，就是为了重建时直接复用）。
-      # 这里的默认值只为本地能跑起来，一眼就能看出不是真密钥。
-      secret: ${JWT_SECRET:local-dev-only-do-not-use-in-any-real-environment}
       # 令牌有效期。JWT 是无状态的，登出没法立刻让令牌失效，所以不宜设太长。
       # 想要"登出即失效"需要额外做一个 Redis 黑名单，当前没做。
       expire-seconds: ${JWT_EXPIRE_SECONDS:43200}
-      # RS256 签名私钥（PKCS#8，2026-10-07）。配了就用 RS256 签发，网关和各服务只拿公钥验 ——
-      # 签名能力只留在这里。集群里来自 SealedSecret mall-admin-jwt-signing（只注入 mall-admin）。
-      # 没配时退回 HS256（本地开发）。必须显式映射：JWT_PRIVATE_KEY 的松散绑定不会落到这个属性上。
+      # RS256 签名私钥（PKCS#8，PEM 或单行 base64）。签名能力只在这里，网关和各服务只拿公钥（JWT_PUBLIC_KEY）验。
+      # 集群里来自 SealedSecret mall-admin-jwt-signing（只注入 mall-admin）。
+      # 必须显式映射：JWT_PRIVATE_KEY 的松散绑定落在 jwt.private-key，不是这个属性。
+      #
+      # 【没有默认值，缺了 mall-admin 起不来，是刻意的】2026-10-09 之前还有 HS256 的 secret，默认值是仓库里公开的
+      # local-dev-only-do-not-use-in-any-real-environment —— 漏配环境变量就用它签发管理端令牌。
+      # 本地开发自己生成一对（私钥给 mall-admin，公钥给网关和各服务）：
+      #   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out admin-jwt.pem
+      #   export JWT_PRIVATE_KEY="$(cat admin-jwt.pem)"
+      #   export JWT_PUBLIC_KEY="$(openssl pkey -in admin-jwt.pem -pubout -outform DER | base64 -w0)"
       private-key: ${JWT_PRIVATE_KEY:}
     captcha:
       # 验证码有效期，也是 Redis key 的 TTL（2026-09-09 起存 Redis，不再是进程内存，

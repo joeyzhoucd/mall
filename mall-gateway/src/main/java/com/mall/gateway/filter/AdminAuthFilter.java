@@ -83,21 +83,16 @@ public class AdminAuthFilter implements GlobalFilter, Ordered {
     private final AdminTokenVerifier verifier;
 
     public AdminAuthFilter(
-            // 属性名和 mall-admin 的 JwtService 用的是同一个，指向同一个 JWT_SECRET。
-            // 【默认值必须和 mall-admin 里的那一串逐字一致】—— 两边不一致的表现是
-            // 「登录成功了，但之后每个请求都 401」，而那看起来像令牌坏了，很难指向配置。
-            @Value("${mall.admin.jwt.secret:local-dev-only-do-not-use-in-any-real-environment}")
-            String secret,
-            // RS256 公钥（2026-10-07）。mall-admin 改用私钥签发后，网关只需要公钥就能验。
-            // 过渡期同时保留上面的 HS256 密钥：切换前签发的令牌（最长 12 小时）在过期前仍然可用，
-            // 不至于让所有管理员在滚动途中被踢出去。收尾时删掉 secret 这一项。
-            // 两者按令牌头的 alg 严格分流（AdminTokenVerifier），公钥不会被当作 HMAC 密钥。
+            // RS256 公钥（mall-admin 用私钥签发，网关只验不签）。2026-10-09 起只认 RS256：
+            // 过渡期保留的 HS256 密钥（JWT_SECRET）和它在仓库里的公开默认值
+            // local-dev-only-do-not-use-in-any-real-environment 一起删掉了 ——
+            // 那个默认值意味着：环境变量一漏配，网关就拿一把人人可见的密钥验签。
+            // 现在不给默认值：没配公钥，AdminTokenVerifier 构造即失败，网关起不来。
             @Value("${mall.admin.jwt.public-key:}")
             String publicKey) {
-        // 密钥缺失/过短时直接启动失败，而不是「先跑起来再说」。
+        // 公钥缺失/格式不对时直接启动失败，而不是「先跑起来再说」。
         // 网关起不来是立刻能发现并回滚的；而一个静默放行的鉴权不会有人发现。
-        // 这和 mall-admin 的 JwtService 是同一个选择。
-        this.verifier = new AdminTokenVerifier(publicKey, secret);
+        this.verifier = new AdminTokenVerifier(publicKey);
     }
 
     @Override
