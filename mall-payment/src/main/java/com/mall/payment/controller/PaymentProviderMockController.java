@@ -1,5 +1,7 @@
 package com.mall.payment.controller;
 
+import com.mall.common.annotation.InternalApi;
+
 import com.mall.payment.model.PaymentChannel;
 import com.mall.payment.model.PaymentRequest;
 import com.mall.payment.model.PaymentResponse;
@@ -15,6 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+// 只给集群内的 mall-order 调（RestClient 带 X-Internal-Token，mall-backend 19777b3）。2026-10-08 之前
+// 不验任何凭证：集群内谁都能建单、退款。网关上没有它的路由。
+@InternalApi
 @RestController
 @RequestMapping("/payment/provider-mock")
 public class PaymentProviderMockController {
