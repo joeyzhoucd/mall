@@ -103,13 +103,42 @@ jobs:
           java-version: '21'
           cache: maven
 
+      # 起点是【每个服务在 mall-deploy 里当前的 tag】，不是 event.before。
+      # 原因和实测事故见 affected-since-deployed.sh 的文件头：上一次构建失败时，
+      # 按 event.before 算会让那次的改动永远不在任何一次 diff 里（2026-10-09，11 个服务静默停在旧镜像）。
+      #
+      # 只读：浅克隆、只取 values.yaml，不会改 mall-deploy。
+      # 导出后只保留「服务名 + 40 位十六进制」的行 —— 任何解析异常的条目被丢掉，
+      # 对应服务落到「没有 tag -> 重建」，失败方向是多构建。
+      - name: Read deployed image tags from mall-deploy
+        id: deployed
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: |
+          for i in 1 2 3; do
+            if git clone -q --depth 1 https://joeyzhoucd:${{ secrets.GITEE_TOKEN }}@gitee.com/joeyzhoucd/mall-deploy.git /tmp/mall-deploy; then
+              yq e '.imageTags | to_entries | .[] | .key + " " + .value' /tmp/mall-deploy/charts/mall/values.yaml \
+                | grep -E '^[a-z0-9-]+ [0-9a-f]{40}$' > /tmp/deployed-tags.txt || true
+              echo "已部署 tag（$(wc -l < /tmp/deployed-tags.txt) 个服务）:"
+              sed 's/^/  /' /tmp/deployed-tags.txt
+              echo "ok=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "clone mall-deploy 失败（第 $i 次）"; sleep 10
+          done
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+
       - name: Compute affected services
         id: affected
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # 手动触发拿不到有意义的 before，而且手动触发的意图通常就是"全部重建一次"。
             LIST=$(bash .github/scripts/affected-services.sh --all)
+          elif [ "${{ steps.deployed.outputs.ok }}" = "true" ]; then
+            LIST=$(bash .github/scripts/affected-since-deployed.sh /tmp/deployed-tags.txt "${{ github.sha }}")
           else
+            # Gitee 偶发不可达（update-deploy 也常因此失败）。退回原来的「本次推送改了什么」，
+            # 这是改造前的行为，不会比原来差；但它会漏掉上一次失败构建的改动，所以要响。
+            echo "::warning title=按 event.before 计算受影响服务::读不到 mall-deploy 的已部署 tag，上一次失败构建的改动可能被漏掉；如有疑问请手动触发全量构建"
             LIST=$(bash .github/scripts/affected-services.sh "${{ github.event.before }}" "${{ github.sha }}")
           fi
           echo "受影响的服务:"
@@ -632,6 +661,7 @@ jobs:
           echo "已上线: ${{ steps.bump.outputs.updated }}"
           echo "未上线: ${{ steps.bump.outputs.skipped }}"
           echo ""
-          echo "多半是那些服务的 build 作业失败了。修掉之后需要【重新触发它们的构建】——"
-          echo "注意 plan 只算本次推送影响到的服务，所以改别的文件不会顺带重建它们。"
+          echo "多半是那些服务的 build 作业失败了。它们的 tag 没有前进，"
+          echo "下一次推送时 plan 会按已部署 tag 自动把它们算进去（affected-since-deployed.sh）；"
+          echo "急的话也可以手动触发一次全量构建。"
           exit 1
