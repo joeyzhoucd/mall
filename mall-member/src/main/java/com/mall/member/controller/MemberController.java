@@ -6,7 +6,6 @@ import com.mall.common.utils.R;
 import com.mall.member.entity.MemberEntity;
 import com.mall.member.exception.PhoneExistException;
 import com.mall.member.exception.UsernameExistException;
-import com.mall.member.feign.CouponFeignService;
 import com.mall.member.service.MemberService;
 import com.mall.member.vo.MemberAdminVo;
 import com.mall.member.vo.MemberLoginVo;
@@ -29,9 +28,6 @@ import java.util.Map;
 public class MemberController {
     @Autowired
     private MemberService memberService;
-
-    @Autowired
-    private CouponFeignService couponFeignService;
 
     /**
      * 后台会员列表。
@@ -69,14 +65,6 @@ public class MemberController {
             return R.error("会员不存在: " + id);
         }
         return R.ok().put("member", member);
-    }
-
-    @RequestMapping("/coupons")
-    public R test() {
-        MemberEntity memberEntity = new MemberEntity();
-        memberEntity.setNickname("Test User");
-        R membercoupons = couponFeignService.memberCoupons();
-        return R.ok().put("member", memberEntity).put("coupons", membercoupons.get("coupons"));
     }
 
     @PostMapping("/register")

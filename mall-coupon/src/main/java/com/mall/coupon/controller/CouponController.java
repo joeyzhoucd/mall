@@ -1,7 +1,5 @@
 package com.mall.coupon.controller;
 
-import com.mall.common.annotation.InternalApi;
-
 import com.mall.common.utils.R;
 import com.mall.coupon.entity.CouponEntity;
 import com.mall.coupon.service.CouponService;
@@ -31,15 +29,6 @@ public class CouponController {
 
     @Autowired
     private CouponService couponService;
-
-    @RequestMapping("/member/list")
-    @InternalApi
-    public R membercoupons() {
-        CouponEntity couponEntity = new CouponEntity();
-        couponEntity.setCouponName("Full 100 off 10");
-        return R.ok().put("coupons", Arrays.asList(couponEntity));
-    }
-
 
     /**
      * 优惠券分页列表。后台券管理页和「给 SKU 绑券」的下拉框都用它。
