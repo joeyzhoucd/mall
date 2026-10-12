@@ -93,6 +93,11 @@ pay:
     signKey: ${PAY_MOCK_SIGN_KEY}
 
 mall:
+  # 本服务负责的业务流：启动时预注册 0 值计数器（零流量时序列是 0 而不是不存在）。
+  # 只写本服务真的会计数的流；写了 BusinessFlow.FAILURE_REASONS 里没有的流名，启动即失败。
+  metrics:
+    business:
+      owned-flows: order.submit
   payment:
     gateway:
       # 订单服务只认这一层支付网关地址。本地开发指向 mall-payment mock；

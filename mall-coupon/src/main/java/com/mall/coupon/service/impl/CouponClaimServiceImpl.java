@@ -303,6 +303,7 @@ public class CouponClaimServiceImpl implements CouponClaimService {
      * 基数是有界的（一个固定枚举），不会造成指标爆炸。
      */
     private String reasonOf(ErrorCode code) {
-        return code.name().toLowerCase();
+        // 和预注册清单（BusinessFlow.FAILURE_REASONS）走同一个转换规则
+        return BusinessFlow.reasonOf(code);
     }
 }

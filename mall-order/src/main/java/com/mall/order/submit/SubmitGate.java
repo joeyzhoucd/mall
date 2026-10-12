@@ -26,11 +26,11 @@ public class SubmitGate {
 
     /**
      * 业务指标里的失败原因（mall_business_outcome_total{flow="order.submit",reason="gate_busy"}）。
-     * 放这里而不是 mall-common 的 BusinessFlow：改 mall-common 要重建全部服务。
+     * 2026-10-12 起定义挪到 BusinessFlow（进预注册清单），这里保留别名，值不变。
      * 「下单成功率偏低」告警把它从分母里剔掉 —— 过载时主动拒绝是设计好的降级，不是故障；
      * 它单独由「下单闸门正在拒绝」告警盯。
      */
-    public static final String REASON_BUSY = "gate_busy";
+    public static final String REASON_BUSY = com.mall.common.metrics.BusinessFlow.REASON_GATE_BUSY;
     /** 被拒的响应上带这个头，压测脚本据此把「闸门拒绝」和其他回结算页的失败分开数；对用户不可见 */
     public static final String DEGRADED_HEADER = "X-Mall-Degraded";
     public static final String DEGRADED_VALUE = "order-busy";

@@ -1,5 +1,11 @@
 package com.mall.common.metrics;
 
+import com.mall.common.constant.ErrorCode;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
 /**
  * 业务流名称与失败原因的常量集合。
  *
@@ -24,6 +30,14 @@ public final class BusinessFlow {
 
     /** 秒杀抢购（mall-coupon）。 */
     public static final String SECKILL_GRAB = "seckill.grab";
+
+    /**
+     * 秒杀抢到后补选收货地址（mall-coupon，{@code submitAddress}）。没有默认地址的用户
+     * 抢购和建单之间隔着这一步：MQ 在这里才发。2026-10-12 之前这一步不计数，
+     * 它的 {@code seckill_mq_failed} 只能在日志里看到。幂等重放（消息已发过）不计数，
+     * 否则成功数会多于实际建单数。
+     */
+    public static final String SECKILL_ADDRESS = "seckill.address";
 
     /** 下单时锁定库存（mall-ware）。 */
     public static final String STOCK_LOCK = "stock.lock";
@@ -70,6 +84,19 @@ public final class BusinessFlow {
     /** 调 mall-ware 锁库存失败（库存不足，或那个服务本身不可用）。 */
     public static final String REASON_STOCK_LOCK_FAILED = "stock_lock_failed";
 
+    /**
+     * 调 mall-ware 锁库存时抛异常（熔断打开、读超时）—— 和库存不足的
+     * {@link #REASON_STOCK_LOCK_FAILED} 分开：这个是依赖不可用。
+     * 原来定义在 mall-order 的 OrderServiceImpl 里，2026-10-12 挪过来进清单，值不变。
+     */
+    public static final String REASON_STOCK_LOCK_UNAVAILABLE = "stock_lock_unavailable";
+
+    /**
+     * 下单闸门在过载时主动拒绝（设计好的降级，告警里被剔除）。
+     * 原来定义在 mall-order 的 SubmitGate 里，2026-10-12 挪过来进清单，值不变。
+     */
+    public static final String REASON_GATE_BUSY = "gate_busy";
+
     /** 落库或发 MQ 抛异常 —— 这条才是真正需要有人去看的。 */
     public static final String REASON_PERSIST_FAILED = "persist_failed";
 
@@ -101,4 +128,51 @@ public final class BusinessFlow {
 
     /** 库存不足。 */
     public static final String REASON_INSUFFICIENT = "insufficient";
+
+    // ------------------------------------------------------- 清单：流 -> 失败原因
+
+    /**
+     * 由 {@link ErrorCode} 派生的失败原因：枚举名转小写。秒杀、领券、用券都按这个规则出 reason，
+     * 统一走这里，清单和调用方才不会各写各的。
+     */
+    public static String reasonOf(ErrorCode code) {
+        return code.name().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * 每条业务流<b>所有可能的</b>失败原因（不含成功）。启动时按这张表给本服务负责的流
+     * 预注册 0 值计数器（{@link BusinessMetrics#preRegister}）。
+     *
+     * <h3>为什么需要预注册（2026-10-12）</h3>
+     * Micrometer 的 Counter 在第一次 increment 时才注册，零流量时整个序列<b>不存在</b>（不是 0）：
+     * 面板显示 No data，「这条流的指标消失了」也没法用 absent() 告警 —— 分不清是没流量还是埋点坏了。
+     *
+     * <h3>漏登记会怎样</h3>
+     * 不会丢数据：record 照常计数，只是那个组合不会被预注册，并打一条 warn。
+     * CI 的 {@code check-business-reasons.js} 会拦住「代码里用了、表里没有」的原因。
+     * ErrorCode 派生的原因写成 {@code reasonOf(ErrorCode.X)}，枚举改名时这里编译失败。
+     */
+    public static final Map<String, List<String>> FAILURE_REASONS = Map.of(
+            ORDER_SUBMIT, List.of(
+                    REASON_UNAUTHENTICATED, REASON_DUPLICATE_SUBMIT, REASON_ADDRESS_INVALID,
+                    REASON_COUPON_INVALID, REASON_PRICE_CHANGED, REASON_STOCK_LOCK_FAILED,
+                    REASON_STOCK_LOCK_UNAVAILABLE, REASON_PERSIST_FAILED, REASON_GATE_BUSY),
+            SECKILL_GRAB, List.of(
+                    reasonOf(ErrorCode.SECKILL_SOLD_OUT), reasonOf(ErrorCode.SECKILL_NOT_ACTIVE),
+                    reasonOf(ErrorCode.SECKILL_ALREADY_GRABBED), reasonOf(ErrorCode.SECKILL_SYSTEM_ERROR),
+                    reasonOf(ErrorCode.SECKILL_MQ_FAILED)),
+            SECKILL_ADDRESS, List.of(
+                    reasonOf(ErrorCode.SECKILL_MESSAGE_INVALID), reasonOf(ErrorCode.SECKILL_MQ_FAILED)),
+            COUPON_RECEIVE, List.of(
+                    reasonOf(ErrorCode.COUPON_UNAUTHENTICATED), reasonOf(ErrorCode.COUPON_NOT_FOUND),
+                    reasonOf(ErrorCode.COUPON_NOT_PUBLISHED), reasonOf(ErrorCode.COUPON_RECEIVE_WINDOW_CLOSED),
+                    reasonOf(ErrorCode.COUPON_MEMBER_LEVEL_NOT_MATCH), reasonOf(ErrorCode.COUPON_SOLD_OUT),
+                    reasonOf(ErrorCode.COUPON_PER_LIMIT_EXCEEDED)),
+            COUPON_USE, List.of(
+                    reasonOf(ErrorCode.COUPON_NOT_OWNED), reasonOf(ErrorCode.COUPON_ALREADY_USED),
+                    reasonOf(ErrorCode.COUPON_EXPIRED), reasonOf(ErrorCode.COUPON_SCOPE_NOT_MATCH),
+                    reasonOf(ErrorCode.COUPON_THRESHOLD_NOT_MET)),
+            STOCK_LOCK, List.of(REASON_INSUFFICIENT, REASON_PERSIST_FAILED),
+            STOCK_UNLOCK, List.of(REASON_CAS_LOST),
+            STOCK_DEDUCT, List.of(REASON_CAS_LOST));
 }

@@ -5,7 +5,10 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -83,8 +86,49 @@ public class BusinessMetrics {
                 return;
             }
             seen.add(combo);
+            warnIfUnlisted(flow, result, safeReason);
         }
         counter(flow, result, safeReason).increment();
+    }
+
+    /**
+     * 给本服务负责的业务流预注册 0 值计数器：成功一条 + {@link BusinessFlow#FAILURE_REASONS} 里每个失败原因一条。
+     * 这样零流量时序列是 0 而不是不存在（见 FAILURE_REASONS 的说明）。
+     * <p>
+     * 只能传<b>本服务负责</b>的流 —— 否则会发布一条永远是 0 的幽灵序列（比如 mall-order 发布 seckill.grab），
+     * 面板上看起来像「那条流没流量」。清单里没有的流直接抛异常：配置写错一个字母的后果是
+     * 「静默什么都没注册」，那正是这个方法要消灭的那类问题。
+     */
+    public void preRegister(Collection<String> flows) {
+        for (String flow : flows) {
+            List<String> reasons = BusinessFlow.FAILURE_REASONS.get(flow);
+            if (reasons == null) {
+                throw new IllegalArgumentException("未知的业务流 '" + flow + "'，不在 BusinessFlow.FAILURE_REASONS 里。"
+                        + "已知：" + new TreeSet<>(BusinessFlow.FAILURE_REASONS.keySet()));
+            }
+            Set<String> seen = seenCombinations.computeIfAbsent(flow, k -> ConcurrentHashMap.newKeySet());
+            seen.add("success|" + NO_REASON);
+            counter(flow, "success", NO_REASON);
+            for (String reason : reasons) {
+                seen.add("failure|" + reason);
+                counter(flow, "failure", reason);
+            }
+        }
+    }
+
+    /**
+     * 代码里用了清单里没有的失败原因：照常计数（不丢数据），但那个组合零流量时不存在。
+     * 每个新组合只会走到这里一次（调用方在 seen 首次加入时调用），不会刷屏。
+     */
+    private static void warnIfUnlisted(String flow, String result, String reason) {
+        if (!"failure".equals(result)) {
+            return;
+        }
+        List<String> listed = BusinessFlow.FAILURE_REASONS.get(flow);
+        if (listed != null && !listed.contains(reason)) {
+            log.warn("业务指标 flow={} 的失败原因 '{}' 不在 BusinessFlow.FAILURE_REASONS 里："
+                    + "照常计数，但零流量时这条序列不存在。请把它加进清单。", flow, reason);
+        }
     }
 
     /** 成功。 */

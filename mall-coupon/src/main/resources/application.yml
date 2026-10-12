@@ -130,6 +130,11 @@ mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
 
 mall:
+  # 本服务负责的业务流：启动时预注册 0 值计数器（零流量时序列是 0 而不是不存在）。
+  # 只写本服务真的会计数的流；写了 BusinessFlow.FAILURE_REASONS 里没有的流名，启动即失败。
+  metrics:
+    business:
+      owned-flows: seckill.grab,seckill.address,coupon.receive,coupon.use
   session:
     enabled: true
   mq:

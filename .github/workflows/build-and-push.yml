@@ -190,6 +190,12 @@ jobs:
       - name: Gateway whitelist matches @PublicApi
         run: node .github/scripts/check-public-api.js
 
+      # 业务指标预注册（2026-10-12）：代码里的 (flow, reason)、BusinessFlow.FAILURE_REASONS、各服务 owned-flows 三者一致。
+      # 不一致不会报错，只会让某条序列零流量时又不存在、或冒出幽灵序列。脚本先跑自检（4 类问题都要抓到）；
+      # 负控验证过：清单删 gate_busy、owned-flows 删 seckill.address，都会点名到文件行号失败。
+      - name: Business metric reasons match the pre-register catalog
+        run: node .github/scripts/check-business-reasons.js
+
       - name: Upload test reports on failure
         if: failure()
         uses: actions/upload-artifact@v4

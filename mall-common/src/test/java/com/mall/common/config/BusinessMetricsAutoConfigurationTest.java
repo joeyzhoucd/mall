@@ -84,4 +84,37 @@ class BusinessMetricsAutoConfigurationTest {
                     .isNotNull();
         });
     }
+
+    @Test
+    @DisplayName("配了 owned-flows：启动即在容器的注册表里出现这些流的 0 值序列，且只有这些流")
+    void ownedFlowsArePreRegisteredOnStartup() {
+        withMetrics.withPropertyValues(BusinessMetricsAutoConfiguration.OWNED_FLOWS + "=stock.lock, stock.deduct")
+                .run(ctx -> {
+                    org.assertj.core.api.Assertions.assertThat(ctx).hasNotFailed();
+                    MeterRegistry registry = ctx.getBean(MeterRegistry.class);
+                    java.util.Set<String> flows = new java.util.HashSet<>();
+                    registry.find(BusinessMetrics.METRIC_NAME).counters()
+                            .forEach(c -> flows.add(c.getId().getTag("flow")));
+                    org.assertj.core.api.Assertions.assertThat(flows)
+                            .containsExactlyInAnyOrder("stock.lock", "stock.deduct");
+                    org.assertj.core.api.Assertions.assertThat(registry.find(BusinessMetrics.METRIC_NAME)
+                                    .tag("flow", "stock.lock").tag("reason", "insufficient").counter())
+                            .isNotNull();
+                });
+    }
+
+    @Test
+    @DisplayName("负控：不配 owned-flows 就什么都不预注册（网关、auth 这类服务）")
+    void nothingPreRegisteredWithoutProperty() {
+        withMetrics.run(ctx -> org.assertj.core.api.Assertions.assertThat(
+                ctx.getBean(MeterRegistry.class).find(BusinessMetrics.METRIC_NAME).counters()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("owned-flows 写了清单里没有的流名：上下文启动失败，而不是静默什么都不注册")
+    void unknownOwnedFlowFailsStartup() {
+        withMetrics.withPropertyValues(BusinessMetricsAutoConfiguration.OWNED_FLOWS + "=order.sumbit")
+                .run(ctx -> org.assertj.core.api.Assertions.assertThat(ctx).hasFailed()
+                        .getFailure().rootCause().hasMessageContaining("order.sumbit"));
+    }
 }

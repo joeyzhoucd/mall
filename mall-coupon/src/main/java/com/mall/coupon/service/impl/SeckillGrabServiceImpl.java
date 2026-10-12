@@ -161,7 +161,7 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         } else {
             ErrorCode reason = result.getFailReason();
             businessMetrics.failure(BusinessFlow.SECKILL_GRAB,
-                    reason == null ? null : reason.name().toLowerCase(java.util.Locale.ROOT));
+                    reason == null ? null : BusinessFlow.reasonOf(reason));
         }
         return result;
     }
@@ -296,11 +296,13 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         if (message == null || !message.getMemberId().equals(memberId)) {
             result.setSuccess(false);
             result.setFailReason(ErrorCode.SECKILL_MESSAGE_INVALID);
+            recordAddressOutcome(result);
             return result;
         }
         int status = message.getStatus() == null ? SeckillMessageStatus.PENDING : message.getStatus();
         if (status != SeckillMessageStatus.PENDING) {
             // 已经发过 MQ 或已经建单了：重复提交直接把已有结果原样返回，不再重发一遍。
+            // 【不计数】这是幂等重放，不是新的业务结果；计进去成功数会多于实际建单数。
             boolean failed = status == SeckillMessageStatus.SEND_FAILED;
             result.setSuccess(!failed);
             result.setHasDefaultAddress(true);
@@ -319,11 +321,26 @@ public class SeckillGrabServiceImpl implements SeckillGrabService {
         if (!addrUpdated) {
             result.setSuccess(false);
             result.setFailReason(ErrorCode.SECKILL_MESSAGE_INVALID);
+            recordAddressOutcome(result);
             return result;
         }
         message.setAddrId(addrId);
 
-        return finalizeSend(message, result);
+        return recordAddressOutcome(finalizeSend(message, result));
+    }
+
+    /**
+     * submitAddress 的业务计数（flow=seckill.address）。2026-10-12 补：在这之前这一步完全不计数，
+     * 没有默认地址的用户在这里才发 MQ，这里的 seckill_mq_failed 只能在日志里看到。
+     */
+    private SeckillGrabResultVo recordAddressOutcome(SeckillGrabResultVo result) {
+        if (result.isSuccess()) {
+            businessMetrics.success(BusinessFlow.SECKILL_ADDRESS);
+        } else {
+            ErrorCode reason = result.getFailReason();
+            businessMetrics.failure(BusinessFlow.SECKILL_ADDRESS, reason == null ? null : BusinessFlow.reasonOf(reason));
+        }
+        return result;
     }
 
     /**

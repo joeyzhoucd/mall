@@ -9,7 +9,12 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
+
+import java.util.List;
 
 /**
  * 把 {@link BusinessMetrics} 装进容器，供各业务服务注入。
@@ -38,9 +43,15 @@ public class BusinessMetricsAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(BusinessMetricsAutoConfiguration.class);
 
+    /**
+     * 本服务负责的业务流，逗号分隔（如 {@code stock.lock,stock.unlock,stock.deduct}）。
+     * 启动时给它们预注册 0 值计数器；写了清单里没有的流名，启动即失败。不配 = 不预注册。
+     */
+    public static final String OWNED_FLOWS = "mall.metrics.business.owned-flows";
+
     @Bean
     @ConditionalOnMissingBean
-    BusinessMetrics businessMetrics(ObjectProvider<MeterRegistry> registries) {
+    BusinessMetrics businessMetrics(ObjectProvider<MeterRegistry> registries, Environment environment) {
         // getIfAvailable 会遵循 @Primary：真实服务里同时存在 Prometheus 和 Simple
         // 两个注册表时，Boot 的 CompositeMeterRegistryAutoConfiguration 会建一个
         // @Primary 的组合注册表，所以解析是唯一的。
@@ -55,6 +66,15 @@ public class BusinessMetricsAutoConfiguration {
                     + "如果这条出现在真实服务的日志里，说明所有业务指标都不会进 Prometheus。");
             return new SimpleMeterRegistry();
         });
-        return new BusinessMetrics(registry);
+        BusinessMetrics metrics = new BusinessMetrics(registry);
+        List<String> owned = Binder.get(environment)
+                .bind(OWNED_FLOWS, Bindable.listOf(String.class))
+                .orElse(List.of())
+                .stream().map(String::trim).filter(s -> !s.isEmpty()).toList();
+        if (!owned.isEmpty()) {
+            metrics.preRegister(owned);
+            log.info("业务指标预注册 0 值计数器：{}", owned);
+        }
+        return metrics;
     }
 }

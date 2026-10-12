@@ -374,9 +374,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderDao, OrderEntity> impleme
 
     /**
      * 锁库存调用本身失败（熔断拒绝 / 超时），和「库存不足」（stock_lock_failed）分开记：
-     * 前者是 mall-ware 扛不住，后者是真没货。放在这里而不是 mall-common 的 BusinessFlow：改 mall-common 要重建全部服务。
+     * 前者是 mall-ware 扛不住，后者是真没货。2026-10-12 起定义挪到 BusinessFlow（进预注册清单），这里保留别名，值不变。
      */
-    static final String REASON_STOCK_LOCK_UNAVAILABLE = "stock_lock_unavailable";
+    static final String REASON_STOCK_LOCK_UNAVAILABLE = BusinessFlow.REASON_STOCK_LOCK_UNAVAILABLE;
 
     private boolean useCoupon(Long couponHistoryId, Long memberId, BigDecimal totalAmount, String orderSn) {
         try {
