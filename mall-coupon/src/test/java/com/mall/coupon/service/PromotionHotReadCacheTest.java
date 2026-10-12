@@ -44,8 +44,6 @@ class PromotionHotReadCacheTest {
             "src/main/java/com/mall/coupon/service/impl/HomeSubjectServiceImpl.java");
     private static final Path HOME_SUBJECT_SPU_SOURCE = Path.of(
             "src/main/java/com/mall/coupon/service/impl/HomeSubjectSpuServiceImpl.java");
-    private static final Path HOME_WARMUP_SOURCE = Path.of(
-            "src/main/java/com/mall/coupon/schedule/HomeCacheWarmupTask.java");
 
     @Test
     @DisplayName("秒杀热点读必须走 MultiLevelCacheClient")
@@ -123,24 +121,6 @@ class PromotionHotReadCacheTest {
         }
     }
 
-    @Test
-    @DisplayName("首页预热任务按真实首页展示内容生成库存预热清单")
-    void homeWarmupUsesHomeTrafficShape() throws IOException {
-        String source = Files.readString(HOME_WARMUP_SOURCE, StandardCharsets.UTF_8);
-        String body = methodBody(source, "warmupOnce");
-
-        assertTrue(body.contains("homeAdvService.listActive()"),
-                "首页预热必须先预热当前启用广告缓存");
-        assertTrue(body.contains("homeSubjectService.listActive()"),
-                "首页预热必须按当前启用专题生成后续预热清单");
-        assertTrue(body.contains("homeSubjectSpuService.listBySubjectId"),
-                "首页预热必须按专题实际展示的 SPU 关系预热");
-        assertTrue(body.contains("wareFeignService.warmStockCache"),
-                "首页预热必须把专题 SPU 反查成 SKU 后触发库存预热");
-        assertTrue(source.contains("redissonClient.getLock"),
-                "首页预热任务多副本运行时必须有分布式锁");
-    }
-
     /**
      * 取一个方法从签名到下一个同级方法之间的文本。
      *
@@ -168,7 +148,7 @@ class PromotionHotReadCacheTest {
 
     private static int lastIndexOfDeclaration(String source, int before) {
         int best = -1;
-        for (String modifier : new String[] { "\n    public ", "\n    private ", "\n    protected ", "\n    WarmupResult " }) {
+        for (String modifier : new String[] { "\n    public ", "\n    private ", "\n    protected " }) {
             best = Math.max(best, source.lastIndexOf(modifier, before));
         }
         return best;
@@ -176,7 +156,7 @@ class PromotionHotReadCacheTest {
 
     private static int nextDeclaration(String source, int after) {
         int best = source.length();
-        for (String modifier : new String[] { "\n    public ", "\n    private ", "\n    protected ", "\n    WarmupResult " }) {
+        for (String modifier : new String[] { "\n    public ", "\n    private ", "\n    protected " }) {
             int at = source.indexOf(modifier, after + 1);
             if (at >= 0) {
                 best = Math.min(best, at);

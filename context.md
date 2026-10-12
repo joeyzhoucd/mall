@@ -179,3 +179,9 @@
 - `mall.frontend.security.*` 新增 IP、设备、会员 ID 黑白名单和 Redis 固定窗口限流配置；默认阈值为 IP 600/min、设备 300/min、会员 120/min。
 - 支付通知 `/pay/mock/notify`、秒杀内部激活和订单创建回调继续豁免会员会话，避免把自带签名/共享密钥的内部入口误拦。
 - 已通过 `mvn -pl mall-gateway -am "-Dtest=FrontendSecurityFilterTest,DefaultFrontendSecurityServiceTest,AdminAuthFilterTest,AdminJwtSecretWiringTest,ConfigMetadataTest" -DfailIfNoTests=false "-Dsurefire.failIfNoSpecifiedTests=false" test` 验证。
+
+## 2026-10-11 删除首页缓存预热任务
+
+- 删除 `mall-coupon` 的 `HomeCacheWarmupTask`：首页营销没做，读首页缓存的 `active` / `listBySubject` 接口已随营销控制器删除（6731e6b），表为空，任务每轮 `adv=0 subjects=0 skus=0`。
+- 随之删除只被它调用的 Feign：`WareFeignService`（整个接口，仅 `warmStockCache`）和 `ProductFeignService.getSkuIdsBySpuId`。服务端 `/ware/waresku/warmup`、`/product/skuinfo/skuIds/{spuId}` 保留。
+- `PromotionHotReadCacheTest` 去掉针对预热任务源码的断言；首页三个缓存的读入口与写路径失效保留在 service 里，见 `docs/cache-governance.md`。

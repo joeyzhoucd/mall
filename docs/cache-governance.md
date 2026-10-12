@@ -27,9 +27,9 @@
 | `mall-coupon` | `coupon:seckill-page` | `relationId` | 秒杀页渲染数据 | local 2s / Redis 5s |
 | `mall-coupon` | `coupon:seckill-relation` | `relationId` | 秒杀商品关系 | local 10s / Redis 2m |
 | `mall-coupon` | `coupon:seckill-session` | `sessionId` | 秒杀场次基础信息 | local 30s / Redis 5m |
-| `mall-coupon` | `coupon:home-adv-active` | `active` | 前台首页启用广告 | local 30s / Redis 5m |
-| `mall-coupon` | `coupon:home-subject-active` | `active` | 前台首页启用专题 | local 30s / Redis 10m |
-| `mall-coupon` | `coupon:home-subject-spu` | `subjectId` | 专题下 SPU 列表 | local 30s / Redis 10m |
+| `mall-coupon` | `coupon:home-adv-active` | `active` | 首页启用广告（**当前无读取方**，见下） | local 30s / Redis 5m |
+| `mall-coupon` | `coupon:home-subject-active` | `active` | 首页启用专题（**当前无读取方**） | local 30s / Redis 10m |
+| `mall-coupon` | `coupon:home-subject-spu` | `subjectId` | 专题下 SPU 列表（**当前无读取方**） | local 30s / Redis 10m |
 | `mall-ware` | `ware:sku-by-sku` | `skuId` | SKU 分仓库存行 | local 5s / Redis 30s |
 | `mall-ware` | `ware:sku-available-stock` | `skuId` | SKU 聚合可售量 | local 5s / Redis 30s |
 
@@ -43,7 +43,10 @@
 
 库存预热使用 `WareSkuService.warmStockCache(skuIds)`：先删除 SKU 对应的库存行和可售量缓存，再主动加载两类缓存。触发点应该是大促前的 SKU 清单、批量补货后或搜索/详情页预热任务，不应该在每一次普通查询里做预热。
 
-`mall-coupon` 的 `HomeCacheWarmupTask` 会定时按当前首页启用广告、启用专题和专题 SPU 关系预热展示缓存，并把这些 SPU 反查成 SKU 清单后调用 `mall-ware` 的库存预热接口。默认上限是 20 个专题、100 个 SPU、300 个 SKU，可通过 `mall.coupon.cache.home.warmup.max-*` 调整；多副本用 Redisson 锁保证同一轮只跑一次。
+`mall-coupon` 原有的 `HomeCacheWarmupTask`（每 5 分钟预热首页广告/专题缓存并反查 SKU 触发库存预热）已于 2026-10-11 删除：
+首页营销功能没做（2026-09-06 决定），读这三个缓存的 `active` / `listBySubject` 接口也随营销控制器一起删了（mall-backend 6731e6b），
+表是空的，任务每轮都是 `adv=0 subjects=0 skus=0`。`listActive()` / `listBySubjectId()` 及其缓存和写路径失效保留在 service 里，
+真要做首页营销时可直接复用；届时再按真实首页流量决定是否需要定时预热。
 
 ## 指标
 
